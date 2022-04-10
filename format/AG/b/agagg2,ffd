@@ -1,0 +1,470 @@
+/**
+         AGGREGATION - DOUBLING
+         ----------------------
+
+         This section contains :
+
+            G.ag.double
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.aggregate
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+        1.04.87   1        SRY         Initial version
+       25.06.87   2        SRY         Added Equal ranges
+        3.08.87   3        SRY         Removed m.ut.*
+        7.09.87   4        SRY         Min/max bug
+        1.12.87   5        MH          Updated for unified version
+**/
+
+SECTION "Aggregate2"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.dfhd"
+
+STATIC $( cur32 = ?     // Number of current old 32x32 block in memory
+          buffer = ?    // Holds an old 32x32 block of values
+          index = ?     // Holds index to 32x32 block in buffer
+          no.in.item = ? // Repeat count - used for counting down
+          no.of.items = ? // No of items in current old 8x8
+          f.off = ?     // Current byte offset into buffer
+          drec = ?      // See DFmapform3 about these 7
+          doff = ?
+          frec = ?
+          foff = ?
+          crec = ?
+          coff = ?
+          no.blocks = ?
+          first = ?   // Pointer to 32-bit offset of beginning of 32x32 data
+          gvals = ?
+          oldsize = ? // old data size
+          newsize = ? // new data size
+          val = ?     // pointer to m.df.val
+          uni.old32 = ?
+          xoff = ?
+          yoff = ?
+          min = ?
+          max = ?
+          dummy = ?
+       $)
+
+let G.ag.double(min.l, max.l) be
+$( let old32, iold, words, next = ?, ?, ?, ?
+   let wold = G.df!m.df.wold
+   let nold = G.df!m.df.nold
+   let w = G.df!m.df.w
+   let n = G.df!m.df.n
+
+   // Initialise
+   index := G.df!m.df.index
+   buffer := G.df!m.df.buffer
+   gvals := G.df+m.df.gvals
+   oldsize := G.df!m.df.oldsize
+   newsize := G.df!m.df.newsize
+   val := G.df+m.df.val
+   min := min.l
+   max := max.l
+   dummy := G.df!m.df.dummy
+   cur32 := -1
+   test dummy
+   then $( no.blocks := w * n
+           G.df.init.index(w, n)
+           if G.df.check.() return
+           frec, foff, crec, coff :=
+              1, 1, 1, ((2 + no.blocks*2) & #XFFE0) + 1 + m.df.fine.index.size
+        $)
+   else write.index(w, n)
+
+   // Read the new structure in the right order
+   for new32 = 1 to no.blocks
+   $( let xold = (((new32-1) rem w) << 1) + 1
+      let yold = (((new32-1)/w) << 1) + 1
+      let uni.new32 = 2    // if <= 0 whole new block takes (- the value)
+      let endxchop, startxchop, endychop, startychop =
+          false, false, false, false
+
+      unless dummy
+      $( get.coarse.index(new32)
+         if !val <= 0 loop // uniform block
+      $)
+
+      // Find out if this block is incomplete by nature of the alignment
+      // of the 32x32 blocks. It may be chopped in half in both dimensions
+      test G.df!m.df.xaligned
+      then if xold = wold endxchop := true // only happens if wold odd
+      else $( test xold = 1
+              then startxchop := true
+              else if xold = wold + 1 endxchop := true // only if wold even
+              xold := xold - 1
+           $)
+      test G.df!m.df.yaligned
+      then if yold = nold endychop := true
+      else $( test yold = 1
+              then startychop := true
+              else if yold = nold + 1 endychop := true
+              yold := yold - 1
+           $)
+
+      // This is the base old 32x32 for the new 32x32. It will get adjusted
+      // according to the quadrant of the new 32x32. Note that at this stage
+      // it may be negative.
+      iold := xold + (yold-1) * wold
+
+      // Go through new 8x8s and get correct 4 old 8x8s
+      // This may involve changing the old 32x32
+      for new8 = 1 to 16
+      $( // If at edges of area, check if need to pad half 32x32 blocks
+         let tophalf = (3 <= new8 <= 6) | (11 <= new8 <= 14)
+         let righthalf = new8 > 8
+         if (endxchop & righthalf) | (startxchop & (not righthalf)) |
+            (endychop & tophalf)   | (startychop & (not tophalf))
+         $( if dummy
+            $( G.df.fine.index(new32, new8, #X8000, 0)
+               test uni.new32 = 2 // very first 8x8 in 32x32
+               then uni.new32 := #X8000
+               else unless uni.new32 = #X8000 uni.new32 := 1
+            $)
+            loop
+         $)
+         unless dummy
+         $( get.fine.index(new32, new8)
+            if !val <= 0 loop   // uniform block
+         $)
+
+         G.df.counter(((new32-1) << 4) + new8, (no.blocks << 4))
+
+         // Get correct old 32x32 block for new 32x32 block and new 8x8 block
+         old32 := iold + valof switchon new8 into
+         $( case  1: case  2: case  7: case  8: resultis 0
+            case  3: case  4: case  5: case  6: resultis wold
+            case  9: case 10: case 15: case 16: resultis 1
+            case 11: case 12: case 13: case 14: resultis wold + 1
+         $)
+
+         unless 1 <= old32 <= wold * nold
+         $( G.df.ermess("Error: old %n at new %n", old32, new32)
+            return
+         $)
+
+         // Get numbers of old 8x8 blocks in the new 32x32 and 8x8 blocks
+         next := valof switchon new8 into
+         $( case 1: case 3: case  9: case 11: resultis table 1, 8, 2, 7
+            case 2: case 4: case 10: case 12: resultis table 3, 6, 4, 5
+            case 5: case 7: case 13: case 15: resultis table 11, 14, 12, 13
+            case 6: case 8: case 14: case 16: resultis table 9, 16, 10, 15
+         $)
+
+         // Get values from the four old 8x8s and find location in new 8x8
+         for i = 0 to 255/bytesperword gvals!i := 0
+         for b8 = 0 to 3
+         $( let old8 = next!b8
+            xoff := (b8 & 1) << 2  // 0 or 4
+            yoff := (b8 & #XFFFE) << 1 // 0 or 4     
+            get.to.old8(old32, old8)
+            if G.df.check.() return
+            // Read 64 values from old 8x8 and put into correct new location
+            for i = 1 to 64 get.next.val(i)
+         $)
+
+         // Write out new 8x8 block
+         words := pack() // this returns how many words written
+         if dummy
+            test words <= 0 // uniform new 8x8
+            then $( G.df.fine.index(new32, new8, words, 0)
+                    test uni.new32 = 2 // first 8x8 in 32x32
+                    then uni.new32 := words
+                    else unless uni.new32 = words uni.new32 := 1
+                 $)
+            else $( G.df.fine.index(new32, new8, frec, foff)
+                    rec.add(@frec, @foff, words)
+                    uni.new32 := 1
+                 $)
+      $)
+
+      if dummy
+         test uni.new32 <= 0
+         then G.df.coarse.index(new32, uni.new32, 0)
+         else $( G.df.coarse.index(new32, crec, coff)
+                 rec.add(@crec, @coff, m.df.fine.index.size)
+              $)
+   $)
+   drec, doff := crec - 1, coff - 1
+$)
+
+and write.index(w, n) be // see DFmapform3 grid.data() for comments
+$( let o = 2 + no.blocks*2
+   let next.32.word = (o & #XFFE0) + m.df.fine.index.size
+   G.ag.word(w)
+   G.ag.word(n)
+   for i = 1 to no.blocks
+   $( get.coarse.index(i); if G.df.check.() return
+      G.ag.double.word(val)
+   $)
+   for i = o + 1 to next.32.word G.ag.word(0)
+   for i = 1 to no.blocks
+   $( get.coarse.index(i); if G.df.check.() return
+      if !val <= 0 loop // uniform
+      for j = 1 to 16
+      $( get.fine.index(i, j); if G.df.check.() return
+         G.ag.double.word(val)
+      $)
+   $)
+$)
+
+and get.to.old8(old32, old8) be
+$( let t = vec 1
+   let t1 = vec 1
+   no.in.item := 0
+
+   test old32 = cur32
+   then if uni.old32 return
+   else $( let coarse.off = vec 1
+           let fine.off = vec 1
+           G.ut.set32(0, 0, G.df+m.df.first)
+           cur32 := old32
+
+           // We need to read a 32x32 block - read indices
+           // Get coarse index offset to fine index
+           G.ut.set32(1, old32*2 + 1, t)
+           convert.off(t, coarse.off)
+           G.ag.read(coarse.off, index, 4)
+           if G.ut.unpack16.signed(index, 0) <= 0 // uniform 32x32
+           $( f.off := G.ut.unpack16.signed(index, 0)
+              uni.old32 := true
+              return
+           $)
+           uni.old32 := false
+
+           // Get fine index
+           convert.off(index, fine.off)
+           G.ag.read(fine.off, index, m.df.fine.index.byte)
+
+           // Find first offset into 32x32 block
+           for i = 0 to m.df.fine.index.byte - 4 by 4
+              if G.ut.unpack16.signed(index, i) > 0
+              $( convert.off(index+(i/bytesperword), G.df+m.df.first)
+                 break
+              $)
+
+           // Read the data unless uniform block
+           G.ut.set32(0, 0, t1)
+           unless G.ut.cmp32(G.df+m.df.first, t) = m.eq then
+           $( let buffer.bytes = vec 1
+              let bytes = G.ut.unpack16(buffer.bytes, 0)
+              G.ut.set32(2*m.df.32size, 0, buffer.bytes)
+              G.ut.mov32(G.df+m.df.length, t)
+              G.ut.sub32(G.df+m.df.first, t)   // length of rest of file
+              unless G.ut.cmp32(t, buffer.bytes) = m.gt bytes := !t
+              G.ag.read(G.df+m.df.first, buffer, bytes)
+           $)
+        $)
+
+   f.off := (old8-1) * bytesperword       // byte offset into index
+   test G.ut.unpack16.signed(index, f.off) <= 0                  // uniform 8x8
+   then f.off := G.ut.unpack16.signed(index, f.off)
+   else $( let recptr = vec 1
+           g.ut.movebytes(index, f.off, recptr, 0, 4)
+           convert.off(recptr, t)    // t is absolute byte offset
+           g.ut.movebytes(recptr, 0, index, f.off, 4)
+           G.ut.sub32(G.df+m.df.first, t) // relative to beginning of data
+           f.off := !t
+           no.of.items := G.ut.unpack16(buffer, f.off)
+           unless 1 <= no.of.items <= 64
+              G.df.ermess("Error: %n items at coarse %n fine %n",
+                           no.of.items, old32, old8)
+           f.off := f.off + 2             // skip no of items
+        $)
+ $)
+
+// Convert record, word offset relative to rastoff into absolute byte offset
+and convert.off(recptr, offset) be
+$( let frame.size = vec 1
+   let t = vec 1
+   let one = vec 1
+   let two = vec 1
+   let rastab = vec 1
+   G.ut.set32(m.df.record.words, 0, frame.size)
+   G.ut.set32(2, 0, two)
+   G.ut.set32(1, 0, one)
+   G.ut.set32(G.df!m.df.rastoff, 0, rastab)
+   G.ut.mul32(frame.size, rastab)
+   G.ut.set32(G.ut.unpack16(recptr, 0), 0, t) // Record number
+   G.ut.sub32(one, t)                // Make it start at zero
+   G.ut.mul32(frame.size, t)
+   G.ut.set32(G.ut.unpack16(recptr, 2), 0, offset)  // Word offset
+   G.ut.sub32(one, offset)           // Make it start at zero
+   G.ut.add32(t, offset)
+   G.ut.add32(rastab, offset)        // Get absolute word offset
+   G.ut.mul32(two, offset)           // Byte offset
+$)
+
+and get.next.val(i) be // Whole square missing if any sub square missing
+$( let o, xnew, ynew = ?, ?, ?
+   let sm = false
+   let t = vec 1
+   test f.off <= 0 // uniform old 8x8 or 32x32
+   then test (f.off & #xFFFF) = #X8000
+        then sm := true
+        else G.ut.set32((-f.off), 0, val)
+   else $( if no.in.item = 0
+              test no.of.items = 0
+              then 
+              $( f.off := 0
+                 G.ut.set32(0, 0, val) // rest of old 8x8 zero
+              $)
+              else no.in.item := get.item(i)
+           no.in.item := no.in.item - 1
+           if missing(val, oldsize) sm := true
+        $)
+   xnew := (((i-1) & 7) >> 1) + xoff
+   ynew := ((i-1) >> 4) + yoff
+   o := gvals + ((xnew + (ynew << 3)) << 1)
+   test sm
+   then switchon newsize into
+        $( case 1: G.ut.set32(#x80, 0, o); endcase
+           case 2: G.ut.set32(#X8000, 0, o); endcase
+           case 4: G.ut.set32(0, #X8000, o); endcase 
+        $)
+   else unless missing(o, newsize)
+           test G.df!m.df.incidence
+           then 
+           $( let s = G.ut.unpack16(o, 0) | G.ut.unpack16(val, 0)
+              G.ut.movebytes(@s, 0, o, 0, 2)
+           $)
+           else G.ut.add32(val, o)
+$)
+
+and missing(ptr, size) = valof 
+$( let t = vec 1
+   switchon size into
+   $( case 1: G.ut.set32(#x80, 0, t)
+              resultis (g.ut.cmp32(ptr, t) = m.eq)
+      case 2: G.ut.set32(#x8000, 0, t)
+              resultis (G.ut.cmp32(ptr, t) = m.eq)
+      case 4: G.ut.set32(0, #x8000, t)
+              resultis (G.ut.cmp32(ptr, t) = m.eq)
+   $)
+$)
+
+and get.item(i) = valof // returns repeat count
+$( let loc = buffer%f.off
+   let rep = buffer%(f.off+1)
+   let valoff = ?
+   if (rep+i > 65) | (rep <= 0) goto error
+   unless i = loc // missing values are zero
+   $( if (i > loc) | (loc > 64) goto error
+      G.ut.set32(0, 0, val)
+      resultis loc - i
+   $)
+   no.of.items := no.of.items - 1  // zero items don't count
+   switchon oldsize into
+   $( case 1: G.ut.set32(buffer%(f.off+2), 0, val)
+              endcase
+      case 2: G.ut.set32(G.ut.unpack16(buffer, f.off+2), 0, val)
+              endcase
+      case 4: G.ut.movebytes(buffer, f.off+2, val, 0, 4)
+              endcase
+   $)
+
+   f.off := f.off + 2 + oldsize
+   resultis rep
+
+error:
+   G.df.ermess("Error: Loc %n at pos %n rep %n", loc, i, rep)
+   resultis rep
+$)
+
+// See DFmapform3 for comments on the routines below
+and pack() = valof  // process.8.block
+$( let o = gvals
+   let loc = 1
+   let cur = vec 1 
+   let items, itemcount =  0, 0
+   let prev = vec 1
+   let off = newsize + 2
+   let bytes = 2
+   let any.zero = false
+   let t = vec 1
+   g.ut.set32(0, 0, cur)
+   g.ut.set32(0, 0, prev)
+   for i = 1 to 64
+   $( G.ut.mov32(o, cur)
+      if dummy & (not missing(o, newsize))
+      // check for min/max limits (initially max pos/min neg)
+      $( if G.ut.cmp32(o, min) = m.lt then G.ut.mov32(cur, min)
+         if G.ut.cmp32(o, max) = m.gt then G.ut.mov32(cur, max)
+      $)
+      G.ut.set32(0, 0, t)
+      test G.ut.cmp32(cur, t) = m.eq
+      then any.zero := true
+      else unless (G.ut.cmp32(cur, prev) = m.eq) items := items + 1
+      G.ut.mov32(cur, prev)
+      o := o+(4/bytesperword)
+   $)
+   if items <= 1
+   $( if items = 0 resultis 0
+      unless any.zero
+      $( if missing(gvals, newsize) resultis #XFFFF8000
+         if (G.ut.unpack16(cur, 2)) = 0 & (g.ut.unpack16.signed(cur, 0) > 0)
+            resultis (-G.ut.unpack16.signed(cur, 0))
+      $)
+   $)
+   G.ag.word(items)
+   o := gvals
+   $( let rep = 1
+      G.ut.mov32(o, cur)
+      G.ut.set32(0, 0, t)
+      unless G.ut.cmp32(cur, t) = m.eq
+      $( G.ag.wrch(loc)
+         while (loc < 64) & (G.ut.cmp32(cur, o+(4/bytesperword)) = m.eq)
+            rep, loc, o := rep+1, loc+1, o+(4/bytesperword)
+         G.ag.wrch(rep)
+         switchon newsize into
+         $( case 1: G.ag.wrch(G.ut.unpack16(cur, 0)); endcase
+            case 2: G.ag.word(G.ut.unpack16(cur, 0)); endcase
+            case 4: G.ag.double.word(o)
+         $)
+         bytes, itemcount := bytes+off, itemcount+1
+      $)
+      if loc = 64 break
+      loc, o := loc+1, o+(4/bytesperword)
+   $) repeat
+   $<debug
+   unless items = itemcount
+   $( G.df.ermess("Error: Items %N, itemcount %N", items, itemcount)
+      resultis 0
+   $)
+   $>debug
+   unless (bytes & 1) = 0
+   $( G.ag.wrch(0)
+      bytes := bytes + 1
+   $)
+   resultis (bytes >> 1)
+$)
+
+and get.coarse.index(b32) be G.df.coarse.index(b32, 0, -1)
+
+and get.fine.index(b32, b8) be
+$( G.df.fine.index(b32, b8, 0, -1)
+   unless !val <= 0
+   $( let rnoptr = G.ut.unpack16(val, 0)
+      let offptr = G.ut.unpack16(val, 2)
+      rec.add(@rnoptr, @offptr, doff)
+      rnoptr := rnoptr + drec
+      G.ut.set32(rnoptr, offptr, val)
+   $)
+$)
+
+and rec.add(rnoptr, offptr, n) be
+$( !offptr := !offptr + n
+   if !offptr >= m.df.record.words
+   $( !offptr := !offptr - m.df.record.words
+      !rnoptr := !rnoptr + 1
+   $)
+$)
+
+.

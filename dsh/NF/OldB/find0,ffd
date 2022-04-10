@@ -1,0 +1,379 @@
+/**
+16.      NATIONAL FIND
+         -------------
+
+         NF.FIND0 - MAIN ACTION ROUTINE
+         ------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         23.5.86  2        PAC         Replace 'trap' with 'trap.'
+         28.5.86  3        PAC         Zero exit stack on entry
+                                       Comment out "Domesday" title
+         28.5.86  4        DRF         Select Chart for itemtype = 4
+         19.6.86  5        MFP         "gl4hd" & bug fixes marked below
+         23.6.86  6        MFP         g.context settings for -m.st.ntext
+         1.7.86   7        MFP         changes as marked
+         14.7.86  8        MFP         changes as marked
+         15.7.86  9        NRY         Enable selection from 2nd+ titles pages
+         18.7.86  10       MFP         $<debug removed
+                                       clear screen as marked
+         18.7.86  11       MFP         code for item name selection completed
+         20.7.86  12       MFP         'u' to '(g.nf.p+p.q)' as marked
+         11.9.86  13       MFP         fix as marked
+         30.9.86  14       NRY         Change 'Data' to 'Maps' (types 1 & 3).
+*******************************************************************************
+         All mods after this point are not on the system as launched
+*******************************************************************************
+        12.12.86  15       SRY         Unknown item name double beep fix
+        ***********************************************
+          9.6.87  16       MFP         CHANGES FOR UNI
+**/
+
+section "find0"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.GH.glDYhd"
+get ":4.DSH.H.vhhd"
+get ":4.DSH.H.kdhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.sthd"
+get ":4.DSH.H.iohd"
+get ":4.DSH.H.nfhd"
+
+/**
+         See Community Find for comments on this section, which
+         is essentially a stripped down version of CF.FIND0,
+         CF.FIND7 and CF.FIND8.
+
+         The code for selecting an item by using its title
+         (binary chopping on the NAMES file) is commented
+         elsewhere in NM.COMPARE1.
+**/
+
+manifest $(
+s.unset=0; s.inq=5; s.review=6
+
+thirdwidth = m.sd.disw/3
+$)
+
+static $( boxtables = 0 $)
+
+let trap.(n,val,low,high) be g.ut.trap("NF",n,true,3,val,low,high)
+
+let setboxtables.() be
+    boxtables := table
+                    0, m.sd.disYtex-8*m.sd.linw, 40, 3, m.sd.blue, m.sd.cyan,
+                    0,m.sd.disYtex-13*m.sd.linw, 40, 3, m.sd.cyan, m.sd.blue
+
+let ws.(line,s) be
+$(  g.sc.movea(m.sd.display, m.sd.disXtex,
+                             m.sd.disYtex-(line-1)*m.sd.linw)
+    g.sc.odrop(s)
+$)
+
+let g.nf.highlight() be
+    for z = g.nf.p+p.z to g.nf.p+p.z+(g.nf.p!c.termcount-1)*m.h by m.h do
+        g.nf.boxinput('h', z!c.hl1, z!c.hl2, m.sd.yellow, m.sd.blue)
+
+let writerest.(s) be
+$(  ws.(13, s)
+    setboxtables.()
+    $(  let b = boxtables+6
+        g.nf.boxinput('f',b,m.sd.blue)
+        g.nf.boxinput('i',b,g.nf.p+p.q)
+        g.nf.boxinput('s',g.nf.p+p.oldq); g.nf.boxinput('-')
+        g.nf.highlight()
+    $)
+    ws.(18,"Percentage through search:")
+    ws.(20,"'Perfect matches' found:")
+$)
+
+let g.nf.minit() be
+$(
+    g.context!m.stackptr := 0
+    g.sc.pointer(m.sd.off)
+    g.vh.video(m.vh.micro.only)   // change of 1.7.86
+    g.sc.clear(m.sd.message)
+    g.sc.clear(m.sd.display)
+    setboxtables.()
+
+//    ws.(2,"               Domesday National Disc")
+    ws.(3,"            BRITISH LIFE IN THE 1980s")  // reinstated 1.7.86
+                                              // style changes 14.7.86
+    ws.(8,"What do you want to know about?")
+    g.nf.boxinput('f', boxtables, m.sd.cyan)
+    writerest.("Previous Query:")
+    if g.nf.p!c.state = s.unset | (g.nf.p+p.oldq)%0 = 0 do
+       g.sc.menu(table m.sd.act, m.sd.act, m.sd.act,
+                       m.sd.act, m.sd.act, m.sd.wBlank)  // lose one !
+    g.nf.p!c.state := s.inq
+    g.nf.boxinput('i', boxtables, g.nf.p+p.q)
+    // next line (to pull pointer up from menu bar) added 1.7.86
+    if g.screen = m.sd.menu do g.sc.moveptr(g.xpoint,g.sc.dtob(m.sd.display,4))
+    g.sc.pointer(m.sd.on)
+$)
+
+let addch.() be g.nf.boxinput('c',g.key)
+
+let itemname.(s) = valof
+$(  let len = s%0
+    let j = 1
+    if s%len ~= '"' resultis false // doesn't end with "
+    while j < len & s%j = ' ' do j := j+1
+    if j = len | s%j ~= '"' resultis false // doesn't begin with "
+    resultis true
+$)
+
+let copyname.(s,u) be
+$(  let len = s%0-1  let i = 1
+    while s%i = ' ' do i := i+1
+    i := i+1
+    while s%i = ' ' do i := i+1
+    while len > i & s%len = ' ' do len := len-1
+    for j = 1 to len-i+1 do u%j := s%(i+j-1)
+    u%0 := len-i+1  // may have zero length
+$)
+
+and selectitem.(q) be
+$(  let type = q%31
+    g.ut.movebytes(q,0,g.context+m.itemrecord,0,m.tbsize-4)
+    g.ut.unpack32(q,32,g.context+m.itemaddress)
+    g.key := -(type!table 0, m.st.datmap, m.st.datmap, m.st.datmap,
+                             m.st.chart, 0, m.st.ntext, m.st.ntext,
+                             m.st.nphoto, m.st.walk, m.st.film)
+    if g.key = 0 do $(  g.sc.ermess("Operation not available"); return $)
+    g.context!m.itemselected := true // 19.6.86
+    if g.key = -m.st.nphoto do g.context!m.picture.no := 1
+    if g.key = -m.st.ntext do    // addition of 23.6.86
+    $(  g.ut.set32(-1,-1,g.context+m.itemadd2)
+        g.ut.set32(-1,-1,g.context+m.itemadd3)
+    $)
+$)
+
+and searchforname.(string, item.record.ptr) = valof
+$(
+   let match, result = false, ?
+   and length = vec 1
+   and rec.len = vec 1
+   and lwb = vec 1
+   and upb = vec 1
+   and middle = vec 1
+   and byte.offset = vec 1
+   and dummy = vec 1
+   and one = vec 1
+   and two = vec 1
+
+   // record length in bytes
+   g.ut.set32(m.tbsize,0,rec.len)
+
+   // determine file length in records to set up bounds for log chopping
+   g.dh.length(g.nf.p!c.names, length)   // in bytes
+   g.ut.div32(rec.len, length, dummy)   // in records
+
+   g.ut.set32(1,0,one); g.ut.set32(2,0,two)
+   g.ut.sub32(one,length)   // recs are from 0 to n-1
+   g.ut.set32(0,0,lwb); g.ut.mov32(length,upb)
+
+   while (NOT match) & g.ut.cmp32(lwb, upb) <= 0 do
+
+      $(
+         // find mid-point of current bounds
+         g.ut.mov32(lwb,middle)
+         g.ut.add32(upb, middle)
+         g.ut.div32(two, middle, dummy) // in records
+         g.ut.mov32(middle,byte.offset)
+         g.ut.mul32(rec.len, byte.offset)
+
+         g.dh.read (g.nf.p!c.names, byte.offset, item.record.ptr, m.tbsize)
+
+         result := COMPSTRING (string, item.record.ptr)
+
+         match := (result = 0)
+
+         unless match do
+
+            test result < 0
+            then $( g.ut.sub32(one, middle); g.ut.mov32(middle,upb) $)
+            else $( g.ut.add32(one, middle); g.ut.mov32(middle,lwb) $)
+      $)
+   resultis match
+$)
+
+let g.nf.maction() be
+$(
+    if g.context!m.justselected | g.context!m.itemselected do
+    $(  g.nf.minit()
+        g.context!m.justselected := false
+        g.context!m.itemselected := false
+    $)
+    if g.key = m.kd.fkey6 & g.nf.p!c.titlenumber = -1 do
+    $(  selectitem.(g.nf.p+p.t)
+        return
+    $)
+    test g.key = m.kd.copy then g.nf.boxinput('s',g.nf.p+p.oldq)
+                             or addch.()
+    unless g.key = m.kd.return return
+    if (g.nf.p+p.q)%0 = 0 do
+    $(  g.sc.ermess("Query is blank")
+        // next line added 11.9.86
+        if g.screen = m.sd.message do g.key := m.kd.noact
+        g.nf.boxinput('+')
+        return
+    $)
+    if itemname.(g.nf.p+p.q) do
+    $(  let u = g.nf.p!c.ws
+        let v = u+m.tsize
+        copyname.(g.nf.p+p.q, u)
+        test searchforname.(u, v) then
+        $(  selectitem.(v)
+            for i = 0 to m.tsize-1 do (g.nf.p+p.t)!i := v!i
+            for i = 0 to (g.nf.p+p.q)%0 do (g.nf.p+p.oldq)%i := (g.nf.p+p.q)%i
+            g.nf.p!c.termcount := 1
+            (g.nf.p+p.z)!c.hl1 := 1
+            (g.nf.p+p.z)!c.hl2 := (g.nf.p+p.q)%0
+            g.nf.p!c.titlenumber := -1
+            return
+        $) or
+        $(  g.sc.ermess("Item name not found")
+            // next line added 11.9.86. Changed 12.12.86
+            if g.screen = m.sd.message do g.key := m.kd.noact
+            g.nf.boxinput('+'); return
+        $)
+    $)
+    unless g.nf.makequery(g.nf.p) do $( g.nf.boxinput('+'); return $)
+    g.nf.runquery(g.nf.p)
+    g.nf.p!c.titlenumber := 0
+    g.nf.p!c.state := s.review
+    g.key := -m.st.nfindr
+$)
+
+let printtitles.() be
+$(  let w = g.nf.p!c.ws  // workspace area
+    g.sc.pointer(m.sd.off)
+    g.sc.clear(m.sd.display)
+    g.sc.high(0,0,false,100)
+    g.sc.selcol(m.sd.cyan)
+    g.sc.movea(m.sd.display, m.sd.disXtex, m.sd.disYtex-m.sd.linw)
+    for i = 1 to g.nf.p!c.titles do
+    $(  let s = g.nf.p+p.t+(i-1)*m.tsize
+        trap.(3,s%0,0,30)
+        for i = 1 to s%0 do w%(i+5) := s%i
+        $(  let code = s%31
+            let u = code <= 3 -> "Maps ", // changed 30.9.86 NRY
+                    code = 4 -> "Data ",  // added 30.9.86 NRY
+                    code = 5 -> "Plan ",
+                    code = 8 -> "Pic. ",
+                    code = 9 -> "Walk ",
+                    code = 10 -> "Film ", "Text "
+            trap.(4,code,0,10)
+            for i = 1 to 5 do w%i := u%i
+        $)
+        w%0 := s%0+5
+        g.sc.oplist(g.nf.p!c.titlenumber+i, w)
+    $)
+    g.sc.pointer(m.sd.on)
+$)
+
+let g.nf.rinit() be
+$(
+    g.context!m.stackptr := 0
+    g.vh.video(m.vh.micro.only)   // added 1.7.86
+//  g.sc.clear(m.sd.message)     commented out 19/6/86
+    printtitles.()
+$)
+
+let g.nf.raction() be
+$(
+    if g.context!m.justselected | g.context!m.itemselected do
+    $( g.context!m.justselected := false
+       g.context!m.itemselected := false   // addition of 19.6.86
+       unless g.context!m.laststate = m.st.nfindm do
+         g.sc.clear(m.sd.message)   // addition of 18.7.86
+       g.nf.rinit()
+    $)
+    if g.key = m.kd.tab & g.screen = m.sd.display
+        test g.xpoint <= thirdwidth then g.key := m.kd.fkey7 or
+        test g.xpoint >= 2*thirdwidth then g.key := m.kd.fkey8 or
+        g.sc.beep()
+    switchon g.key into
+    $(  case m.kd.noact:
+            g.sc.high(g.nf.p!c.titlenumber+1,
+                      g.nf.p!c.titlenumber+g.nf.p!c.titles, false, 1)
+            return
+        case m.kd.fkey7:
+            if g.nf.p!c.m = 0 do $( g.sc.beep(); endcase $)
+            g.nf.p!c.m := g.nf.p!c.m-m.titlespp*m.misize
+            g.nf.p!c.titlenumber := g.nf.p!c.titlenumber-m.titlespp
+            g.nf.extracttitles(g.nf.p)
+            printtitles.(); endcase
+        case m.kd.fkey8:
+            $(  let m = g.nf.p!c.m+m.titlespp*m.misize
+                test m+m.misize >= g.nf.p!c.mend then
+                $(  if g.nf.p!c.mend < m.msize do $( g.sc.beep(); endcase $)
+                    g.sc.clear(m.sd.display)
+                    writerest.("Query:")
+                    g.nf.runquery(g.nf.p)
+                $)
+                or $( g.nf.p!c.m := m; g.nf.extracttitles(g.nf.p) $)
+                g.nf.p!c.titlenumber := g.nf.p!c.titlenumber+m.titlespp
+            $)
+            printtitles.(); endcase
+        case m.kd.return:
+            $(  let n = g.sc.high(g.nf.p!c.titlenumber+1,
+                                  g.nf.p!c.titlenumber+g.nf.p!c.titles,
+                                  false, 1) - g.nf.p!c.titlenumber - 1
+//                              fix of 15.7.86 above
+                if n < 0 endcase
+                selectitem.(g.nf.p+p.t+n*m.tsize)     // fix of 15.7.86
+                return
+            $)
+    $)
+$)
+
+let g.nf.einit() be return
+
+let g.nf.eaction() be
+$(  test g.nf.p!c.state = s.review &
+         (g.nf.p+p.oldq)%0 > 0 &        // prev. query exists
+         g.nf.p!c.titlenumber ~= -1     // not a "data item" query
+    then g.key := -m.st.nfindr or g.key := -m.st.nfindm
+    g.redraw := false
+$)
+
+let g.nf.dy.init() be
+$(
+    g.nf.p := GETVEC(m.nf.datasize)
+    unless g.ut.restore(g.nf.p,m.nf.datasize,m.io.nfcache) do
+    $(  g.nf.p!c.state := s.unset
+        (g.nf.p+p.oldq)%0 := 0
+        g.nf.p!c.titlenumber := 0 // -1 means there is a previous item name
+        g.nf.p!c.termcount := 0
+    $)
+    g.nf.p!c.index := g.dh.open("INDEX")
+    g.nf.p!c.names := g.dh.open("NAMES")
+    $(  let wsize = MAXVEC()
+        if wsize > m.nf.max.wsize do wsize := m.nf.max.wsize
+        g.nf.p!c.ws := GETVEC(wsize) // establish workspace area
+        g.nf.p!c.wssize := wsize+1    // exact number of words in this area
+    $)
+$)
+
+let g.nf.dy.free() be
+$(
+    g.dh.close(g.nf.p!c.index)
+    g.dh.close(g.nf.p!c.names)
+    FREEVEC(g.nf.p!c.ws)
+    g.ut.cache(g.nf.p,m.nf.datasize,m.io.nfcache)
+    FREEVEC(g.nf.p)
+$)
+
+

@@ -1,0 +1,108 @@
+section "ma2"
+/**
+         MA.B.MA2 - Utility Routines
+         ---------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         15/06/87    1     AEG      Initial version
+         11/08/87    2     SA       Add flag to g.ma.addval
+         23/10/87    3     MH       updated for UNI version
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.mahd"
+
+/*
+   Calculate the number of data values in the file -
+   this is the product of the number of categories each variable has
+*/
+LET g.ma.calc.num.val (cat.table, count, num.val) BE
+$(
+   LET found = FALSE
+   LET num.cats = VEC (1)            // 32 bit number for calculations
+
+   G.ut.set32(1, 0, num.val)       // initialise variable
+   FOR K = 1 TO count DO       // count is total number of variables
+   $(
+      UNLESS cat.table%(K - 1) = 0 THEN
+      $(
+          G.ut.set32(cat.table%(K - 1), 0, num.cats)
+          g.ut.mul32 (num.cats, num.val)
+          found := TRUE
+      $)
+   $)
+   UNLESS found THEN
+      G.ut.set32(0, 0, num.val)
+$)
+
+/*
+   calculate num.rpt and seq.rpt for a given variable -
+   num.rpt is the product of the number of categories each variable lower
+   in the table has
+   seq.rpt is the product of the number of categories each variable higher
+   in the table has
+*/
+and g.ma.calc.data (Var, cat.table, count, num.addr, seq.addr) BE
+$(
+   LET num.cats = ?
+
+   !num.addr := 1
+   !seq.addr := 1
+   FOR K = 1 TO count DO
+   $(
+      num.cats := cat.table%(K - 1)
+      UNLESS (num.cats = 0) | (K = var) DO
+      $(
+         TEST K < var THEN
+            !num.addr := (!num.addr * num.cats)
+         ELSE
+            !seq.addr := (!seq.addr * num.cats)
+       $)
+   $)
+$)
+
+
+/*
+   add data values together
+   the first value is at the location specified by old.ptr, the next is at a
+   certain length apart in the table
+   this length increases each time this routine is called, by an amount
+   (no of data values * no of bytes per data value)
+*/
+and g.ma.add.data (old.ptr, count, bytes.val, move.len, sign, messflag) = VALOF
+$(
+   LET bytes32  = VEC (1)
+   LET count32  = VEC (1)
+   LET new.ptr  = VEC (1)
+
+   G.ut.set32((count*bytes.val), 0, count32)
+
+   g.ut.add32 (count32, move.len)
+   $<debug
+   g.sc.ermess ("Add Data P #X%X4%X4 L #X%X4%X4", old.ptr!1,!old.ptr,
+                                                        move.len!1,!move.len)
+   $>debug
+   FOR i = 1 TO count DO
+   $( LET flag = FALSE
+      IF (i = 1) &
+         messflag
+      THEN flag := TRUE
+      G.ut.mov32(old.ptr, new.ptr)
+      g.ut.sub32 (move.len, new.ptr)
+      UNLESS g.ma.addval (old.ptr, new.ptr, bytes.val, sign, flag) THEN
+      $(
+         g.ma.tidy.up ()
+         RESULTIS FALSE
+      $)
+   $)
+   RESULTIS TRUE
+$)
+.

@@ -1,0 +1,280 @@
+/**
+     NF.EXTRACT.TITLES - PUTS HITLIST TITLES INTO REVIEW WINDOW
+     ----------------------------------------------------------
+
+     NAME OF FILE CONTAINING RUNNABLE CODE:
+
+     R.FIND
+
+     NOTES:
+
+     Hitlist titles are obtained from names file as before.
+     They are displayed on the review window in the form of
+     menu icons.  The indirected text for these icons is held
+     in the p.t area.  This leads to modifications to the p.t
+     area:
+
+      (i) The area size increased to contain all 101 hits.
+     (ii) The structure of each record now looks like this:
+
+      NNN TTTT 012345678901234567890123456789TAAAATL
+      ^   ^   ^^                             ^^   ^^
+      ^   ^   ^^                             ^^   ^^
+      ^   ^   ^^                             ^^   ^45- copy of length byte
+      ^   ^   ^^                             ^^   44-- copy of type byte
+      ^   ^   ^^                             ^^        character saved by
+      ^   ^   ^^                             ^^        'insert.item.type'
+      ^   ^   ^^                             ^40------ Four address bytes
+      ^   ^   ^^                             39------- Type byte overwritten by
+      ^   ^   ^^                                       null character for
+      ^   ^   ^^                                       terminating string.
+      ^   ^   ^9-------------------------------------- Thirty bytes of text.
+      ^   ^   8--------------------------------------- BCPL length byte 
+      ^   ^                                            overwritten by space
+      ^   ^                                            character.
+      ^   4------------------------------------------- 4 bytes for type.
+      0----------------------------------------------- 3 bytes for item number.
+
+     REVISION HISTORY:
+
+     DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+     29.03.88  1        SA      created for DISH SS1
+                                extract.titles adopted from PUK.NF.b.find3
+     30.03.88  2        SA      bug fixed ( new p.t record size )
+**/
+
+SECTION "titles"
+
+GET "libhdr"
+GET ":4.DSH.GH.glhd"
+GET ":4.DSH.GH.glNFhd"
+GET ":4.DSH.H.sthd"
+GET ":4.DSH.H.sdhd"
+GET ":4.DSH.H.nfhd"
+
+LET trap.(n,val,low,high) BE g.ut.trap("NF",30+n,true,3,val,low,high)
+
+AND cmp.(p,q) = p%2 ~= q%2 -> p%2-q%2,
+                p%1 ~= q%1 -> p%1-q%1, p%0-q%0
+
+AND window.for( state ) = G.states!(state*m.st.esize + m.st.whandle)     
+
+AND g.nf.extracttitles(p) BE
+$(  LET mbase, t = p+p.m+p!c.m, p+p.t
+    LET mtop = ?
+    LET items = m.titlespp+1
+    LET a = (p!c.mend-p!c.m)/m.misize
+    LET name.buff = VEC m.names.rec.Wsize
+    LET window.handle = window.for( m.st.find.review )
+
+    g.sc.mess("Finding titles, please wait")
+    IF items > a DO items := a
+    mtop := mbase+(items-1)*m.misize
+    FOR q = mbase TO mtop BY m.misize DO !q := -!q
+                                  // mark as uncollected
+    FOR j = 1 TO items DO
+    $(
+       LET q = mbase
+       WHILE !q > 0 DO q := q+m.misize
+       trap.(2,q,mbase,mtop)
+       FOR r = q+m.misize TO mtop BY m.misize
+          IF !r < 0 & cmp.(r+1,q+1) < 0 DO q := r
+
+       $(
+          LET v = VEC 1
+          LET w = VEC 1
+          LET o = (q-mbase)/m.misize*m.tbsize  // SA 30.03.88
+
+          g.ut.movebytes(q+1,0,v,0,4); v%3 := 0; g.ut.unpack32(v,0,w)
+          g.ut.set32(m.names.rec.Bsize,0,v)  // 04.8.87 MH
+          g.ut.mul32(v,w)
+
+          TEST m.names.rec.Bsize =
+                  g.dh.read(p!c.names,w,name.buff,m.names.rec.Bsize)
+          THEN g.ut.movebytes(name.buff,0,t,o+8,m.names.rec.Bsize)
+          ELSE trap.(3,2,1,0)
+        $)
+
+        !q := -!q  // mark as collected
+    $)
+
+    delete.old.item.icons( window.handle )
+
+    p!c.titles := items
+
+    save.useful.bytes()
+    insert.item.numbers()
+    insert.item.types()
+    set.window.extent( window.handle )
+    create.new.item.icons( window.handle )
+
+    g.wm.clear.mess()
+$)
+
+/**
+    Save the type and length bytes of p.t record by copying
+    to locations 44,45 in the p.t record respectively.
+**/
+
+AND save.useful.bytes() BE
+$(
+   FOR item.no = 0 TO (g.nf.p!c.titles - 1)
+   $(
+      LET title.buff = g.nf.p + p.t
+      LET offset = item.no*m.tbsize   // offset for item record in p.t
+
+      title.buff%(offset + 44) := title.buff%(offset + 31 + 8)
+      title.buff%(offset + 45) := title.buff%(offset + 8)
+   $)
+$)
+
+/**
+    Inserts hitlist item numbers in the first three bytes of the 
+    item record in p.t area; inserts space in the fourth byte.
+**/
+
+AND insert.item.numbers() BE
+$(
+   FOR item.number = 1 TO g.nf.p!c.titles
+   $(
+      LET t.buff = g.nf.p + p.t
+      LET t.rec.offset = (item.number -1)*m.tbsize 
+      LET dig1 = item.number/100
+      LET dig2 = (item.number REM 100)/10
+      LET dig3 = item.number REM 10
+
+      t.buff%( t.rec.offset+0 ) := (dig1=0) -> ' ', dig1 + '0'
+      t.buff%( t.rec.offset+1 ) := (dig1=0 & dig2=0) -> ' ', dig2 + '0'
+      t.buff%( t.rec.offset+2 ) := (dig1=0 & dig2=0 & dig3=0) -> ' ',dig3 + '0'
+      t.buff%( t.rec.offset+3 ) := ' '
+   $)
+$)
+
+/**
+    Finds the item type from the names file record and inserts
+    the type_name in the fourth to eighth bytes of the item
+    record in the p.t area.  A space is inserted in the ninth
+    byte thus overwriting the BCPL length_byte for the title string.
+**/
+
+AND insert.item.types() BE
+$(
+   FOR item.no = 0 TO (g.nf.p!c.titles - 1)
+   $(
+      LET title.buff = g.nf.p + p.t
+      LET offset = item.no*m.tbsize        // offset for item record in p.t
+      LET type = title.buff%( offset + 31 + 8 )
+      LET type.str = VALOF SWITCHON type INTO
+      $(
+         CASE  0:
+         CASE  1:
+         CASE  2:
+         CASE  3: RESULTIS "Maps"
+         CASE  4: RESULTIS "Data"
+         CASE  5: RESULTIS "Plan"
+         CASE  6:
+         CASE  7: RESULTIS "Text"
+         CASE  8: RESULTIS "Pic."
+         CASE  9: RESULTIS "Walk"
+         CASE 10: RESULTIS "Film"
+         DEFAULT: RESULTIS "Null"
+      $)
+
+      trap.(4,type,0,10)
+
+      FOR i = 0 TO 3 title.buff%( offset+4+i ) := type.str%( i+1 )
+      title.buff%( offset+8 ) := ' '
+
+      // need to insert null character to terminate the title string
+      title.buff%( offset + 31 + 8 ) := 0
+   $)
+$)
+
+/**
+    Deletes icons for the hitlist items from the previous query.
+    leaves behind one icon to be used as the dummy icon for creating
+    new hitlist icons.
+**/
+
+AND delete.old.item.icons( window.handle ) BE
+$(
+   LET top.icon = m.nf.dummy.icon + 1   // miss first icon
+   LET bottom.icon = g.nf.p!c.titles + m.nf.dummy.icon
+
+   FOR icon.handle = bottom.icon TO top.icon BY -1
+   DO g.wm.delete.icon( window.handle, icon.handle )
+$)
+
+/**
+    Adjusts the height of the hitlist review window to fit the number
+    items in the hitlist:  'miny' is kept constant whilst 'maxy' is
+    adjusted.  An extra margin is added to the adjusted length to
+    account for the area occupied by the other icons in the dialogue
+    box.
+**/
+
+AND set.window.extent( window.handle ) BE
+$(
+   LET min.x = VEC 1
+   LET min.y = VEC 1
+   LET max.x = VEC 1
+   LET max.y = VEC 1
+
+   // calculate the new height of the review window
+   !min.y := - ( g.nf.p!c.titles * m.nf.icon.height +
+                 m.nf.review.window.margin )
+
+   // save dimensions that are unaltered
+   G.wm.Get.Window.Info( window.handle )
+   g.ut.movebytes( g.wm.q, 44, min.x, 0, 4 )
+   g.ut.movebytes( g.wm.q, 52, max.x, 0, 4 )
+   g.ut.movebytes( g.wm.q, 56, max.y, 0, 4 )
+
+   g.wm.Set.Extent( window.handle, min.x, min.y, max.x, max.y )
+$)
+
+/**
+    Creates icons for the new hitlist; the indirected text for these
+    icons is in the p.t area.
+**/
+
+AND create.new.item.icons( window.handle ) BE
+$(
+   // icon parameters
+   LET min.x = VEC 1
+   LET min.y = VEC 1
+   LET max.x = VEC 1
+   LET max.y = VEC 1
+   LET flags = VEC 1
+   LET text.buff.ptr = VEC 1
+   LET data1 = VEC 1
+   LET data2 = VEC 1
+   LET inc.y = VEC 1
+
+   g.wm.Get.Icon.Info( window.handle, m.nf.dummy.icon )
+
+   // save dummy icon info
+   g.ut.movebytes(g.wm.q,  8, min.x, 0, 4)
+   g.ut.movebytes(g.wm.q, 12, min.y, 0, 4)
+   g.ut.movebytes(g.wm.q, 16, max.x, 0, 4)
+   g.ut.movebytes(g.wm.q, 20, max.y, 0, 4)
+   g.ut.movebytes(g.wm.q, 24, flags, 0, 4)
+   !text.buff.ptr := ( g.nf.p + p.t ) * BYTESPERWORD
+   g.ut.movebytes(g.wm.q, 32, data1, 0, 4)
+   g.ut.movebytes(g.wm.q, 36, data2, 0, 4)
+
+   g.wm.Delete.Icon( window.handle, m.nf.dummy.icon )
+
+   // create new icons
+   FOR icon = 1 TO g.nf.p!c.titles
+   $(
+      g.wm.Create.Icon( window.handle,
+                        min.x, min.y, max.x, max.y,
+                        flags, text.buff.ptr, data1, data2 )
+
+      !min.y := !min.y - m.nf.icon.height
+      !max.y := !max.y - m.nf.icon.height
+      !text.buff.ptr := !text.buff.ptr + m.tbsize
+   $)
+$)
+.

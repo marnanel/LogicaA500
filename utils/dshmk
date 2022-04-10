@@ -1,0 +1,30 @@
+. make all packages
+*dir $.DSH
+.
+*cdir HDRS
+*cdir H
+*cdir GHDRS
+*cdir GH
+*cdir BASIC
+*cdir UTILS
+*cdir SCRATCH
+*cdir DOCUMENTS
+*cdir VIEW
+*cdir R
+*cdir S
+*cdir L
+.
+c $.Utils.mkpk  NA
+c $.Utils.mkpk  NC
+c $.Utils.mkpk  NF
+c $.Utils.mkpk  NM
+c $.Utils.mkpk  NN
+c $.Utils.mkpk  NT
+c $.Utils.mkpk  HE
+c $.Utils.mkpk  KE
+c $.Utils.mkpk  SI
+c $.Utils.mkpk  SC
+c $.Utils.mkpk  DH
+c $.Utils.mkpk  UT
+c $.Utils.mkpk  VH
+c $.Utils.mkpk  WM

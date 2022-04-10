@@ -1,0 +1,473 @@
+/**
+         TABULAR INPUT EDITOR PRIMITIVES
+         -------------------------------
+
+         This section contains :
+
+            G.ta.readlabel
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         21.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TAprim"
+
+GET "libhdr"
+GET "syshdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+GET ":4.UINED.h.kdhd"
+
+/**
+         G.TA.READLABEL
+         --------------
+
+         This routine reads in a new label.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.readlabel[]
+         ----------------
+
+         IF local.state=inactive THEN
+            local.state=read label
+            set up temp string as input string
+            IF operation=update THEN
+               temp string=currently selected label
+            ELSE
+               set input string to zero length
+            END IF
+            set up prompt
+         ELSE
+            G.sc.input()
+            IF G.key=action and input string length > 0 THEN
+               IF operation=update THEN
+                  IF v.or.c=variable THEN
+                     copy inputed label to currently selected variable label
+                  ELSE
+                     copy inputed label to cuurently selected category label
+                  END IF
+               ELSE
+                  find free label
+                  copy input string into free label
+                  IF v.or.c=variable THEN
+                     IF operation=new THEN
+                        increment no.variables
+                        increment no.labels
+                        set var.tag in free label to no.variables
+                        set cat.tag in free label to free
+                        set number of categories to zero
+                        local.state=inactive
+                        redraw screen
+                     ELSE IF operation=insert THEN
+                        FOR i=1 to 52 do
+                           IF var.tag >= currently selected variable THEN
+                              increment var.tag
+                           END IF
+                        END FOR
+                        set var.tag in free label to currently selected variable
+                        set cat.tag in free label to free
+                        update var.table
+                        increment no.variables
+                        increment no.labels
+                        set number of categories to zero
+                        local.state=inactive
+                        redraw screen
+                     END IF
+                  ELSE IF v.or.c=category THEN
+                     IF operation=new THEN
+                        increment no.categories for currently selected variable
+                        set var.tag in free label to currently selected variable
+                        set cat.tag in free label to no.categories
+                        increment no.labels
+                        abbreviation=default abbreviation
+                        local.state=inactive
+                        redraw screen
+                     ELSE IF operation=input THEN
+                        FOR i=1 to 52 do
+                           IF var.tag=currently selected variable AND
+                              cat.tag >= currently selected category THEN
+                              increment cat.tag
+                           END IF
+                        END FOR
+                        set var.tag in free label to currently selected variable
+                        set cat.tag in free label to currently selected category
+                        abbreviation=default abbreviation
+                        increment no.categories for currently selected variable
+                        increment no.labels
+                        local.state=inactive
+                        redraw screen
+                     END IF
+                  END IF
+               END IF
+            END IF
+         END IF
+**/
+let G.ta.readlabel() = valof
+$(
+   let in.str=g.ta.area+(m.ta.temp.label / bytesperword)
+   let l=?
+   let pp = false
+   let l.flag = true
+   let str.len = m.ta.str.l - 2
+   let data.mess = "Rearranging dataset; please wait"
+
+   test g.ta.area%m.ta.1st.time=m.ta.true then
+   $( g.ta.area%m.ta.1st.time:=m.ta.false
+      G.ta.area%m.ta.do:=m.ta.true
+      g.ta.area%m.ta.l.st:=m.ta.r.l
+      G.ta.box(m.sd.off)
+      G.sc.mess("")
+      G.sc.movea(m.sd.message,0,m.sd.mesYtex)
+      in.str%0:=0
+      for i=1 to 40 in.str%i:=32
+      if g.ta.area%m.ta.op=m.ta.update then
+      $( l:=getlabel()
+         for i=0 to l%0 do
+            in.str%i:=l%i //copy label into input string
+         if l%0 > m.ta.str.l l%0:=m.ta.str.l
+         G.sc.selcol(m.sd.blue)
+         G.sc.ofstr("%s",in.str)
+      $)
+      G.key:=m.kd.noact
+      G.sc.input(in.str,m.sd.blue,m.sd.cyan,str.len)
+   $)
+   else
+   $( if G.ut.printingchar(G.key)|G.key=m.kd.action |
+            G.key=m.kd.delete|(m.kd.fkey0 <= G.key <= m.kd.fkey6) |
+            G.key=m.kd.left | G.key=m.kd.right then
+            test g.ta.area%m.ta.op = m.ta.update then
+               unless G.key=m.kd.action | m.kd.fkey0 <= G.key <= m.kd.fkey6
+               $( g.ta.area%m.ta.op := m.ta.update1
+                  if G.key=m.kd.delete | G.ut.printingchar(G.key) |
+                       G.key=m.kd.left | G.key=m.kd.right then
+                     G.sc.input(in.str,m.sd.blue,m.sd.cyan,str.len)
+               $)
+            else unless g.ta.area%m.ta.op = m.ta.update then
+               test in.str%0 = 0 & (G.key = m.kd.action |
+                   (m.kd.fkey0 <= G.key <= m.kd.fkey6)) then
+               $(
+                  test g.ta.area%m.ta.op=m.ta.new |
+                       g.ta.area%m.ta.op=m.ta.insert then
+                  $(
+                     g.ta.area%m.ta.op := m.ta.INACTIVE
+                     g.ta.area%m.ta.l.st := m.ta.INACTIVE
+                     test g.ta.area%m.ta.v.or.c = m.ta.v
+                     $( let pos = m.ta.ystart-(g.ta.area%m.ta.sel.var*m.sd.linw)
+                        test pos <= G.ypoint <= pos+m.sd.linw then
+                        $( l.flag := false
+                           G.ta.hi(m.sd.yellow,m.ta.d.both)
+                        $)
+                        else
+                        $(
+                           G.ta.hi(m.sd.cyan,m.ta.d.both)
+                           g.ta.area%m.ta.sel.var := m.ta.INACTIVE
+                        $)
+                        message()
+                        G.key := m.kd.noact
+                     $)
+                     else
+                        message1()
+                  $)
+                  else
+                     G.sc.ermess("Blank label not allowed")
+                  G.key:=m.kd.noact
+               $)
+               else
+                  G.sc.input(in.str,m.sd.blue,m.sd.cyan,str.len)
+      if ((G.key=m.kd.action)|(m.kd.fkey0 <= G.key <= m.kd.fkey6)) &
+         in.str%0 > 0 then
+      test g.ta.area%m.ta.op=m.ta.update1 then
+      $( let l.pos = g.ta.area%m.ta.pg = 2 ->
+                   g.ta.area%m.ta.sel.var - m.ta.lines, g.ta.area%m.ta.sel.var
+         let y=m.ta.ystart+m.sd.linw-(m.sd.linw * l.pos)
+         let save = vec 3
+         l:=getlabel()
+         for i=1 to 41 l%i := 32 //fill with spaces
+         for i=0 to in.str%0 l%i:=in.str%i
+         G.sc.savcur(save)
+         G.sc.movea(m.sd.display,m.sd.charwidth*2,y)
+         G.sc.rect(m.sd.clear,(m.ta.str.l-2)*m.sd.charwidth,-m.sd.charwidth)
+         G.ta.hi(m.sd.blue,m.ta.d.var)
+         G.sc.rescur(save)
+//ask for additive flag
+         l.flag := false
+         g.ta.area%m.ta.1st.time := m.ta.true
+         g.ta.area%m.ta.l.st := m.ta.prompt1
+         test G.key = m.kd.fkey4
+         then g.ta.area%m.ta.lock := m.ta.true
+         else G.ta.prompt1()
+         pp := true
+         message()
+      $)
+      else unless g.ta.area%m.ta.op = m.ta.update then
+      $( l := get.free.label()
+         for i=0 to 40 do
+            l%(i+4):=in.str%i //copy input label to free label
+         l%45 := 32 //fill abbreviation with blank
+         test g.ta.area%m.ta.v.or.c=m.ta.v then
+            test g.ta.area%m.ta.op=m.ta.new then
+            $( g.ta.area%m.ta.no.vars:=g.ta.area%m.ta.no.vars+1
+               g.ta.area%m.ta.no.labels:=g.ta.area%m.ta.no.labels+1
+               l%0:=g.ta.area%m.ta.no.vars
+               l%1:=m.ta.free
+               g.ta.area%(m.ta.var.table+l%0-1):=0
+            $)
+            else if g.ta.area%m.ta.op=m.ta.insert then
+            $( update.tags()
+               l%0:=g.ta.area%m.ta.sel.var
+               l%1:=m.ta.free
+               update.table()
+               g.ta.area%m.ta.no.vars:=g.ta.area%m.ta.no.vars+1
+               g.ta.area%m.ta.no.labels:=g.ta.area%m.ta.no.labels +1
+               g.ta.area%(m.ta.var.table+l%0-1):=0
+            $)
+         else
+            test g.ta.area%m.ta.op=m.ta.new then
+            $(
+              let sign = g.ta.area%m.ta.data.sign = m.ta.true -> true, false
+          //parameters passed to G.ta.insert are :-
+          //     category, variable, var.table, number of vars, data size,
+          // and data sign
+               unless g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1) = 0 |
+                      g.ta.buff!m.ta.no.data
+                  G.sc.mess(data.mess)
+               unless g.ta.buff!m.ta.no.data
+                  unless G.ma.insert.cat(
+                     g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var-1) + 1,
+                     g.ta.area%m.ta.sel.var,
+                        g.ta.area + (m.ta.var.table / bytesperword),
+                     g.ta.area%m.ta.no.vars, g.ta.area%m.ta.data.size, sign)
+                     resultis false
+               g.ta.area%m.ta.no.labels := g.ta.area%m.ta.no.labels+1
+               l%0 := g.ta.area%m.ta.sel.var //variable tag
+               test g.ta.area%(m.ta.var.table+(l%0)-1)=0 then
+                  l%45:=m.ta.default //set abbreviation to default
+               else
+                  l%45:=get.abbr(g.ta.area%(m.ta.var.table+(l%0)-1))+1
+               unless 'A' <= capch(l%45) <= 'Z' l%45:=m.ta.default1
+               g.ta.area%(m.ta.var.table+(l%0)-1) :=
+                  g.ta.area%(m.ta.var.table+l%0-1) + 1
+               l%1 := g.ta.area%(m.ta.var.table+(l%0)-1) //category tag
+            $)
+            else if g.ta.area%m.ta.op=m.ta.insert then
+            $(
+               let x = g.ta.area%m.ta.sel.cat = m.ta.INACTIVE ->
+                  g.ta.area%m.ta.c.l, g.ta.area%m.ta.sel.cat
+               let sign = (g.ta.area%m.ta.data.sign = m.ta.true)
+          //parameters passed to G.ta.insert are :-
+          //     category, variable, var.table, number of vars, data size,
+          // and data sign
+               unless g.ta.buff!m.ta.no.data then
+               $(
+               G.sc.mess(data.mess)
+               unless G.ma.insert.cat( x, g.ta.area%m.ta.sel.var,
+                      g.ta.area + (m.ta.var.table / bytesperword),
+                       g.ta.area%m.ta.no.vars, g.ta.area%m.ta.data.size,
+                        sign) resultis false
+               $)
+               l%45 := m.ta.default1 //set abbreviation
+               update.tags()
+               l%0 := g.ta.area%m.ta.sel.var
+               l%1 := x
+               g.ta.area%m.ta.no.labels := g.ta.area%m.ta.no.labels+1
+               g.ta.area%(m.ta.var.table+(l%0)-1) :=
+                  g.ta.area%(m.ta.var.table+(l%0)-1) + 1
+            $)
+         test g.ta.area%m.ta.op = m.ta.new then
+            test g.ta.area%m.ta.v.or.c=m.ta.v then
+            $(
+               test g.ta.area%m.ta.no.vars > g.ta.area%m.ta.base.l+m.ta.lines -1 then
+               $( g.ta.area%m.ta.sel.var := g.ta.area%m.ta.no.vars
+                  G.ta.update.pages()
+                  G.ta.redrawv(false,m.ta.d.var)
+               $)
+               else
+               $( G.ta.update.pages()
+                  g.ta.area%m.ta.sel.var:=g.ta.area%m.ta.no.vars
+                  G.ta.hi(m.sd.cyan,m.ta.d.var)
+               $)
+//ask for additive flag
+               G.ta.hi(m.sd.cyan,m.ta.d.var)
+               l.flag := false
+               g.ta.area%m.ta.1st.time := m.ta.true
+               g.ta.area%m.ta.l.st := m.ta.prompt1
+               G.ta.prompt1()
+               pp := true
+            $)
+            else
+            $(
+               test g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var -1 ) >
+                    g.ta.area%m.ta.base.l+m.ta.lines-1 then
+               $( G.ta.update.pages()
+                  G.ta.redrawc(false)
+               $)
+               else
+               $( G.ta.update.pages()
+                  g.ta.area%m.ta.sel.cat:=g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1)
+                  G.ta.hic(m.sd.blue,true)
+                  g.ta.area%m.ta.c.l:=g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1)
+                  G.ta.hic(m.sd.blue,false)
+               $)
+               message1()
+            $)
+         else test g.ta.area%m.ta.v.or.c=m.ta.v then
+         $( G.ta.update.pages()
+            test g.ta.area%m.ta.l.st = m.ta.insert
+               test g.ta.area%m.ta.no.vars = m.ta.lines+1|g.ta.area%m.ta.no.vars=m.ta.v.max
+                  G.ta.redrawv(false,m.ta.d.var)
+               else
+                  G.ta.redrawv(true,m.ta.d.var)
+            else
+               G.ta.redrawv(false,m.ta.d.var)
+//ask for additive flag
+            G.ta.hi(m.sd.cyan,m.ta.d.var)
+            l.flag := false
+            g.ta.area%m.ta.1st.time := m.ta.true
+            g.ta.area%m.ta.l.st := m.ta.prompt1
+            G.ta.prompt1()
+            pp := true
+         $)
+         else
+         $( G.ta.update.pages()
+            test g.ta.area%m.ta.l.st = m.ta.insert
+               test g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var - 1) = m.ta.lines+1 |
+                   g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var - 1) =m.ta.c.max
+                  G.ta.redrawc(false)
+               else
+                  G.ta.redrawc(true)
+            else
+              G.ta.redrawc(false)
+            message1()
+         $)
+         unless pp then
+         $(
+            if g.ta.area%m.ta.v.or.c=m.ta.v & l.flag g.ta.area%m.ta.sel.var:=m.ta.INACTIVE
+            g.ta.area%m.ta.sel.cat:=m.ta.INACTIVE
+            g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+            g.ta.area%m.ta.c.l:=m.ta.INACTIVE
+            g.ta.area%m.ta.op:=m.ta.INACTIVE
+         $)
+      $)
+      if g.ta.area%m.ta.op=m.ta.update & G.key=m.kd.action then
+      $(
+         g.ta.area%m.ta.1st.time := m.ta.true
+         g.ta.area%m.ta.l.st := m.ta.prompt1
+         G.ta.prompt1()
+         pp := true
+      $)
+      if g.ta.area%m.ta.op=m.ta.update & G.key=m.kd.fkey4 then
+        g.ta.area%m.ta.lock:=m.ta.true //variable selected and locked!
+   $)
+   if g.ta.area%m.ta.l.st = m.ta.INACTIVE G.ta.box(m.sd.on)
+   resultis true
+$)
+
+and message() be
+   if g.key = m.kd.fkey5 | g.key = m.kd.action
+      test g.ta.area%m.ta.no.vars = m.ta.v.max |
+           g.ta.area%m.ta.no.labels = G.ta.max.labels()
+      then g.sc.mess("Select variable to define")
+      else g.sc.mess("Select variable, or New")
+
+and message1() be
+   test g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1) = m.ta.v.max |
+        g.ta.area%m.ta.no.labels = G.ta.max.labels()
+   then G.sc.mess("Select category to define")
+   else G.sc.mess("Select category, or New")
+
+and getlabel()=VALOF
+$(
+   let l=G.ta.area+(m.ta.labels / bytesperword)
+
+   for i=1 to 52 do
+   $( test g.ta.area%m.ta.v.or.c=m.ta.v then
+         if l%0=g.ta.area%m.ta.sel.var&l%1=m.ta.free BREAK
+      else
+         if l%0=g.ta.area%m.ta.sel.var&l%1=g.ta.area%m.ta.sel.cat BREAK
+      l:=l+(m.ta.l.width / bytesperword)
+   $)
+   resultis l+1
+$)
+
+and get.abbr(n)=VALOF
+$(
+   let l=G.ta.area+(m.ta.labels / bytesperword)
+
+   for i=1 to 52 do
+   $( if l%0=g.ta.area%m.ta.sel.var&l%1=n BREAK
+      l:=l+(m.ta.l.width / bytesperword)
+   $)
+   resultis l%45
+$)
+
+and get.free.label()=VALOF
+$( let f.l=G.ta.area+(m.ta.labels / bytesperword)
+
+   for i=1 to 52 do
+   $( if f.l%0=m.ta.free&f.l%1=m.ta.free BREAK
+      f.l:=f.l+(m.ta.l.width / bytesperword)
+   $)
+  resultis f.l
+$)
+
+and update.tags() be
+$(
+   let l=g.ta.area+(m.ta.labels / bytesperword)
+   let cat=g.ta.area%m.ta.sel.cat=m.ta.INACTIVE ->
+                      g.ta.area%m.ta.c.l, g.ta.area%m.ta.sel.cat
+
+   test g.ta.area%m.ta.v.or.c=m.ta.v then
+      for i=1 to 52 do
+      $( unless l%0=m.ta.free then
+            if l%0 >= g.ta.area%m.ta.sel.var l%0:=l%0+1
+         l:=l+(m.ta.l.width / bytesperword)
+      $)
+   else
+      for i=1 to 52 do
+      $( if l%0=g.ta.area%m.ta.sel.var& l%1 ~= m.ta.free then
+            if l%1 >= cat l%1:=l%1+1
+         l:=l+(m.ta.l.width / bytesperword)
+      $)
+$)
+
+and update.table() be
+$(
+   let t=g.ta.area+(m.ta.var.table / bytesperword)
+   let t1=g.ta.area+(m.ta.add.table / bytesperword)
+
+   for i=g.ta.area%m.ta.no.vars-1 to 0 by -1 do
+      if i >= g.ta.area%m.ta.sel.var-1 then
+      $(
+         t%(i+1):=t%i
+         t1%(i+1):=t1%i
+      $)
+$)
+.

@@ -1,0 +1,6 @@
+*| COMPSYS DSH Version 1 14.9.87
+*|
+*| compile everything
+*dir $.DSH.utils
+c compker
+c compnat

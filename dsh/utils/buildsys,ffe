@@ -1,0 +1,8 @@
+*| BUILDSYS DSH Version 1 14.9.87
+*|
+*| do everything
+*time
+*dir $.DSH.utils
+c compsys
+c linksys
+*time

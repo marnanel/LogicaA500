@@ -1,0 +1,7 @@
+*| compile the kernel package
+*|
+co root
+co general
+co sram
+co dummy
+co init

@@ -1,0 +1,258 @@
+/**
+         MACHINE DEPENDANT DF MODULES
+         ----------------------------
+
+         This section contains :
+
+            G.df.getkey
+            G.df.RS423.input
+            G.df.split.cursor
+            G.df.keyboard.input
+            G.df.delete.file
+            G.df.runprog
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.DFgetkey
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       13.03.87   1        MH          Initial version
+        6.04.87   2        MH          G.df.runprog added
+       26.06.87   3        SRY         delete file returns error
+        7.09.87   4        SRY         Escape handling on exit
+**/
+
+SECTION "getkey"
+
+GET "libhdr"
+GET "syshdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.uthd"
+GET ":4.format.h.dfhd"
+GET ":4.format.h.kdhd"
+
+/**
+         G.DF.GETKEY
+         -------------
+
+         Gets the action from the keyboard.
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.getkey[]
+         ---------------
+
+            read key input
+            return key value
+
+**/
+let G.df.getkey() = VALOF
+$( let char = ?
+   $( char := OSBYTE(#x81,0,0)
+   $) repeatuntil (char ~= 0) & (result2 ~= #xFF)
+   resultis char
+$)
+
+/**
+         G.DF.RS423.INPUT
+         ----------------
+
+         Selects the RS423 interface as the input stream.
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.RS423.input[]
+         ------------------
+
+            select RS423 interface as the input stream
+**/
+and G.df.RS423.input() be OSBYTE(2, 1, 0) // RS423 interface as input stream
+
+/**
+         G.DF.SPLIT.CURSOR
+         -----------------
+
+         Splits the print and graphics cursor
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.split.cursor[]
+         ------------------
+
+            split the print cursor and the graphics cursor
+**/
+and G.df.split.cursor() be
+$( OSBYTE(229, 0, 0)
+   VDU("4")  // split the print cursor and the graphics cursor
+   for i = 1 to 7 wrch(10)
+   runprog("**basic")
+$)
+
+/**
+         G.DF.KEYBOARD.INPUT
+         -------------------
+
+         selects the keyboard as the input stream.
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.keyboard.input[]
+         ---------------------
+
+            select the keyboard as the input stream
+
+**/
+let G.df.keyboard.input() be
+$( OSBYTE(#x15, #x1, #x0)
+   OSBYTE(#x2, #x0, #x0)
+$)
+
+/**
+         G.DF.DELETE.FILE
+         ----------------
+
+         Deletes a file given a file string name
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.delete.file[file]
+         ----------------------
+
+         delete file with file string name
+         NB - if file does not exist this doesn't
+              get flagged as an error for some reason
+**/
+
+and G.df.delete.file(file) = valof
+$(
+   manifest $( m.delete.file.op = #x06 $)
+
+   let pb = VEC 4 // used because osfile returns catalogue info (ignored here)
+
+   osfile(m.delete.file.op, file, pb)
+
+   if RESULT2 ~= 0 then
+   $( let string = vec 39/bytesperword
+      G.ut.get.ermess(string, 39)
+      G.df.ermess(string)
+      resultis false
+   $)
+   resultis true
+$)
+
+/**
+         G.DF.RUNPROG
+         ------------
+
+         Performs a runprog initiation
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.runprog[command, file]
+         ----------------------
+
+            perform runprog
+
+**/
+let G.df.runprog(command, file) be runprog("%s*s%s", command, file)
+.
+
+
+
+
+
+
+
+
+
+
+
+
+

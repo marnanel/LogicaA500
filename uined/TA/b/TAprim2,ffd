@@ -1,0 +1,196 @@
+/**
+         TABULAR INPUT EDITOR PRIMITIVES
+         -------------------------------
+
+         This section contains :
+
+            G.ta.delete
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         08.09.87 3        MH          word m.ta.do set to TRUE if FALSE
+         21.10.87 4        MH          updated to UNI version
+**/
+
+SECTION "TAprim2"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.DELETE
+         -----------
+
+         This routine deletes labels.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.delete[]
+         ----------
+
+         IF v.or.c=variable THEN
+            FOR i=1 TO 52 DO
+               IF var.tag=currently selected variable THEN
+                     set var.tag to m.ta.free
+                     set cat.tag to m.ta.free
+                     decrement no.labels
+               END IF
+            END FOR
+            decrement no.variables
+            update var.table
+            local.state=inactive
+            redraw screen
+         ELSE IF v.or.c=category THEN
+            FOR i=1 TO 52 DO
+               IF var.tag=currently selected variable AND
+                  cat.vat=currently selected category THEN
+                  set var.tag=m.ta.free
+                  set cat.tag=m.ta.free
+                  decrement no.labels
+                  BREAK
+               END IF
+            END FOR
+            update var.table
+            local.state=inactive
+            redraw screen
+         END IF
+
+**/
+let G.ta.delete() = VALOF
+$(
+   let var=g.ta.area%m.ta.sel.var
+   let cat=g.ta.area%m.ta.sel.cat=m.ta.INACTIVE -> g.ta.area%m.ta.c.l, g.ta.area%m.ta.sel.cat
+   let tag=m.ta.labels
+   let sign= g.ta.area%m.ta.data.sign = m.ta.true -> true, false
+   let mess = "Rearranging dataset; please wait"
+
+   g.ta.area%m.ta.op:=m.ta.INACTIVE
+   g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+   test g.ta.area%m.ta.v.or.c=m.ta.v
+   $(
+      unless g.ta.area%(m.ta.var.table + var -1 ) <= 1 | g.ta.buff!m.ta.no.data then
+      $(
+         G.sc.mess(mess)
+         unless G.ma.remove.var(var, g.ta.area+(m.ta.var.table / bytesperword),
+                 g.ta.area%m.ta.no.vars, g.ta.area%m.ta.data.size,
+                  sign) resultis false
+      $)
+      for i=1 to 52 do
+      $( if g.ta.area%tag=var then
+         $( g.ta.area%tag:=m.ta.free //free label
+            g.ta.area%(tag+1):=m.ta.free
+            g.ta.area%m.ta.no.labels:=g.ta.area%m.ta.no.labels-1
+         $)
+         tag:=tag+m.ta.l.width //get next tag
+      $)
+      tag:=m.ta.labels //update tags
+      for i=1 to 52 do
+      $( unless g.ta.area%tag=m.ta.free then
+            if g.ta.area%tag >= var then
+               g.ta.area%tag:=g.ta.area%tag-1
+         tag:=tag+m.ta.l.width
+      $)
+      g.ta.area%m.ta.no.vars:=g.ta.area%m.ta.no.vars-1
+      unless g.ta.area%m.ta.no.vars=0 then
+         for i=0 to g.ta.area%m.ta.no.vars do
+            if i >= var then
+            $(
+               g.ta.area%(m.ta.var.table+i-1):=g.ta.area%(m.ta.var.table+i)
+               g.ta.area%(m.ta.add.table+i-1):=g.ta.area%(m.ta.add.table+i)
+            $)
+      G.ta.update.pages()
+      test g.ta.area%m.ta.no.vars = m.ta.lines | g.ta.area%m.ta.no.vars = m.ta.v.max -1 then
+         G.ta.redrawv(false,m.ta.all)
+      else
+         G.ta.redrawv(true,m.ta.all)
+      g.ta.area%m.ta.sel.var:=m.ta.INACTIVE
+      g.ta.area%m.ta.sel.cat:=m.ta.INACTIVE
+      g.ta.area%m.ta.c.l:=m.ta.INACTIVE
+   $)
+   else
+   $(
+      unless g.ta.area%(m.ta.var.table + var -1 ) <= 1 |
+              g.ta.buff!m.ta.no.data then
+      $(
+      G.sc.mess(mess)
+      unless G.ma.delete.cat(cat, var,
+              g.ta.area+(m.ta.var.table / bytesperword),
+               g.ta.area%m.ta.no.vars, g.ta.area%m.ta.data.size,
+                sign)  resultis false
+      $)
+      for i=1 to 52 do
+      $( if g.ta.area%tag=var&g.ta.area%(tag+1)=cat then
+         $( g.ta.area%tag:=m.ta.free //free label
+            g.ta.area%(tag+1):=m.ta.free
+            BREAK
+         $)
+         tag:=tag+m.ta.l.width //get next tag
+      $)
+      g.ta.area%m.ta.no.labels:=g.ta.area%m.ta.no.labels-1
+      tag:=m.ta.labels //update tags
+      for i=1 to 52 do
+      $( unless g.ta.area%tag=m.ta.free then
+            if g.ta.area%tag=var&g.ta.area%(tag+1) >= cat&g.ta.area%(tag+1) ~= m.ta.free then
+               g.ta.area%(tag+1):=g.ta.area%(tag+1)-1
+         tag:=tag+m.ta.l.width
+      $)
+      g.ta.area%(m.ta.var.table+var-1):=g.ta.area%(m.ta.var.table+var-1)-1
+      G.ta.update.pages()
+      test g.ta.area%(m.ta.var.table+var-1) = m.ta.lines |
+          g.ta.area%(m.ta.var.table+var-1) = m.ta.c.max -1 then
+         G.ta.redrawc(false)
+      else
+         G.ta.redrawc(true)
+      unless G.ta.area%m.ta.do then
+         G.ta.area%m.ta.do := m.ta.true // 8.9.87  MH
+      g.ta.area%m.ta.sel.cat:=m.ta.INACTIVE
+      g.ta.area%m.ta.c.l:=m.ta.INACTIVE
+   $)
+   G.ta.box(m.sd.on)
+   test g.ta.area%m.ta.v.or.c=m.ta.v then
+      message()
+   else
+      message1()
+   resultis true
+$)
+
+and message() be
+   test g.ta.area%m.ta.no.vars = m.ta.v.max |
+        g.ta.area%m.ta.no.labels = m.ta.l.max
+   then g.sc.mess("Select variable to define")
+   else g.sc.mess("Select variable to define, or New")
+
+and message1() be
+   test g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1) = m.ta.v.max |
+        g.ta.area%m.ta.no.labels = m.ta.l.max
+   then g.sc.mess("Select category to define")
+   else g.sc.mess("Select category to define, or New")
+.
+

@@ -1,0 +1,238 @@
+/*
+   CONVERT - PAC
+
+
+   Source code converter
+   ---------------------
+   
+   converts a uni file to a Twin format
+   - or does a complete directory
+   - or converts the other way
+
+   REVISION HISTORY:
+
+   DATE      VERSION  AUTHOR    DETAILS OF CHANGE
+   9.6.87    1        PAC       Initial Version
+   21.7.87   2        PAC       Altered for new OsGbpb
+*/
+
+SECTION "Convert"
+
+GET "LIBHDR"
+
+static
+$(
+s.out.h = ?    // output file handle
+s.cns.h = ?    // normal console output handle
+
+s.dir.buff = 0 // buffer for directory names
+s.nptr     = 0 // number of names in directory
+
+$)
+
+MANIFEST $( m.max.num.names = 77 $)
+
+/*
+         Parameters are:
+         * toRCP: if true, then convert to RCP format
+         * fname:  fname directory from which to do a 'total
+         convert'.  Must be specified if 'in' is not.
+         * in:  optional directory specification. If given the
+         search and convert is only done in that dir.
+*/
+
+LET START() BE
+$(
+   LET to.Twin  = ?
+   LET fname   = ?
+   LET dir     = ?
+   LET argvec  = VEC 80
+
+   IF RDARGS ("RCP=toRCP/S,file=fi=f/K,in/K", argvec, 80) = 0 THEN
+   $( WRITEF("*NBad argument(s)*N")
+      STOP(0)
+   $)
+
+   s.dir.buff := GETVEC( 11*m.max.num.names / bytesperword ) // the names
+   s.nptr     := 0
+
+   Fillwords( s.dir.buff, 11*m.max.num.names / bytesperword, 0 )
+
+   to.Twin, fname, dir := ~(argvec!0), argvec!1, argvec!2
+
+   test fname = 0 & dir = 0 do
+   $( WRITES ("*NFile to convert (file), or directory pathname (in), *
+               *must be specified*N"); STOP (0)
+   $)
+   else if fname ~= 0 & dir ~= 0 do
+   $( WRITES ("*NEither specify a file to convert (file), or *
+                *a pathname (dir), not both*N"); STOP (0)
+   $) 
+
+   $(
+      LET s1,s2 = "CRLF", "LF"
+      UNLESS to.Twin $( s2 := s1; s1 := "LF" $)
+      WRITEF ("Replace <%S> with <%S>*N", s1,s2 )
+   $)
+
+   IF fname ~= 0 WRITEF ("   - in file %S*N", fname)
+   IF   dir ~= 0 WRITEF ("   - only in directory %S*N", dir)
+   NEWLINE ()
+
+   s.cns.h := OUTPUT ()        // current console output
+
+   TEST dir THEN search.( dir, to.Twin )
+   ELSE
+   $( process.( fname, "REPL-TMP", to.Twin )
+      RUNPROG ("**DELETE %S", "REPL-TMP")    // delete temp file
+   $)
+$)
+
+// always '*backs' to the original directory
+
+AND search.( directory, to.Twin ) BE
+$(
+   LET fname  = VEC 25  // buffer for file name
+   LET temp.fname = "REPL-TMP"
+   LET ch     = ?
+   LET stream = ?
+   LET errormsg = "Failed to find directory %s reason %n*N"
+   LET pb = VEC 6
+   LET files = ?
+
+   directory%(directory%0+1) := 0
+
+   pb!0 := directory*bytesperword+1
+   pb!1 := s.dir.buff*bytesperword 
+   pb!2 := m.max.num.names 
+   pb!3 := 0 
+   pb!4 := 11*m.max.num.names  
+
+   // read file names from the directory
+   //
+   files := OsGbpb( 9, pb )
+
+   WRITEF("Searching directory %s*N", directory )
+
+   RUNPROG ("**DIR %s", directory )
+
+   WHILE next.file( fname )
+   DO
+      process.( fname, temp.fname, to.Twin )
+
+   RUNPROG ("**DELETE %S", temp.fname)    // delete temp file
+   RUNPROG ("**BACK")
+   ENDREAD ()
+$)
+
+// read next filename from directory buffer
+//
+AND next.file( buff ) = VALOF
+$(
+   LET count = 1
+   LET ch    = ?
+
+   ch := s.dir.buff%s.nptr; s.nptr := s.nptr + 1
+
+   IF ch = 0 RESULTIS FALSE  // last entry
+
+   $( buff%count := ch
+      count      := count + 1
+      ch         := s.dir.buff%s.nptr
+      s.nptr     := s.nptr + 1 
+   $) REPEATUNTIL (ch = #x0) | (count > 10 )
+
+   buff%0 := count -1
+
+   RESULTIS TRUE
+$)
+
+AND open.( filename ) = Osfind( #x40, filename )
+
+AND close.( handle ) = Osfind( 0, handle )
+
+AND process. (fname, temp.fname, to.Twin ) BE
+$(
+   LET changed = ?
+
+   open.save (temp.fname)      // this aborts if it fails
+   changed := find. (fname, to.Twin )
+   close.save ()
+   if changed then
+   $(                                        // changed. save new version
+      RUNPROG ("**DELETE %S", fname)   
+      TEST fname%1 = ':' 
+      THEN $( RUNPROG("**MOVE %s %s",temp.fname, fname)
+              RUNPROG("**DELETE %S", temp.fname)
+           $)
+      ELSE RUNPROG ("**RENAME %S %S", temp.fname, fname)
+   $)
+$)
+
+AND find.( file, to.Twin ) = VALOF
+$(
+   LET fbuff = ?        // the input file
+   LET offset = 0       // byte offset
+   LET lim   = ?
+   LET matches = 0      // number of matches found so far
+   LET target  = to.Twin -> '*C', '*N'                       
+   LET replace = to.Twin -> "","*C*N"
+
+   fbuff := FILETOVEC( file )
+   lim := (fbuff!1)              // data size in header
+
+   IF fbuff = 0 THEN
+   $( WRITEF("*N Can't load %s reason %n*N", file, RESULT2 )
+      RESULTIS FALSE
+   $)
+   fbuff := fbuff + 2            // skip header words
+
+   SELECTOUTPUT (s.out.h)
+   $(
+      TEST fbuff%offset = target  THEN
+      $(     
+         UNLESS fbuff%(offset-1) = '*c' DO
+         $( WRITES (replace)        // write the replacement string
+            matches := matches + 1  // flag for at least one match
+         $)
+         offset := offset + 1    // skip over replaced chars     
+      $)
+      ELSE
+      $(
+         WRBIN (fbuff%offset)    // write the character
+         offset := offset + 1
+      $)
+   $) REPEATUNTIL offset >= lim
+   SELECTOUTPUT (s.cns.h)
+       
+   FREEVEC (fbuff - 2)              // free buffer       
+
+   IF matches THEN // changed a few
+   $( WRITEF("Replaced in %s:  %n *N", file, matches)
+      RESULTIS TRUE
+   $)
+
+   // otherwise, not found.
+   WRITEF("Not found in %s *N", file)
+   
+   RESULTIS FALSE
+$)
+
+
+and open.save (filename) be
+$(
+   s.out.h := FINDOUTPUT (filename)
+   unless s.out.h do
+   $( WRITEF ("Failed to open %S for output, reason %N*N", filename, s.out.h)
+      STOP (0)
+   $)
+$)
+
+
+and close.save () be
+$(
+   SELECTOUTPUT (s.out.h)
+   ENDWRITE ()
+   SELECTOUTPUT (s.cns.h)
+$)
+

@@ -1,0 +1,4 @@
+|* compile the state table init
+co stinit
+co sinput
+co rinput

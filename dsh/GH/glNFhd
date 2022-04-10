@@ -1,0 +1,53 @@
+// /**
+//       GLNFHDR - GLOBALS HEADER for National Find
+//       ------------------------------------------
+//
+//       This is a master system Global definition file
+//       Reserved for state, routine and data globals
+//
+//       REVISION HISTORY:
+//
+//       DATE      VERSION  AUTHOR   DETAILS OF CHANGE
+//       23.4.87   1        PAC      ADOPTED FOR UNI SYSTEM
+//       07.04.88  2        SA       ADOPTED FOR DISH
+// **/
+
+GLOBAL
+$(
+
+// G.nf.eaction        :FGNF+0  // old National Find state routines
+// G.nf.maction        :FGNF+1
+// G.nf.raction        :FGNF+2
+
+// G.nf.rinit          :FGNF+3
+// G.nf.minit          :FGNF+4
+// G.nf.einit          :FGNF+5
+
+// new chunk for DISH
+
+g.nf.findini     :FGNF+0
+g.nf.find        :FGNF+1
+g.nf.handle.keys :FGNF+2 
+g.nf.checkbox    :FGNF+3
+//g.nf.old.query   :FGNF+4  // not needed  SA 07.04.88
+g.nf.select.item :FGNF+4  // action routine for changing state
+                          // to display item.   SA 07.04.88
+g.nf.copy.query  :FGNF+5 
+g.nf.revini      :FGNF+6
+G.nf.rev.action  :FGNF+7
+g.nf.dialini     :FGNF+8
+G.nf.dial.action :FGNF+9
+
+
+G.nf.boxinput       :FGNF+10 // National Find utility routines
+G.nf.stem           :FGNF+11
+G.nf.makequery      :FGNF+12
+G.nf.runquery       :FGNF+13
+G.nf.lookup         :FGNF+14
+G.nf.extracttitles  :FGNF+15
+G.nf.writepm        :FGNF+16
+G.nf.writepc        :FGNF+17
+G.nf.highlight      :FGNF+18
+G.nf.p              :FGNF+19 // private statics
+
+$)

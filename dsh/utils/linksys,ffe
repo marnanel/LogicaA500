@@ -1,0 +1,7 @@
+*| LINKSYS DSH Version 1 14.9.87
+*|
+*| link everything
+*dir $.DSH.utils
+c linkmods
+c linknat
+c linkernel

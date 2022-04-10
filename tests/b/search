@@ -1,0 +1,340 @@
+/*
+   Source code search utility
+   --------------------------
+
+   Adapted from WINtoFLOP, the BASIC offsite backup program.
+
+   This searches all package's source code for the given string
+   OR searches a given directory on the Winchester (e.g. DH.b)
+
+   REVISION HISTORY:
+
+   DATE      VERSION  AUTHOR    DETAILS OF CHANGE
+   21.07.86  1        PAC       Initial Version
+   24.07.86  2        PAC       Counts lines checked
+     6.8.86  3        PAC       Two arguments to search for
+   13.10.86  4        PAC       Add search for NN.a
+   30.10.86  5        PAC       Search under $, not :0
+   24.4.87   6        PAC       Handles non-ASCII files
+   20.8.87   7        PAC       New version for A500
+   25.8.87   8        PAC       Better escape handling
+   25.9.87   9        PAC       Searches H & GH, not Hdrs
+*/
+
+SECTION "SourceSearch"
+
+STATIC 
+$(
+   s.matches  = 0
+   s.lines    = 0
+   s.dir.buff = 0
+   s.nptr     = 0
+   s.lineflag = 0
+$)
+
+MANIFEST $( m.max.num.names = 77 $)
+
+GET "LIBHDR"
+
+
+/*
+         Parameters are:
+         * target:  target string, which may include '*N', '*"'
+         etc so long as the whole thing is enclosed in double
+         quotes. 2 target strings allowed.
+         * root:  root directory from which to do a 'total
+         search'.  Must be specified if 'in' is not.
+         * in:  optional directory specification. If given the
+         search is only done in that dir.
+         * linenos: display line numbers - switch
+*/
+
+
+LET START() BE
+$(
+   LET target1 = ?
+   LET target2 = ?
+   LET root    = ?
+   LET dir     = ?
+   LET argvec  = VEC 80
+   LET template = "target/A,,from=root/K,in/K,nolines=nl=l/S"
+
+   IF RDARGS (template, argvec, 80) = 0 THEN
+   $( WRITEF("Usage: %s*n",template); STOP(0) $)
+
+   target1, target2, root, dir := argvec!0, argvec!1, argvec!2, argvec!3
+   s.lineflag := (argvec!4 = 0)
+
+   s.dir.buff := GETVEC( 11*m.max.num.names / bytesperword ) // the names
+
+   test root = 0 & dir = 0 do
+   $( WRITES ("*NRoot of search (from), or directory *
+               *pathname (in), must be specified*N")
+      STOP (0)
+   $)
+   else if root ~= 0 & dir ~= 0 do
+   $( WRITES ("*NEither specify a root of search (from) *
+                *or a pathname (dir), not both*N")
+      STOP (0)
+   $)
+
+   FOR i = 1 TO target1%0 DO            // upper case the target
+      target1%i := CAPCH( target1%i )
+
+   IF target2 THEN 
+   FOR i = 1 TO target2%0 DO            // upper case the target
+      target2%i := CAPCH( target2%i )
+
+   WRITEF ("*nSearch for \%S\",target1)
+   IF target2 THEN WRITEF(" or \%S\",target2) 
+   NEWLINE()
+
+   IF root ~= 0 DO
+      WRITEF ("*s*s*s- from root directory %S*N", root)
+   IF dir ~= 0 DO
+      WRITEF ("*s*s*s- only in directory %S*N", dir)
+
+   NEWLINE ()
+
+   OsByte(200,1,0)  // disable normal escape effects
+
+   TEST dir THEN
+   $( 
+      search.( dir, target1, target2 )
+   $)
+   ELSE
+   $( RUNPROG("**DIR %S", root)     // get to root-of-search directory
+      total.search( target1, target2 )
+   $)
+
+   OsByte(200,0,0)  // re-enable normal escape fx
+
+   WRITEF("*nFinished: matches = %n, lines = %n*n",s.matches, s.lines )
+$)
+
+// search ALL files
+//
+AND total.search( targ1,targ2 ) BE
+$(
+   LET teststr = "AA.b"
+   LET i,j     = 'A', 'A'
+   LET handle  = 0
+
+   teststr%1 := i   // ensure that the string is initialised
+   teststr%2 := j
+
+   $(testloop
+
+   // see whether the directory exists
+
+   IF legal.( teststr )
+   THEN handle := open.( teststr )
+
+   IF handle ~= 0
+   THEN $( close.( handle )
+           search.( teststr, targ1, targ2 )
+        $)
+
+   j := j+1
+   teststr%2 := j
+
+   IF j <= 'Z' THEN LOOP
+
+   i := i+1
+   j := 'A'
+
+   teststr%1 := i
+   teststr%2 := j
+
+   IF i <= 'Z' THEN LOOP
+
+   $)testloop
+
+   REPEATUNTIL i > 'Z'
+
+   search.( "UT.a", targ1,targ2 )
+   search.( "H", targ1,targ2 )
+   search.( "GH", targ1,targ2 )  
+$)
+
+// special case - exclude ED + EX
+AND legal.( name ) = VALOF
+$(
+   IF COMPSTRING( name,"ED.b" ) = 0 RESULTIS FALSE
+   IF COMPSTRING( name,"EX.b" ) = 0 RESULTIS FALSE
+   RESULTIS TRUE
+$)
+
+AND search.( directory, t1,t2 ) BE
+$(
+   LET fname  = VEC 25  // buffer for file name
+   LET ch     = ?
+   LET stream = ?
+   LET errormsg = "*nFailed to find directory %s reason %n*n"
+   LET pb = VEC 6
+
+   s.nptr := 0
+   Fillwords( s.dir.buff, 11*m.max.num.names/bytesperword, 0 )
+
+   directory%(directory%0+1) := 0
+
+   pb!0 := directory*bytesperword+1
+   pb!1 := s.dir.buff*bytesperword 
+   pb!2 := m.max.num.names 
+   pb!3 := 0 
+   pb!4 := 11*m.max.num.names  
+   pb!5 := "***x00" * bytesperword + 1
+
+   // read file names from the directory
+   //
+   OsGbpb( 9, pb )
+
+   WRITEF("Searching %s, %n files*N", directory, pb!2)
+
+   RUNPROG ("**DIR %s", directory )
+
+   WHILE next.file( fname )
+   DO
+      find.( fname,t1,t2 )
+
+   RUNPROG("**BACK")
+
+$)
+
+// read next filename from directory buffer
+//
+AND next.file( buff ) = VALOF
+$(
+   LET count = 1
+   LET ch    = ?
+
+   ch := s.dir.buff%s.nptr; s.nptr := s.nptr + 1
+
+   IF ch = 0 RESULTIS FALSE  // last entry
+
+   $( buff%count := ch
+      count      := count + 1
+      ch         := s.dir.buff%s.nptr
+      s.nptr     := s.nptr + 1 
+   $) REPEATUNTIL (ch = #x0) | (count > 10 )
+
+   buff%0 := count -1
+
+   RESULTIS TRUE
+$)
+
+AND open.( filename ) = Osfind( #x40, filename )
+
+AND close.( handle ) = Osfind( 0, handle )
+
+AND find.( file,str1,str2 ) BE
+$(
+   LET fbuff = ?
+   LET ptr   = 0
+   LET ch    = ?
+   LET lim   = ?
+   LET line  = 0
+   LET ch1  = CAPCH(str1%1)
+   LET ch2  = CAPCH(str2%1)
+   LET name = TRUE
+
+   IF str2 = 0 THEN ch2 := #xFF
+
+   fbuff := FILETOVEC( file )
+
+   lim := (fbuff!1)           // data size in header
+
+   IF fbuff = 0
+   THEN
+   $( WRITEF("*nCan't load %s reason %n",file,RESULT2 )
+      RETURN $)
+
+   fbuff := fbuff + 2          // skip header words
+
+   $(file
+      LET match    = FALSE
+      LET startptr = ptr
+
+      $(line
+         ch  := CAPCH(fbuff%ptr)
+         ptr := ptr + 1
+
+         IF (ch = ch1)
+         THEN
+         $(
+            TEST (str1%0 = 1)
+            THEN match := TRUE
+            ELSE match := match | trytomatch( fbuff, ptr, str1 )
+         $)
+         IF (ch = ch2)
+         THEN
+         $(
+            TEST (str2%0 = 1)
+            THEN match := TRUE
+            ELSE match := match | trytomatch( fbuff, ptr, str2 )
+         $)
+
+      $)line REPEATUNTIL (ch = #x0A) | (ptr > lim)
+
+      line := line + 1
+
+      IF (ptr > lim) THEN BREAK
+
+      IF checkesc() THEN 
+      $( RUNPROG("BACK"); OsByte(200,0,0); STOP(0) $)
+
+      IF match
+      THEN 
+      $( IF name THEN 
+           $( WRITEF("*nFile %s",file ) ; name := FALSE $)
+         writeline( line, startptr-1, ptr-1, fbuff ) 
+         s.matches := s.matches + 1
+      $)
+
+   $)file REPEATUNTIL (ptr >= lim)
+
+   s.lines := s.lines + (line-1)      // update line count
+
+   UNLESS name WRCH('*n')
+
+   FREEVEC (fbuff - 2)              // free buffer
+$)
+
+AND trytomatch( buffer, offset, string ) = VALOF
+$(
+   LET os = offset - 2
+
+   FOR i = 2 TO string%0
+   IF string%i ~= CAPCH( buffer%(os+i) ) RESULTIS FALSE
+
+   RESULTIS TRUE
+$)
+
+AND writeline( lineno, start, end, buffer ) BE
+$(
+   LET len = end - start
+   LET linebuff = VEC 120
+   LET char = ?
+
+   len := (len > 240)-> 240,len
+
+   FOR i = 0 TO len-1 DO
+   $(
+      char := buffer%(start+i)
+      linebuff%i := ((char >31) & (char <127)) -> char, '#'
+   $)
+
+   IF buffer%(start+len-1) = #x0d THEN len := len - 1 // special for RCP files.
+
+   linebuff%0 := len-1
+
+   TEST s.lineflag THEN WRITEF( "*n  %n: %s",lineno, linebuff )
+                   ELSE WRITEF( "*n  %s",linebuff ) 
+$)
+
+AND checkesc() = VALOF
+$(
+   LET r = OsByte( #x81, -113, #xFF )
+   RESULTIS (r = Result2 = #xFF)
+$)
+.

@@ -1,0 +1,75 @@
+section "word.asc"
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.h.vhhd"
+
+/**
+         G.vh.word.asc (word.value, dest.string)
+         ---------------------------------------
+         Converts the unsigned 16 bit value 'word.value' as a
+         string of five ascii characters in 'dest.string' with
+         leading zeros.  No overflow is possible.
+
+         Needs no globals.
+         Private routine for Video Handler only (so far) but has
+         a global because it's in a separate module.
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         22.4.87     1       SA        Adapted for Input Editor
+
+         g.vh.word.asc
+**/
+
+let g.vh.word.asc (a16, dest.s) be
+$(
+   let bs = "32768"                    // top bit's worth
+   let is.large = (a16 < 0)            // test top bit
+   a16 := (a16 & #X7fff)               // nobble top bit
+   convert (a16, dest.s)
+   if is.large do
+      string.add (bs, dest.s)          // add bs to s
+$)
+
+
+/*
+      converts a 15 bit (unsigned) value to a string of 5 characters with
+      leading zeros.
+*/
+
+and convert (a15, s) be
+$(
+   let digit = ?
+
+   s%0 := 5                   // length byte
+   for j = 5 to 1 by -1
+   $( digit := a15 rem 10     // next digit
+      a15 := a15 / 10
+      s%j := digit + '0'         // set ASCII of digit in 's'
+   $)
+$)
+
+
+/*
+      string.add (s1, s2)
+      -------------------
+      Adds two strings: s1 is added to s2 in s2.
+      They must be same length.
+*/
+
+and string.add (s1, s2) be
+$(
+   let j, carry, sum = ?,?,?
+
+   carry := false
+   for j = s2%0 to 1 by -1
+   $(
+      sum := s1%j + s2%j - '0' - '0'   // sum this col
+      if carry then sum := sum + 1     // add in carry
+      carry := (sum >= 10)             // set new carry
+      if carry then sum := sum - 10    // take out overflow carry
+      s2%j := sum + '0'                // set digit
+   $)                               // final carry ignored, if any
+$)
+.

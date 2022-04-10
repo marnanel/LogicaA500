@@ -1,0 +1,12 @@
+Section "Hello"
+
+GET "LIBHDR"
+
+LET start() BE
+$(
+   WRITEF("Hello (yawn) World*n")
+
+   Debug(0)
+
+   Oscli("**Delete repl-tmp")
+$)

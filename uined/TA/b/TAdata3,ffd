@@ -1,0 +1,163 @@
+/**
+         TABULAR INPUT EDITOR PRIMITIVES
+         -------------------------------
+
+         This section contains :
+
+            G.ta.get.data
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         21.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TAdata3"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.GET.DATA
+         -------------
+         This routine reads the data values for the currently selected
+         variable and it's associated categories.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.get.data[op]
+         -----------------
+
+         calculate offset to data for each category
+         FOR category within the selected variableDO
+            calculate offset to data value
+            IF op = read THEN
+               read data value into data area
+            ELSE IF op = write AND data changed THEN
+               write data area to file
+         END FOR
+**/
+
+let G.ta.get.data(op) = VALOF
+$(
+   let data.area = g.ta.area + (m.ta.data.area / bytesperword)
+   let offset = g.ta.area + (m.ta.offset / bytesperword)
+   let datasize = g.ta.area%m.ta.data.size
+   let datasign = g.ta.area%m.ta.data.sign
+   let f.ptr = g.ta.area + (m.ta.f.ptr / bytesperword)
+   let st.data.buff = g.ta.area + (m.ta.st.data / bytesperword)
+   let st.data = vec 1
+   let buff = vec 1
+   let r = vec 1
+   let row = vec 1
+
+   G.ut.set32(G.ut.unpack16(st.data.buff, 0), 0, st.data)
+   G.ut.set32(0, 0, r)
+   G.ut.set32(0, 0, row)
+   for i = 1 to g.ta.area%m.ta.no.vars do
+   $(
+      unless i = g.ta.area%m.ta.cur.var then
+      $(
+         G.ut.set32(g.ta.area%(m.ta.cat.table + i - 1) - 1, 0, buff)
+         G.ut.mul32(offset, buff)
+         G.ut.add32(buff, r)
+      $)
+      offset := offset + 2  // increment by 2 words
+   $)
+   offset := g.ta.area + (m.ta.offset / bytesperword) +
+                                    ((g.ta.area%m.ta.cur.var - 1) * 2)
+   for i = 1 to g.ta.area%(m.ta.var.table + g.ta.area%m.ta.cur.var - 1) do
+   $(   //calculate offset to data in file
+      G.ut.set32(i - 1, 0, buff)
+      G.ut.mul32(offset, buff)
+      G.ut.add32(r, buff)
+      G.ut.mov32(buff,f.ptr)
+      G.ut.mov32(buff,row)
+      G.ut.set32(datasize, 0, buff)
+      G.ut.mul32(buff, f.ptr)
+      G.ut.add32(st.data, f.ptr)
+           //access data area to input data
+      test op = m.ta.read then
+      $(
+         G.ut.set32(0, 0, data.area)
+         if G.dh.read(G.context!m.data.handle, f.ptr,
+                         data.area, datasize) = 0 resultis false
+         correct.value(data.area) //set data values for data size and sign
+      $)
+      else if op = m.ta.write & g.ta.area%m.ta.change = m.ta.true then
+         if G.dh.write(G.context!m.data.handle, f.ptr,
+                   data.area, datasize) = 0 resultis false
+      data.area := data.area + 2  // inc by 2 words
+   $)
+   if op = m.ta.write G.dh.ensure()
+   g.ta.area%m.ta.change := m.ta.false
+   resultis true
+$)
+
+// set coorect bytes in data vector for byte size and sign
+// N.B. 4 byte signed data range = -2147483648 to 2147483647
+//      2 byte signed data range = -32768 to 32767
+//      2 byte unsigned data range = 0 to 65535
+//      1 byte signed data range = -128 to 127
+//      1 byte unsigned data range = 0 to 255
+
+and correct.value(data) be
+$(
+
+   test g.ta.area%m.ta.data.size = 1 then
+      test g.ta.area%m.ta.data.sign = m.ta.false then
+      $(
+         data%1 := 0   // unsigned 1 byte number
+         data!1 := 0
+      $)
+      else
+         test (data%0 & #x80) = 0 then
+         $(
+            data%1 := 0    // positive 1 byte number
+            data%2 := 0
+            data%3 := 0
+         $)
+         else
+         $(
+            data%1 := -1   //negative 1 byte number
+            data%2 := -1
+            data%3 := -1
+         $)
+   else if g.ta.area%m.ta.data.size = 2 then
+      test g.ta.area%m.ta.data.sign = m.ta.false then
+         G.ut.set32(G.ut.unpack16(data, 0), 0, data) //unsigned 2 byte number
+      else
+      $( let t = ?
+         t := (G.ut.unpack16(data, 0) & #x8000) = 0 -> 0, 1
+         G.ut.set32(G.ut.unpack16(data, 0), t, data)
+      $)
+$)
+.
+
+

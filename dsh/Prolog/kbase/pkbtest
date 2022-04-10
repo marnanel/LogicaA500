@@ -1,0 +1,48 @@
+/*started 8.12.87 by RB */
+
+/* uses files:  pkbs, bmethods */
+
+/*************************************
+ *
+ *  the command run_check causes all the pkbs to be checked to ensure they are
+ *  defined down to either [] or a basic_method.
+ *
+ *  Any errors are output to a file called mistakes 
+ *                                                  
+ *  The assumption made is that all pkbs are connected to a single root
+ *
+ **********************************************/
+
+run_check :- telling(Old),
+             tell(mistakes),
+             pkb(Proc,root,List),check_list(Proc,List),
+             told,
+             tell(Old).                                      
+
+
+check_list(_,[]) :- ! .
+check_list(Proc,[Head|Tail]) :- check_step(Proc,Head),check_list(Proc,Tail).
+
+check_step(Proc,generic(Step)) :-
+               pkb(Proc,Step,List),
+               check_list(Proc,List).
+
+check_step(_,library(Step)) :-
+               pkb(library,Step,List),
+               check_list(Step,List).
+
+check_step(_,library(Step)) :-
+               basic_method_library(Step).
+
+check_step(Proc,some_of(List)) :- check_list(Proc,List).
+
+check_step(Proc,one_of(List)) :- check_list(Proc,List).
+
+check_step(Proc,if(_,_,Then_steps,_,Else_steps)) :-
+                                 check_list(Proc,Then_steps),
+                                 check_list(Proc,Else_steps).
+
+check_step(Proc,generic(Step)) :- write('generic '),write(Step),write(' for '),
+                                  write(Proc),write(' not found'),nl.
+
+check_step(_,Step) :- write(Step),write(' not found'),nl.

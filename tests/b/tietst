@@ -1,0 +1,48 @@
+//  UNI SOURCE  4.87
+
+section "tietst"
+
+get "libhdr"
+
+
+let start() be
+$( 
+   let n1 = VEC 1
+
+   debug(0)
+
+   FFLOAT( 0, n1 ) // zero it
+
+   Writef("%f*n", !n1 )
+
+   g.nm.calc.tie.correction (2, n1)
+
+   Writef("%f*n", !n1 )
+$)
+
+and g.nm.calc.tie.correction (num.ties, tie.factor.ptr) be
+$(
+   let fp.adjust = vec FP.LEN
+   and fp.num.ties = vec FP.LEN
+   and fp.twelve = vec FP.LEN
+
+   FFLOAT (num.ties, fp.num.ties)
+
+   FFLOAT (12, fp.twelve)
+
+   Writef( "%f %f*n", !fp.num.ties, !fp.twelve )  
+
+   FDIV (
+         FMINUS (
+                 FMULT (
+                        FMULT (fp.num.ties, fp.num.ties, fp.adjust),
+                        fp.num.ties,
+                        fp.adjust),
+                 fp.num.ties,
+                 fp.adjust),
+         fp.twelve,
+         fp.adjust)
+
+   FPLUS (tie.factor.ptr, fp.adjust, tie.factor.ptr)
+$)
+.

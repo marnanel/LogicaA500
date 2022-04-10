@@ -1,0 +1,234 @@
+/**
+         DATA FORMATTER - GRID MAPPABLE
+         ------------------------------
+
+         This section contains :
+
+            G.df.format.grid
+            G.df.get.grid.ref
+            G.df.checkgr
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.format
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       27.02.87   1        SRY         Initial version
+        8.04.87   2        SRY         Trap > 4 digit GRs
+       16.04.87   3        MH          Return from get.area if 1st grid
+                                       reference is outside Domesday area
+       21.04.87   4        SRY         32-bit mult in get.grid.ref
+        3.08.87   5        SRY         Removed headers
+        4.09.87   6        SRY         Removed datoff headers
+        7.09.87   7        SRY         Incidence norm set to zero
+       27.11.87   8        MH          Updated to Unified version
+**/
+
+SECTION "Mapform2"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.dfhd"
+
+STATIC $( system = ?
+          val = ?
+       $)
+
+/**
+         G.DF.FORMAT.GRID
+         ----------------
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         PROGRAM DESIGN LANGUAGE:
+
+**/
+
+let G.df.format.grid(datatype) be
+$( let sub, l = ?, ?
+   let prim.norm = ?
+   let ranges = vec 20/bytesperword  // holds default ranges (4 byte values)
+   let bnf = "Bad normalising factor"
+   let br = "Raster size should be 1 to 10"
+
+   val := G.df + m.df.val
+
+   // Get raster size
+   G.df.read.num(false, false, br); if G.df.check.() return
+   G.df!m.df.raster := !val
+
+   test 1 <= G.df!m.df.raster <= 10
+   then sub := 10/G.df!m.df.raster
+   else $( G.df.ermess(br)
+           return
+        $)
+
+   G.df!m.df.record := 0
+   G.df!m.df.offset := 76 + 3 * sub
+
+   // Write number of sub-datasets
+   G.df.word(1)     // will be 'sub' when aggregation is done
+
+   // Write offsets to subdatasets
+   G.df.word(G.df!m.df.raster)               // raster size
+   G.df.word(0)                              // record number
+   G.df.word(G.df!m.df.offset)               // offset
+   for i = 2 to sub
+   $( G.df.word(0)
+      G.df.word(0)
+      G.df.word(0)
+   $)
+
+   // Read grid references
+   get.area(); if G.df.check.() return
+
+   // Read normalising factor
+   G.df.read.num(true, false, bnf)
+   if G.df.check.() return
+   prim.norm := !val
+   unless -99 <= prim.norm <= 99
+   $( G.df.ermess(bnf)
+      return
+   $)
+   if (datatype = 5) & (prim.norm ~= 0)
+   $( if g.df!m.df.dummy
+         G.sc.ermess("Warning: normalising factor changed to 0")
+      prim.norm := 0
+   $)
+
+   // Read datasize
+   G.df.get.datasize(); if G.df.check.() return
+   unless G.df!m.df.opt G.df!m.df.datasize := 4
+
+   // Read default ranges
+   l := G.df.def.ranges(ranges, 'G'); if G.df.check.() return
+
+   // Set top bit of eastings if NI or CI
+   if system = 'N' | system = 'C'
+   $( let t = vec 0
+      !t := G.ut.unpack16(G.df, m.df.base.byte) | #x8000
+      G.ut.movebytes(t, 0, G.df, m.df.base.byte, 2)
+      !t := G.ut.unpack16(G.df, m.df.top.byte) | #x8000
+      G.ut.movebytes(t, 0, G.df, m.df.top.byte, 2)
+   $)
+
+   // Do subdataset index
+   G.df.word(1)           // record number = 1
+   G.df.word(0)           // offset always zero - rastoff is frame aligned
+   G.df.double.word(G.df+m.df.base) // Grid references of AOI
+   G.df.double.word(G.df+m.df.top)
+   G.df.word(prim.norm)
+   G.df.word(0)
+   G.df.wrch(G.df!m.df.datasize)
+   G.df.wrch(l)
+   for i = 0 to (4/bytesperword)*l-1 by 4/bytesperword do
+       G.df.double.word(ranges+i) // 4n bytes
+   G.df.summary.data()            // 74 words
+   for i = 4*l to 25 G.df.wrch(0) // pad to 10 words def.ranges + 3
+                                  // to make size of each index 96 words
+
+   g.df!m.df.offset := g.df!m.df.offset + 96
+
+   // Don't need top bits any more
+   if system = 'N' | system = 'C'
+   $( let t = vec 0
+      !t := G.ut.unpack16(G.df, m.df.base.byte) & #x7FFF
+      G.ut.movebytes(t, 0, G.df, m.df.base.byte, 2)
+      !t := G.ut.unpack16(G.df, m.df.top.byte) & #x7FFF
+      G.ut.movebytes(t, 0, G.df, m.df.top.byte, 2)
+   $)
+
+   // Do the main dataset
+   G.df.main.sub.dataset()
+$)
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+//          Utility routines used by G.df.format.grid only                   //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+and get.area() be
+$( let ch, ch2 = ?, ?
+   let bgr = "Bad grid area"
+   G.df.get.grid.ref(G.df+m.df.gridbl); if G.df.check.() return
+   G.df.get.grid.ref(G.df+m.df.gridtr); if G.df.check.() return
+   if G.ut.unpack16(G.df, m.df.gridbl.byte) >= 
+       G.ut.unpack16(G.df, m.df.gridtr.byte) goto error
+   if G.ut.unpack16(G.df, m.df.gridblHI.byte) >= 
+       G.ut.unpack16(G.df, m.df.gridtrHI.byte) goto error
+   unless G.df.rdch() = ' ' goto error // Read GB, NI or CI
+   ch := capch(G.df.rdch()); if G.df.check.() return
+   ch2 := capch(G.df.rdch()); if G.df.check.() return
+   switchon ch into
+   $( case 'G': unless ch2 = 'B' goto error; endcase
+      case 'N': case 'C': unless ch2 = 'I' goto error; endcase
+      default: goto error
+   $)
+   system := ch
+   // Set up BASE gr of 1st 32x32 block
+   truncate.(G.df, m.df.gridbl.byte, G.df, m.df.base.byte, false)
+   truncate.(G.df, m.df.gridblHI.byte, G.df, m.df.baseHI.byte, false)
+   // Set up BASE of 1st 32x32 not used
+   truncate.(G.df, m.df.gridtr.byte , G.df, m.df.top.byte, true)
+   truncate.(G.df, m.df.gridtrHI.byte, G.df, m.df.topHI.byte, true)
+   G.ut.mov32(G.df+m.df.gridbl, G.df+m.df.gref)
+   G.df.checkgr()
+   if G.df.check.() return
+   G.ut.mov32(G.df+m.df.gridtr, G.df+m.df.gref)
+   G.df.checkgr()
+   return
+
+error:
+   G.df.ermess(bgr)
+$)
+
+// dest := (source/unit [+1]) * unit  in 32 bits
+and truncate.(source.buf, source.offset, dest.buf, dest.offset, addone) be
+$( let t = vec 1
+   let t1 = vec 1
+   let t2 = vec 1
+   let unit = vec 1
+   G.ut.set32((G.df!m.df.raster)*320, 0, unit)
+   G.ut.set32(g.ut.unpack16(source.buf, source.offset), 0, t)
+   G.ut.div32(unit, t, t1)
+   G.ut.set32(1, 0, t2)
+   if addone G.ut.add32(t2, t)
+   G.ut.mul32(unit, t)
+   G.ut.movebytes(t, 0, dest.buf, dest.offset, 2)
+$)
+
+and G.df.checkgr() be
+$( let x = G.ut.unpack16(G.df, m.df.gref.byte)
+   let y = G.ut.unpack16(G.df, m.df.grefHI.byte)
+   unless // Deep breath ...
+   0 <= x <= 7000 & 0 <= y <= 12300 & system = 'G' |
+   1180 <= x <= 4380 & 2740 <= y <= 4940 & system = 'N' | // get whole country
+   5000 <= x <= 6000 & 54000 <= y <= 55300 & system = 'C'
+      G.df.ermess("Grid reference outside Domesday area")
+$)
+
+and G.df.get.grid.ref(gref) be      // Read a grid reference
+$( let bgr = "Badly formed grid reference"
+   let ten = vec 1
+   G.ut.set32(10, 0, ten)
+   G.df.read.num(false, false, bgr); if G.df.check.() return
+   if G.df!m.df.digits > 4 goto error
+   // Make GR into 100m reference
+   for i = G.df!m.df.digits to 4 G.ut.mul32(ten, val)
+   G.ut.movebytes(val, 0, gref, 0, 2)
+   G.df.read.num(false, false, bgr) // neg. northing for CI!
+   if G.df!m.df.digits > 4 goto error
+   for i = G.df!m.df.digits to 4 G.ut.mul32(ten, val)
+   G.ut.movebytes(val, 0, gref, 2, 2)
+   return
+
+error:
+   G.df.ermess(bgr)
+$)
+.
+

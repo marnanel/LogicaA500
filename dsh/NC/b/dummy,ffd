@@ -1,0 +1,184 @@
+//  PUK SOURCE  6.87
+
+/**
+         DUMMY - NATIONAL CHART OVERLAY
+         ------------------------------
+
+         dummy routines for the chart overlay
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.chart
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         13.04.88  1        SA      Initial version
+         13.05.88  2        SA      change categories window redraw handler
+**/
+
+section "NC.dummy"
+
+GET "libhdr"
+GET "$.DSH.GH.glhd"
+GET "$.DSH.GH.glDYhd"
+GET "$.DSH.GH.glNChd"
+GET "$.DSH.H.sthd"
+GET "$.DSH.H.sdhd"
+GET "$.DSH.H.nchd"
+GET "$.DSH.H.wmhd"
+
+
+LET window.for( state ) = G.states!(state*m.st.esize + m.st.whandle)     
+
+AND g.nc.cats    () BE g.sc.mess("g.nc.cats")
+AND g.nc.catsini () BE g.sc.mess("g.nc.catsini")
+
+AND g.nc.chart() BE
+$(
+   LET main.window = window.for( m.st.chart.main )
+   LET cat.window = window.for( m.st.categories )
+
+   // trap any button presses outside main chart window
+   TEST ( G.context!m.window = main.window )
+   THEN
+   $(
+      IF G.context!m.redraw
+      THEN
+      $(
+         LET name = "chart" * BYTESPERWORD + 1  //machine address
+         LET min.x = ?
+         LET min.y = ?
+
+         g.context!m.redraw := FALSE
+
+         G.wm.Get.Window.State( main.window )
+         min.x := G.wm.q!1
+         min.y := G.wm.q!2
+
+         G.sc.Select.Sprite( name )
+         G.sc.Put.User.Sprite( name, min.x+20, min.y+60, 1 )
+      $)
+   $)
+   ELSE IF ( G.context!m.window = cat.window )
+        THEN
+        $( 
+           G.context!m.icon := m.wm.invalid.handle
+
+           IF G.context!m.redraw
+           THEN $( print.population.info()
+                   G.context!m.redraw := FALSE
+                $)
+        $)
+$)
+
+// SA 13.05.88
+AND print.population.info() BE
+$(
+   LET handle = window.for( m.st.categories )
+
+   G.wm.MoveA.Window( handle, 40, 160 )
+   G.sc.ofstr( "Population Size:" )
+
+   G.wm.MoveA.Window( handle, 40, 120 )
+   G.nc.fpout( g.nc.area + m.nc.sampsiz, 9 )
+$)
+
+AND g.nc.change.cat.icon() BE
+$(
+   LET cv = G.nc.area!m.nc.cv
+   LET q = G.wm.q
+
+   if g.menubar!m.box3=m.sd.act return
+   !(vpr(cv)) := g.nc.area!m.nc.ca
+   g.nc.area!m.nc.ca := g.nc.next.group(cv)
+      repeatwhile !(vpr(cv))=m.nc.all
+   h(cv)
+   d.g(cv)
+   g.wm.Get.Window.State( window.for(m.st.chart.main) )
+   g.wm.Update( q!0, q!1, q!2, q!3, q!4, q!5, q!6, q!7 )
+$)
+
+AND h(v) BE
+$(
+   LET s = "  = "
+   LET o = ?
+   LET g = G.nc.area!m.nc.ca
+   LET buff = VEC 50/BYTESPERWORD
+
+   TEST (g & #xff00) ~= 0
+   THEN
+   $(
+      o := m.nc.gname*bytesperword+(g >> 8)*m.nc.olsize.b
+      s%1 := G.nc.area%( o + m.nc.oaoff )
+   $)
+   ELSE
+   $(
+      FOR i=1 TO g.nc.no.cats(v)
+         IF ( (vpr(v))!i=g ) THEN o := vptr(v)+i*m.nc.lsize.b
+
+      s%1 := G.nc.area%( o + m.nc.aoff )
+   $)
+
+   IF g.menubar!m.box3=m.sd.act return
+
+   //g.sc.oprop(s)
+   // G.ut.align(G.nc.area,o,buff,m.nc.lsize.b)
+   G.nc.disp.cat.icon(s,G.ut.align(G.nc.area,o,buff,m.nc.lsize.b))
+$)
+
+AND d.g(v) be // return variable to default group
+$( !(vpr(v)) := m.nc.all
+   if g.nc.area%m.nc.add = 2 | g.nc.area%v > 24
+      g.nc.next.group(v)
+$)
+
+AND vptr(v)=valof // byte offset to name of variable
+$( let l=1
+   for i=1 to v-1
+      l := l+g.nc.no.cats(i)+1
+   resultis m.nc.labels.b+l*m.nc.lsize.b
+$)
+
+AND vpr(v)=g.nc.area+m.nc.gcats+(v*m.nc.gpwords)
+
+AND restrict.mouse( window.handle ) BE
+$(
+   LET flags = ?
+
+   G.wm.Get.Window.State( window.handle )
+   flags := G.wm.q!(32/BYTESPERWORD)
+
+   // Allow for scroll & title bars SA 07.04.88
+   TEST (flags & m.wm.NewForm) ~= 0
+   THEN
+   $(
+      IF (flags & m.wm.NewForm.VScroll) ~= 0
+      THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+      IF (flags & m.wm.NewForm.HScroll) ~= 0
+      THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+      IF (flags & m.wm.NewForm.Titlebar) ~= 0
+      THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+   $)
+   ELSE
+   $(
+      IF (flags & m.wm.VScroll) ~= 0
+      THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+      IF (flags & m.wm.HScroll) ~= 0
+      THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+      IF (flags & m.wm.Titlebar) ~= 0
+      THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+   $)
+
+   G.wm.Mouse.Rectangle( G.wm.q!m.wm.X0, 
+                         G.wm.q!m.wm.Y0, 
+                         G.wm.q!m.wm.X1, 
+                         G.wm.q!m.wm.Y1 )
+
+   G.context!m.dialogue := window.handle
+$)
+.

@@ -1,0 +1,188 @@
+//  $MSC
+//  AES SOURCE  4.88
+
+/**
+         SC.SPRITES - SPRITE UTILITIES
+         -----------------------------
+
+         G.sc.Get.User.Sprite - get sprite from user co-ordinates
+         G.sc.Put.Sprite      - plot sprite at graphics cursor position
+         G.sc.Put.User.Sprite - plot sprite at user co-ordinates
+         G.sc.Select.Sprite   - select sprite for subsequent plotting
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         21.04.88  1        SA      CREATED FOR DISH
+**/
+
+Section "sprite"
+
+GET "libhdr"
+GET ":4.DSH.GH.glhd"
+GET ":4.DSH.H.sdhd"
+GET ":4.DSH.H.sdphd"
+
+
+/**
+         G.SC.GET.USER.SPRITE - GET SPRITE FROM USER CO-ORDINATES
+         --------------------------------------------------------
+
+         Screen area, delimited by the co-ordinates supplied, is picked
+         up as a sprite.
+
+         INPUTS:
+
+         pointer to sprite name
+         palette flag
+         left-hand edge  (external co-ordinates)
+         bottom edge     (external co-ordinates)
+         right-hand edge (external co-ordinates)
+         top edge        (external co-ordinates)
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.sc.sprite.area
+
+         SPECIAL NOTES FOR CALLERS:
+
+         The palette flag has the following effect:
+
+         Value   Meaning
+
+         0       Exclude data
+         1       Include data
+**/
+
+LET G.sc.Get.User.Sprite( name, flag, min.x, min.y, max.x, max.y ) BE
+$( 
+   LET pb = VEC 7
+
+   pb!0 := G.sc.sprite.area
+   pb!1 := name
+   pb!2 := flag
+   pb!3 := min.x
+   pb!4 := min.y
+   pb!5 := max.x
+   pb!6 := max.y
+
+   OsSprite( m.sd.Get.User.Sprite, pb )
+$)
+
+
+/**
+         G.SC.PUT.SPRITE - PLOT SPRITE AT GRAPHICS CURSOR POSITION
+         ---------------------------------------------------------
+
+         Plot sprite at graphics cursor position given using the
+         GCOL action specified.
+
+         INPUTS:
+
+         pointer to sprite name
+         GCOL action
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         sprite addressed by the pointer to its name
+         (i.e. R0 = 256 + n)
+**/
+
+AND G.sc.Put.Sprite( name, gcol.action ) BE
+$(
+   LET pb = VEC 7
+
+   pb!0 := G.sc.sprite.area
+   pb!1 := name
+   pb!2 := gcol.action
+
+   OsSprite( m.sd.Put.Sprite, pb )
+$)
+
+
+/**
+         G.SC.PUT.USER.SPRITE - PLOT SPRITE AT USER CO-ORDINATES
+         -------------------------------------------------------
+
+         Plot sprite at co-ordinates supplied using the GCOL action 
+         specified.
+
+         INPUTS:
+
+         pointer to sprite name
+         x co-ordinate
+         y co-ordinate
+         GCOL action
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.sc.sprite.area
+
+         SPECIAL NOTES FOR CALLERS:
+
+         sprite addressed by the pointer to its name
+         (i.e. R0 = 256 + n)
+**/
+
+AND G.sc.Put.User.Sprite( name, x, y, gcol.action ) BE
+$(
+   LET pb = VEC 7
+
+   pb!0 := G.sc.sprite.area
+   pb!1 := name
+   pb!2 := x
+   pb!3 := y
+   pb!4 := gcol.action
+
+   OsSprite( m.sd.Put.User.Sprite, pb )
+$)
+
+
+/**
+         G.SC.SELECT.SPRITE - SELECT SPRITE FOR SUBSEQUENT PLOTTING
+         ----------------------------------------------------------
+
+         INPUTS:
+
+         pointer to sprite name
+
+         OUTPUTS:
+
+         (machine address of sprite - to be implemented later)
+
+         GLOBALS MODIFIED:
+
+         none
+
+**/
+
+AND G.sc.Select.Sprite( name ) BE
+$(
+   LET pb = VEC 7
+
+   pb!0 := G.sc.sprite.area
+   pb!1 := name
+
+   OsSprite( m.sd.select.sprite, pb )
+$)
+.

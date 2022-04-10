@@ -1,0 +1,201 @@
+SECTION "area4"
+
+/**
+      AREA 4 - INCIDENCE AND DATA STORE FUNCTIONS
+      -------------------------------------------
+
+      This module contains
+         g.ar.incidence
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.areal
+
+      REVSION HISTORY:
+
+      DATE     VERSION   AUTHOR     COMMENTS
+       5.5.87     1        SA       Initial Version
+       8.5.87     2        SA       Mods to g.ar.incidence
+      12.6.87     4        SA       Add data conversion function
+      22.6.87     5        SA       Fix missing data bug in conversion function
+      19.10.87    6        MH       updated for UNI version
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.arhd"
+
+
+/**
+      G.AR.INCIDENCE - CONTROL INCIDENCE INPUT
+      ----------------------------------------
+
+      Controls the input of data into the incidence entry box when
+      incidence is the current string in the data entry box
+
+      INPUTS:
+
+      none
+
+      OUTPUTS:
+
+      screen output
+
+      GLOBALS MODIFIED:
+
+      g.ar.buff!m.ar.firstincid
+      g.ar.buff!m.ar.readreply
+      g.ar.buff+m.ar.reply
+      g.ar.buff+m.ar.incid
+      g.context!m.data.type
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.AR.INCIDENCE()
+      ----------------
+
+      IF data exists and it is not incidence type
+      THEN IF first time in
+           THEN message: "Enter maximum value for Absent data"
+                show entry box in cyan
+           allow input to entry box
+           IF key = return
+           THEN IF contents of box valid
+                THEN message: "Convert data to incidence (y/n)? "
+                     IF answer = Y
+                     THEN convert data
+                          data type = incidence
+                          reduce cycle field
+                          delete box
+                     ENDIF
+                ENDIF
+           ENDIF
+      ENDIF
+**/
+
+LET g.ar.incidence() BE
+$( IF g.context!m.oldfile &
+      g.context!m.data.type ~= m.ar.incidence
+   THEN $( IF g.ar.buff!m.ar.firstincid
+           THEN $( LET g = G.key
+                   g.ar.highlight (m.ar.incid, m.sd.cyan, m.sd.blue)
+                   g.key := m.kd.noact
+                   g.ar.char.input (m.ar.incid)
+                   g.ar.buff!m.ar.firstincid := false
+                   g.key := g
+                $)
+           TEST g.ar.buff!m.ar.readreply
+           THEN
+           $( UNLESS G.key = m.kd.noact DO g.ar.char.input (m.ar.reply)
+              IF G.key = m.kd.return
+              TEST CAPCH (g.ar.buff%(m.ar.reply*bytesperword+1)) = 'Y'
+              THEN $( g.sc.clear (m.sd.message)
+                      g.sc.mess ("Converting data")
+                      g.context!m.data.type := m.ar.incidence
+                      g.ar.buff%(m.ar.nfac*bytesperword+m.lsb) := 1
+                      g.ar.buff%(m.ar.nfac*bytesperword+m.msb) := '0'
+                      g.ar.buff!m.ar.norm := 0
+                      convert.incidence()
+                      g.ar.highlight (m.ar.nfac,  m.sd.blue, m.sd.yellow)
+                      g.ar.highlight (m.ar.incid, m.sd.black, m.sd.black)
+                      g.sc.clear (m.sd.message)
+                   $)
+              ELSE $( g.ar.buff!m.ar.firstincid := true
+                      g.ar.buff!m.ar.readreply  := false
+                      g.ar.buff!m.ar.reply      := 0
+                      g.ar.buff!m.ar.incid      := 0
+                   $)
+           $)
+           ELSE $( UNLESS g.key = m.kd.noact DO g.ar.char.input (m.ar.incid)
+                   IF G.key = m.kd.return
+                   $( g.sc.clear (m.sd.message)      // eliminate message flash
+                      TEST g.ar.valid (m.ar.incid)
+                      THEN $( LET g = G.key
+                              LET ptr = g.sc.pointer (m.sd.off)
+                              g.sc.mess ("")
+                              g.sc.movea (m.sd.message, m.sd.mesXtex,
+                                                                  m.sd.mesYtex)
+                              g.sc.selcol (m.sd.blue)
+                              g.sc.oprop ("Convert data to incidence (Y/N)? ")
+                              g.sc.pointer (ptr)
+                              G.key := m.kd.noact
+                              g.ar.char.input (m.ar.reply)
+                              G.key := g
+                              g.ar.buff!m.ar.readreply := true
+                           $)
+                      ELSE $( g.ar.buff!m.ar.firstincid := true
+                              g.ar.buff!m.ar.readreply  := false
+                           $)
+                   $)
+                $)
+        $)
+$)
+
+
+// performs the conversion of data values
+AND convert.incidence () BE
+$( LET buf   = VEC 80
+   LET bytes = VEC 1
+   LET out   = VEC 1
+   LET val   = VEC 1
+   LET ptr   = VEC 1
+   LET t     = VEC 1
+   LET recs  = ?
+   LET areas = ?
+   LET size  = ?
+   g.ar.save (m.ar.header)
+   areas := g.ar.buff!m.ar.areas
+   size  := g.ar.buff!m.ar.size
+   recs  := 40*size
+   MOVE (g.ar.buff+m.ar.values.ptr, ptr, 2)
+   G.ut.set32(areas*size, 0, bytes)
+
+   g.ar.selfs (m.dh.adfs)
+   $( G.ut.set32((G.ut.unpack16(bytes, 0) > recs) ->
+              recs, G.ut.unpack16(bytes, 0), 0, out)
+      IF g.dh.read  (g.context!m.data.handle, ptr, buf,
+                                          G.ut.unpack16(out,0)) = 0
+      THEN $( g.key := -m.st.inputed ; RETURN $)
+      FOR X = 0 TO (G.ut.unpack16(out,0))/size - 1 DO
+      SWITCHON size INTO
+      $( CASE 2  : G.ut.set32(G.ut.unpack16(buf, X*2), 0, val)
+                   G.ut.set32(#x8000, 0, t)
+                   UNLESS g.ut.cmp32 (t , val) = m.eq DO
+                   TEST g.ut.cmp32 (val, g.ar.buff+m.ar.inc.cut.off) = m.gt
+                   THEN $( G.ut.set32(1, 0, t)
+                           G.ut.movebytes(t, 0, buf, 2*X, 2)
+                        $)
+                   ELSE $( G.ut.set32(0, 0, t)
+                           G.ut.movebytes(t, 0, buf, 2*X, 2)
+                        $)
+                   ENDCASE
+         CASE 4  : G.ut.movebytes(buf, X*4, val, 0, 4)
+                   G.ut.set32(0, #x8000, t)
+                   UNLESS g.ut.cmp32 (t, val) = m.eq DO
+                   TEST g.ut.cmp32 (val, g.ar.buff+m.ar.inc.cut.off) = m.gt
+                   THEN $( G.ut.set32(1, 0, t)
+                           G.ut.movebytes(t, 0, buf, 4*X, 4)
+                        $)
+                   ELSE $( G.ut.set32(0, 0, t)
+                           G.ut.movebytes(t, 0, buf, 4*X, 4)
+                        $)
+                   ENDCASE
+      $)
+      IF g.dh.write (g.context!m.data.handle, ptr, buf, out!0) = 0
+      THEN $( g.key := - m.st.inputed ; RETURN $)
+      g.ut.add32 (out, ptr)
+      g.ut.sub32 (out, bytes)
+   $) REPEATUNTIL G.ut.unpack16(bytes, 0) <= 0
+ $)
+.
+
+

@@ -1,0 +1,186 @@
+/**
+         WRITE UTILITIES
+         ---------------
+
+         This module contains :
+
+            G.ut.write
+            G.ut.open.file
+            G.ut.close.file
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         l.DFwrite
+
+         N.B. this file's CINTCODE to be linked to the overlay
+         requiring the functions. NOT part of kernel.
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+      25.02.87    1        SRY         Adopted for Input Editor
+**/
+
+Section "ut.write"
+
+GET "LIBHDR"
+GET "SYSHDR"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.uthd"
+
+/**
+         G.UT.OPEN.FILE - OPEN A FILE FOR 'WRITE'
+         G.UT.CLOSE.FILE - CLOSE FILE FOR 'WRITE'
+         ----------------------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         Flag set to m.ut.success for a succesful open or close,
+         else set to disc error number.
+
+         GLOBALS MODIFIED:
+
+         modifies G.ut.sequence.no
+         saves stream number in G.ut.stream
+
+         SPECIAL NOTES FOR CALLERS:
+
+         This routine outputs an error message if it can't open
+         or close the file.
+         Message is:
+
+         "Error NNN in <opening><closing> floppy disc file"
+
+         where NNN is the error number.
+
+         PROGRAM DESIGN LANGUAGE:
+**/
+
+LET G.ut.open.file(user.string) = VALOF
+$( let handle = ?
+   G.ut.trap( "UT",3,FALSE,1,G.ut.stream,0,0 ) // trap on non-zero stream
+
+   UNLESS G.ut.stream = 0 G.ut.close.file()    
+                                   // make sure we don't have an open file
+
+   // Check file doesn't already exist
+   handle := osfind(m.ut.open.read, user.string)
+   UNLESS handle = 0
+   $( G.df.ermess("File already exists")
+      osfind(m.ut.close, handle)
+      RESULTIS ~m.ut.success
+   $)
+   handle := osfind(m.ut.open.write, user.string) // Open file for write
+   G.ut.stream := 0  // set stream zero
+
+   if handle = 0
+   $( error.message()
+      RESULTIS ~m.ut.success
+   $)
+
+   G.ut.stream := handle
+   RESULTIS m.ut.success
+$)
+
+
+AND G.ut.close.file() = VALOF
+$( test g.ut.stream = 0
+   then resultis true // no file to close
+   else osfind(m.ut.close, G.ut.stream)
+
+   G.ut.stream := 0 // we've closed the open file
+   RESULTIS m.ut.success
+$)
+
+/**
+         G.UT.WRITE - WRITE DATA TO FLOPPY DISC
+         --------------------------------------
+
+         Writes data to the floppy disc file previously opened
+         with G.ut.open.file without modification
+
+         INPUTS:
+
+         pointer to data area to be written ( 16 bit integer )
+         size of area to be written ( 16 bit integer )
+         'type' of output to be used: pure binary ( a manifest from UTHDR )
+
+         N.B. the pointer to data area, and the size of the area
+         are in bytes, so if a vector contains the dump
+         information, then its byte address and size in bytes
+         must be passed.
+
+         E.G.
+          data.area := GETVEC ( vec.size )
+          G.ut.write ( data.area, vec.size, m.ut.text )
+
+         OUTPUTS:
+
+         flag set to m.ut.success for successful dump, or to the
+         disc error code for failure.
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ut.write [ data pointer, data size, type of write ]
+         ----------
+
+         write data to disc, using OSGBPB.
+         IF an error occurred, give message of the form :
+            "Error NNN while writing to floppy disc"
+            Call close file
+         ENDIF
+**/
+
+AND G.ut.write( data.ptr, data.size ) = VALOF
+$( LET status = G.sc.pointer(m.sd.off)
+   LET result = writeit ( data.ptr, data.size )
+
+   unless result = m.ut.success
+   $( result := result & #xFF
+      error.message()
+      G.ut.close.file()
+   $)
+
+   G.sc.pointer( status )
+   RESULTIS result
+$)
+
+AND error.message() BE
+$( LET head     = "Floppy error:  "
+   LET hlen     = head%0
+   LET string   = VEC 25
+   LET length   = G.ut.get.ermess( string+(hlen>>1) , 50-hlen )
+
+   FOR i = 1 TO hlen-1 string%i := head%i
+
+   string%0 := length + hlen
+
+   while G.sc.width(string) > m.sd.disW - m.sd.mesXtex
+      string%0 := string%0 - 1
+
+   G.df.ermess(string)
+$)
+
+AND writeit( byte.ptr, byte.size ) = VALOF
+$( LET wcb = VEC 6   // write control block
+
+   wcb!0 := G.ut.stream   // file handle
+   wcb!1 := byte.ptr*bytesperword // 2nd processor main address
+   wcb!2 := byte.size     // size in bytes
+
+   osgbpb(m.ut.write.op, wcb)
+   resultis (wcb!1 - (byte.ptr*bytesperword)) = byte.size -> 
+                                                    m.ut.success, ~m.ut.success
+$)
+.

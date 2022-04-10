@@ -1,0 +1,191 @@
+//  $MSC
+//  DSH SOURCE  9.87
+
+/**
+         WM.WIMP3 - Window Manager Top Level
+         ------------------------------------
+
+         Procedures in Wimp1 are:
+
+         G.wm.Get.Action       - Top level poll for Wimp
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR  DETAILS OF CHANGE
+         24.9.87  1        PAC     CREATED FOR DISH SYSTEM
+         31.3.88  2        PAC     Fixed for new top level
+**/
+
+Section "WM.Wimp3"
+
+GET "LIBHDR"
+GET ":4.DSH.GH.glhd"
+GET ":4.DSH.H.sdphd"
+GET ":4.DSH.H.kdhd"
+GET ":4.DSH.H.wmhd"
+GET ":4.DSH.H.sthd"
+
+
+/**
+         G.wm.Get.Action() - Top level wimp routine
+         ------------------------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.context
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.wm.Get.Action []
+         ---------------
+
+
+
+**/
+
+LET G.wm.Get.Action() BE
+$(
+   Let q = VEC m.wm.poll.buf.words
+
+   G.context!m.key         := m.kd.noact
+   G.context!m.reason.code := G.wm.poll(q, m.wm.no.mask)
+
+   SWITCHON G.context!m.reason.code INTO
+   $(
+      CASE m.wm.Null.Reason.Code:
+         Null.Action()
+      ENDCASE
+
+      CASE m.wm.Redraw.Window.Request: 
+         Redraw.Handler(!q)
+      ENDCASE
+
+      CASE m.wm.Open.Window.Request:
+         G.wm.Update(!q,q!1,q!2,q!3,q!4,q!5,q!6,q!7)
+      ENDCASE
+
+      CASE m.wm.Close.Window.Request:
+         G.wm.Close(!q)
+      ENDCASE
+
+      CASE m.wm.Pointer.Leaving.Window:
+      ENDCASE
+      CASE m.wm.Pointer.Entering.Window:
+      ENDCASE
+
+      CASE m.wm.Mouse.Button.Change:
+         Mouse.Handler(!q,q!1,q!2,q!3,q!4,q!5)
+      ENDCASE
+
+      CASE m.wm.User.Drag.Box: // only used by AREA box dragging, I think
+      ENDCASE
+
+      CASE m.wm.Key.Pressed:
+         Key.Handler(!q,q!1,q!2,q!3,q!4,q!5,q%24) 
+      ENDCASE
+
+      CASE m.wm.Menu.Select:
+         Menu.Handler( q )
+      ENDCASE
+
+      CASE m.wm.Scroll.Request:  // these shd be m.sd.charwidth ???
+         G.wm.Update( !q, q!1, q!2, q!3, q!4, q!5+q!8*32, q!6+q!9*32, q!7 )
+      ENDCASE
+
+      DEFAULT: G.wm.Error("Unknown reason code from Poll_Wimp")
+      ENDCASE
+   $)
+
+$)
+
+// routine to call when nothing is happening
+//
+AND Null.Action() BE RETURN
+
+// routine to redraw the specified window
+//
+AND Redraw.Handler( window.handle ) BE 
+$(
+   LET q = G.wm.q
+
+   // redraw window
+   G.context!m.redraw := G.wm.redraw( window.handle )
+
+   G.context!m.window := window.handle
+
+   // redraw contents of the window
+   WHILE G.context!m.redraw 
+   $(
+      G.dy.action()
+      G.context!m.redraw := G.wm.Get.Rectangle() // coords are in G.wm.q
+   $)
+$)
+
+// routine to interpret mouse key presses
+//
+AND Mouse.Handler( mouseX, mouseY, buttons, window, icon, oldbuttons ) BE
+$(
+   G.context!m.window := window
+   G.context!m.icon   := icon  
+   G.context!m.key    := buttons
+
+   SWITCHON buttons INTO
+   $(
+      CASE #x02 : ENDCASE // MENU button - ignored in DISH
+
+      CASE #x01 :
+      CASE #x04 :    // SELECT/ADJUST buttons - shd ignore ADJUST ???
+    //  $(
+         // do state specific action for mouse buttons
+         //
+    //  $)
+      ENDCASE
+
+      CASE #x10:
+      CASE #x40:  // -- SELECT/ADJUST dragging
+      ENDCASE
+
+      CASE #x100:
+      CASE #x400: //  -- selection if button type = 10
+      ENDCASE
+   $)
+
+   RETURN
+$)
+
+// routine to interpret keyboard key presses
+// 
+AND Key.Handler( window, icon, caretX, caretY, caretH, caretI, key ) BE
+$(
+   G.context!m.window := window
+   G.context!m.icon   := icon  
+   G.context!m.key    := key
+
+   RETURN
+$)
+
+// routine to decode menu selections
+//
+AND Menu.Handler( menu.list ) BE
+$(
+   RETURN
+//   $( Let i=0            // make a place for menu handles
+//      $( menulist!i := q!i ; i := i+1 $) REPEATUNTIL q!(i-1) = -1            
+//   $)
+$)
+.

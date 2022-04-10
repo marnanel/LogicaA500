@@ -1,0 +1,125 @@
+SECTION "Data4"
+
+/**
+         DATA SCREEN PAGING ROUTINE
+         --------------------------
+
+         This module contains
+
+         G.ar.find
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         9.6.87     1       SA        Initial version
+         20.10.87   2       MH        updated for UNI version
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.FIND - OUTPUT DATA PAGE
+         ----------------------------
+
+         Performs the find operation
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.ar.buff!m.ar.top
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+         IF first time in
+         THEN inititialise
+         IF key = return
+         THEN do search
+              re-draw page
+**/
+
+LET G.ar.find () BE
+$( IF g.ar.buff!m.ar.firstfind
+   THEN $( LET g = G.key
+           LET mbar = TABLE m.sd.act, m.sd.act, m.sd.wBlank,
+                            m.sd.wblank, m.sd.act, m.sd.act
+           LET ptr = g.sc.pointer (m.sd.off)
+           g.ar.buff!m.ar.find := 0
+           g.sc.menu (mbar)
+           g.sc.clear (m.sd.message)
+           g.sc.selcol (m.sd.cyan)
+           g.sc.movea (m.sd.message, 0, 0)
+           g.sc.rect (m.sd.plot, m.sd.mesw-1, m.sd.mesh-1)
+           g.sc.movea (m.sd.message, m.sd.mesXtex, m.sd.mesYtex)
+           g.sc.selcol (m.sd.blue)
+           g.sc.ofstr ("Area Name: ")
+           IF G.screen = m.sd.menu
+           THEN G.sc.moveptr (G.xpoint, G.sc.dtob (m.sd.display,4))
+           G.key := m.kd.noact
+           g.ar.char.input (m.ar.find)
+           G.key := g
+           g.sc.pointer (ptr)
+           g.ar.buff!m.ar.firstfind := false
+        $)
+   UNLESS g.key = m.kd.noact DO g.ar.char.input (m.ar.find)
+   IF G.key = m.kd.return
+   THEN $( LET ptr = g.sc.pointer (m.sd.off)
+           g.sc.clear (m.sd.message)
+           IF g.ar.buff%(m.ar.find*bytesperword) > 0   // no string
+           THEN search (g.ar.buff+m.ar.find)
+           g.redraw := true
+           g.ar.buff!m.ar.firstfind := true
+           g.sc.pointer (ptr)
+        $)
+$)
+
+AND search (string) BE
+$( LET rec.size   = vec 1
+   LET ptr   = VEC 1
+   LET start = ?
+   LET mid   = ?
+   LET end   = ?
+   LET action = ?
+
+   G.ut.set32(m.ar.gazbytes, 0, rec.size)
+   start := 1
+   end   := g.ar.buff!m.ar.data.areas
+
+   g.ar.selfs (m.dh.vfs)
+   $( mid   := (end+start)/bytesperword
+      G.ut.set32(mid-1, 0, ptr)
+      g.ut.mul32 (rec.size, ptr)
+      g.ut.add32 (g.ar.buff+m.ar.gtopptr, ptr)
+      IF G.ar.read.gaz(ptr) = 0
+      THEN $( g.key := - m.st.inputed ; RETURN $)
+      action := COMPSTRING (string, g.ar.buff+m.ar.gstr)
+      TEST action < 0
+      THEN end   := mid-1
+      ELSE start := mid+1
+   $) REPEATUNTIL (mid = end) | (mid = start)
+
+   g.ar.page (m.ar.store)
+   g.ar.buff!m.ar.top := (mid > 10) ->  mid - 10, 1
+   g.ar.page (m.ar.display)
+$)
+.

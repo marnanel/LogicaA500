@@ -1,0 +1,3 @@
+system('key1 system(''BICI.hello'').|m').
+['eg.hanoi'].
+hanoi(3).

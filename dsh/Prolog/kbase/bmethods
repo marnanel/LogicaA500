@@ -1,0 +1,75 @@
+/* FILE BMETHODS */
+
+/***************************************************
+ * Started 7.10.87 by RB
+ *
+ * dependencies:  the recognised actions in the pkbs file are defibed in terms 
+ * of these methods so changes here may mean alterations there
+ *
+ *
+ * Updates (brief summary, date, author) most recent first              
+ *
+ *  16.11.87  by RB  basic methods defined to agree with memo of 2.11.87
+ */
+
+/********************************
+ * contains lists of basic methods as currently defined
+ * /
+
+
+/* basic_method(Method)
+ *                In
+ *
+ * true if Method is a basic_method
+ *
+ *  Side effects:  none  Resatisfiable:  No
+*/
+
+/**********************************************************
+*               Revision History                          *
+* Revised by   : S Ala'i                                  *
+* Description  : Test with DISH prolog code               *
+* 14/03/88   R1: Parts of the pkb not implemented for     *
+*                Esprit demo on 16.06.88                  *
+* 15/03/88   R2: Prevents the pkb being entirely skipped  *
+**********************************************************/
+
+basic_method(Method):- user_action(Method).
+basic_method(Method):- mouse_action(Method).
+basic_method(Method):- cursor_action(Method).
+basic_method(Method):- keyboard_action(Method).
+basic_method(Method):- not_implemented(Method).   %R1
+basic_method(Method):- no_steps(Method).          %R2
+
+user_action(look_at).
+user_action(read).
+user_action(decide).
+user_action(check).
+
+mouse_action(move_mouse).
+mouse_action(press_mouse).
+mouse_action(release_mouse).
+
+cursor_action(position_cursor).
+
+keyboard_action(type_in).
+keyboard_action(press_return).
+
+%R1
+not_implemented(contents_option).
+not_implemented(map_operations).
+not_implemented(set_bookmark).
+not_implemented(save_bookmark).
+not_implemented(go_to_bookmark).
+not_implemented(load_bookmark).
+
+%R2
+no_steps('finish editing the chart').
+no_steps(close_window).
+no_steps('decide when to stop').
+no_steps('choose second variable').
+no_steps('regroup variables so that there are fewer than 24').
+no_steps('finish regrouping operations').
+no_steps('reinclude').
+no_steps('finish using the special menu').
+no_steps('down load data onto disc').

@@ -1,0 +1,14 @@
+/* Environments (and anything else which is 'updated') are represented as a pair:
+
+        Old_Env ~ New_Env
+        
+   using the infix operator ~.  This will only appear explicitly whenever a
+   particular component needs to be accessed.  Note in particular that major
+   new environments are often created with a logical variable which is
+   instantiated later in the clause.
+*/
+
+:- op(650, xfx, [~]).
+
+:- op(700, xfx, [~=]).          % inequality
+X ~= Y :- \+ X = Y.             % can be removed for Quintus Release 2.0

@@ -1,0 +1,356 @@
+BCPL document of 25 Oct 85 17:38:21
+
+Compiler options
+
+Default values are given in square brackets.
+
+ Front end:
+
+   B     [off]    stack grows from high to low addresses -
+                  point VECs at the end, not beginning
+   C     [on]     equate cases
+   L     [on]     enable special LISP operators
+   R     [off]    'restricted' language
+   Sn    [4]      set savespace size
+   T     [off]    print parse tree
+   Xn    [large]  set extension level to n
+   $tag           set tag to TRUE
+   $tag'          set tag to FALSE
+   Dn    - ignored -
+
+ Code generator options:
+
+   A     [off]    generate AOF
+   B     [on]     ensure RB contains address of destination procedure on call
+   C     [off]    stack checking
+   P     [off]    profile and call counting
+   K     [off]    call counting
+   N     [off]    generate variable names in code
+   S     [on]     produce compacter code at the expense of speed by compiling
+                  various sequences out of line
+   Wn    - ignored -
+   Dn    [0]      set CG debug mode to n.
+                  I assure you, you don't want to use this
+   On    [1]      set CG optimise mode to n
+
+ Switch options must be preceded by + or -.  Options may be separated by
+ commas and spaces.  Front end options are seperated from code generator
+ ones by /.
+
+ If the B front-end option is used, the code generated requires the support
+ of a different (currently non-existent) mclib.
+ The P code generator option currently generates only entry counts.
+ The N code generator option is only partially implemented at present.
+
+
+The library
+
+14      PutByte(vec, offset, value)
+15      result := GetByte(vec, offset)
+
+37      result := GBytes(hardware-address,  size)
+38      PBytes(hardware-address,  size,  data)
+
+16      result := MulDiv(a, b, c)
+           result  = a*b/c
+           result2 = a*b REM c
+
+20      ch := CapitalCh(ch)
+
+21      comparison := CompCh(ch1, ch2)
+           result has the sign of ch1-ch2 (case folded)
+
+22      comparison := CompString(s1, s2)
+
+35      Stop
+
+41      frameptr := Level()
+
+42      LongJump(frameptr, lab)
+           The frame value must be one that is reachable by chaining back
+           from the current frame
+
+43      Aptovec(proc, vec ub)
+           Note that Aptovec uses a stack frame itself
+
+48      CreateCo(function, stacksize)
+
+49      successcode := DeleteCo(cptr)
+
+50      CallCo(cptr, arg)
+
+51      ResumeCo(cptr, arg)
+
+52      CoWait(cptr)
+
+54      vec := GetVec(upperbound)
+
+55      FreeVec(vec)
+
+56      size := MaxVec()
+
+94      error status := SWI(number, args, results)
+          args         is a 10 word BCPL vector containing the values for
+                       R0 to R9 inclusive
+          results      is a 10 word BCPL vector to receive the values of
+                       R0 to R9 inclusive after the SWI
+          error status is non-zero if the SWI gave rise to an error
+
+96      Avalue := OSArgs(op, handle, data)
+          result is negative if an error occurred.
+          (otherwise, only significant when op=handle=0)
+          result2 receives the returned data value.
+
+97      byte := OSBGet(channel)
+           (#x1fe returned at end of file)
+           result is negative on an error.
+
+98      error := OSBPut(byte, channel)
+           result is 0 if OK, negative if an error occurred.
+
+99      result := OSFind(op, arg)
+           op=0, (close) arg is file handle
+           op ~=0 (open) arg is file name (BCPL string), returns handle
+
+100     result := OSFile(op, filename, args)
+          filename is a BCPL string
+          args     is a BCPL vector containing the values wanted by Brazil
+                   OSFile in R2 to R5.  Where these are addresses, they are
+                   hardware adresses (ie BCPL pointers shifted up two places).
+          result is guaranteed valid only if op is 5
+        If an error occurs, Result2 is returned non-zero
+
+101     result := OSCLI(command)
+          command is a BCPL string
+          result  is False if the command fails, True otherwise
+        If the base of this program is not #x8000, then it tries to run the
+        command as a sub-program.
+
+102     error := OSWrCh(ch)
+           result is negative if an error occurred
+
+103     ch := OSRdCh()
+           Result2 is the value of the carry flag result (cf OSWord 0)
+
+104     result := OSByte(a, x, y).
+           Result is return X value; Result2 is set to return Y value
+
+93      result := OSByte2(a, x, y)
+           Result is negative if an error;
+           otherwise bottom byte = return x
+                     byte 1 = return y
+                     byte 2 is non-zero if return carry flag set
+           (This is how OSByte should have been: I may later remove it in
+            favour of this).
+
+105     OSWord(number, buffer)
+           If number=0 this does a Brazil ReadLine, and returns the length read
+                       as result and the value of the carry flag in Result2
+                       (TRUE if set, FALSE otherwise)
+           If number~=0 does a Brazil OSWord; no result returned
+
+106     buffer := TKRErr(buffer, maxlength)
+           Moves the most recent error string into the given buffer.
+           returns the (bcpl address of the) beffer, just as passed
+
+140     MoveWords(direction, length, from, to)
+           from and to are BCPL addresses
+
+141     FillWords(base, length, value)
+           Initialise !base to base!(length-1) to value.
+           base is a BCPL address.
+
+112     SetEventHandler(event number, data, treatment)
+
+  Treatment may have one of the values:
+      ev_ignore (0)
+      ev_set_flag (1)
+         data  is the (BCPL) address of a word which onoccurrence of the
+               event will be set to a non-zero value
+      ev_call_proc (2)
+         data  is the hardware address of a piece of code tobe called when
+               the event occurs.  Call conditions are as for the Brazil
+               event handler.  No BCPL environment is set up for the call.
+
+      ev_buffer (3)
+         data  is the address of a buffer to be used for the event values.
+               The values written are
+                  (event number<<16) + (X value<<8) + Y value.
+               The buffer is a structure of the form
+                  insertion_pointer = 0*4
+                  extraction_pointer = 1*4
+                  buffer_size = 2*4
+                  buffer = 3*4 // to (buffer_size+2)*4
+              Values are inserted into the buffer using the algorithm
+                  buffer!insertion_pointer := value;
+                  $( LET new_i_p = insertion_pointer+1;
+                     IF new_i_p=buffer_size THEN new_i_p := 0;
+                     IF new_i_p~=extraction_pointer
+                        THEN insertion_pointer := new_i_p
+                  $)
+  Escape flag update is treated as event number -1: acknowledgement is
+  done automatically.
+
+
+46      stream := FindInput(name)
+47      stream := FindOutput(name)
+   Special cases are
+        VDU:
+        RS423:
+        RS232:
+        PRINTER:
+        NULL:
+
+29      SelectInput(stream)
+30      SelectOutput(stream)
+
+27      stream := Input()
+28      stream := Output()
+
+24      ch := RdCh()
+26      WrCh(ch)
+
+44      ch := RdBin()
+45      WrBin(byte)
+
+76      EndRead()
+77      EndWrite()
+
+25      UnRdch()
+
+66      count := ReadBytes(vector, offset, count)
+67      WriteBytes(vector, offset, count)
+
+59      Read.Offset(stream, vector)
+          vector!0 is set to the sequential pointer for the file open on stream
+
+60      Set.Offset(stream, vector)
+          Sets the sequential pointer for the file open on  stream  to vector!0
+
+61      filelength := Extent(stream)
+
+78      n := ReadN()
+
+23      NewLine()
+36      NewPage()
+
+19      WriteF(format, a, b, c, d, e, f, g, h, i, j, k)
+
+18      WriteS(string)
+
+79      WriteD(n, digits)
+
+80      WriteN(n)
+
+81      WriteHex(n, digits)
+
+82      WriteOct(n, digits)
+
+83      RdArgs(keys, argv, size)
+85      FindArg(keys, w)
+
+108     centisecondtime := Time()
+109     timeofdaystring := TimeOfDay()
+110     datestring := Date()
+
+90      n := Random(n)
+
+69      PackString(vector, string)
+70      UnpackString(string, vector)
+
+63      Abort(n)
+          Called on hardware abort, or library-detected fatal fault.  The call
+          is as from the place of the fault; n = 0 for a software-detected
+          fault or the Arthur error code for a hardware trap
+          Note that global n is initialised to #xAE950000+4*n.  If used as an
+          address, this will give an address exception, and if branched to
+          will give a prefetch abort.
+
+64      BackTrace()
+
+65      MapStore()
+
+Variables
+89      random.state
+40      stackbase
+57      blocklist
+144     vdustream
+145     errorstream
+
+
+
+Section format
+
+SectionStart
+        =       "BCPL"
+        &       globinits-SectionStart
+        =       8 bytes of section name (8 data bytes, not a string)
+        =       20 bytes date and time compiled, also not a string.
+                The BCPL system uses the format, eg
+                "07 Oct 85 15:54:35",0,0.
+                Anything different will give odd output from MapStore.
+        =       0
+
+globinits
+        &       offset of global in section,  global number
+           ...
+        &       highest global number used, 0
+
+[ This bit will not be present when using a BCPL system which requires
+  linking rather than joining
+
+       &       &12345678
+
+        &       offset of word in section requiring relocation
+          ....
+
+        &       &87654321
+(note that global initialisations need to be relocated.
+There's laziness for you).
+]
+
+Each procedure is preceded by a 12-byte header
+        &       -1
+        =       7, first 7 characters of procedure name (filled with space)
+Compiled BCPL may preceed that with a word giving the address of static data
+for the section.
+
+
+
+Compiled code conventions
+
+Registers:
+
+RB         8
+RL         12
+RTS        11
+RP         10
+RG         9
+RGB        7
+
+There is an upwards-growing stack, addressed by two registers.  RFP is the
+frame pointer, RTS the top of stack pointer (actually, it points to the first
+unused word above the stack).  RTS is not always correct within procedures, but
+it always is on procedure call and must be on return.
+
+RG points at the base of the global vector; RGB addresses a set of subroutines
+within the library.
+
+On procedure entry, RB holds the address of the called procedure.  It need not
+be preserved.  RL holds the address of the caller's static data, and must be
+preserved.  R14 holds the link: this must be written to both PC and PSR on
+return.  R1 to R4 hold the first four arguments, with others on the stack
+above RTS in the usual way. Thus, a general procedure would look like:
+        STMEA   rts!, {rb, rp, rl, r14} ; save linkage
+        SUB     rp, rts, #16            ; new frame pointer
+        STMEA   rts!, {a1, ...}         ; arguments
+           ...
+        MOV     rts, rp                 ; unwind our frame
+        LDMIB   rp, {rp, rl, pc}^       ; no need to restore RB
+
+Functions return their result in R1.
+
+R0 to R6 and RB may be used without saving their values; so may R13 and
+moreover it is accessible from BCPL through the name NIL (assignment to NIL
+from BCPL has the side-effect of updating R6).  R6 and R13 are guaranteed
+untouched by the library, and by BCPL code which does not update NIL.

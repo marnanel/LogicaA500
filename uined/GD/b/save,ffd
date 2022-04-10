@@ -1,0 +1,199 @@
+SECTION "save"
+
+/**
+      SAVE - DATA STORE AND EXIT FUNCTIONS
+      ------------------------------------
+
+      This module contains
+         g.gd.save
+         g.gd.exit
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.gridh
+
+      REVSION HISTORY:
+
+      DATE     VERSION   AUTHOR     COMMENTS
+    17.06.87   1         SA         Initial Version
+    19.06.87   2         SRY        Added save function from skeleton
+     4.09.87   3         SRY        Fix unit string save for new file
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+get ":4.UINED.h.dhhd"
+GET ":4.UINED.h.grhhd"
+
+
+let g.gd.save() be
+$(
+   manifest $( indoff = 152 $)
+
+   LET ranges = g.gd.buff+m.gd.ranges
+   let handle = G.context!m.data.handle
+   let datoff = ?
+   let dtype = g.gd.buff!m.gd.datatype
+   let def = g.gd.buff!m.gd.default.ranges
+   let norm = g.gd.buff!m.gd.norm
+   let offset = vec 1
+   let units = G.gd.buff+m.gd.units
+   let zero = vec 1
+   let t = vec 1
+   let buff = getvec(m.dh.bytes.per.frame/bytesperword)
+
+   g.ut.set32(0, 0, zero)
+   for i = 0 to m.dh.bytes.per.frame/bytesperword buff!i := 0
+
+   TEST g.context!m.oldfile
+   THEN $( // Read header into buffer
+           if G.dh.read(handle, zero, buff, indoff+6) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+
+           // Insert units string and data type
+           for i = 39 to units%0+1 by -1 units%i := ' '
+           g.ut.movebytes(units, 0, buff, 68, 40)
+           g.ut.set32(dtype, 0, t)
+           g.ut.movebytes(t, 0, buff, indoff-4, 2)
+
+           // Write it back
+           if G.dh.write(handle, zero, buff, indoff+6) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+
+           // Read sub-dataset index
+           datoff := g.ut.unpack16(buff, indoff+4) +
+                     (g.ut.unpack16(buff, indoff+2))*(m.dh.bytes.per.frame/2)
+           g.ut.set32(datoff*2, 0, offset)
+           if G.dh.read(handle, offset, buff, 150) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+
+           // Buffer now starts at datoff
+           g.ut.set32(norm, 0, t)
+           G.ut.movebytes(t, 0, buff, 12, 2)
+           buff%17 := def
+           g.ut.movebytes(ranges, 0, buff, 18, 4)
+           g.ut.movebytes(ranges, 8, buff, 22, 4)
+           g.ut.movebytes(ranges, 16, buff, 26, 4)
+           g.ut.movebytes(ranges, 24, buff, 30, 4)
+           summary(buff, 34)
+           if G.dh.write(handle, offset, buff, 150) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+        $)
+   ELSE $( 
+           // 28-byte header
+           let header = table #xFFFF0100, -1, -1, #xFFFF, 0, 0, -1
+           G.sc.mess("Saving data")
+           G.ut.movebytes(header, 0, buff, 0, 28)
+
+           // dataset header
+           for i = 28 to 147 buff%i := ' '    // title + units*2
+           // Insert units string and data type
+           for i = 39 to units%0+1 by -1 units%i := ' '
+           g.ut.movebytes(units, 0, buff, 68, 40)
+           g.ut.set32(dtype, 1, t)
+           g.ut.movebytes(t, 0, buff, indoff-4, 4)
+
+           // Indoff
+           datoff := indoff + 60 // enough for 10 sub indices if nec.
+           g.ut.set32(g.gd.buff!m.gd.raster.size, 0, t)
+           g.ut.movebytes(t, 0, buff, indoff, 2)
+           G.context!m.resolution := g.ut.unpack16(buff, indoff)
+                                                 // resolution in km
+           G.ut.set32(0, datoff/2, t)
+           g.ut.movebytes(t, 0, buff, indoff+2, 4)
+                           // record to datoff and word offset to datoff
+
+           // Datoff
+           g.ut.set32(1, 0, t)
+           g.ut.movebytes(t, 0, buff, datoff, 4)
+                        // Record to rastoff and word offset to rastoff
+           g.ut.set32(0, #x8000, t)
+           g.ut.movebytes(t, 0, buff, datoff+4, 4)
+                        // bl easting and bl northing - invalid pair
+           g.ut.movebytes(t, 0, buff, datoff+8, 4)
+                        // tr easting and tr northing
+           g.ut.set32(norm, 0, t)
+           g.ut.movebytes(t, 0, buff, datoff+12, 4)
+                        // norm factor and sec. norm
+           t%0 := 4 // default data size
+           t%1 := m.gd.num.of.ranges - 1
+           g.ut.movebytes(t, 0, buff, datoff+16, 2)
+           g.ut.movebytes(ranges, 0, buff, datoff+18, 4)
+           g.ut.movebytes(ranges, 8, buff, datoff+22, 4)
+           g.ut.movebytes(ranges, 16, buff, datoff+26, 4)
+           g.ut.movebytes(ranges, 24, buff, datoff+30, 4)
+           summary(buff, datoff+34)
+
+           if G.dh.write(handle, zero, buff, m.dh.bytes.per.frame) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+
+           // Put in dummy index of 1 missing coarse block
+           g.ut.set32(1, 1, buff) // Blocks west and Blocks north
+           g.ut.set32(#x8000, 0, buff+1)
+                                  // Coarse index for first block - missing
+
+           g.ut.set32(m.dh.bytes.per.frame, 0, offset)
+           if G.dh.write(handle, offset, buff, 8) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+
+           G.context!m.oldfile := true
+           G.sc.clear(m.sd.message)
+        $)
+
+   G.context!m.data.type := dtype
+
+exit:
+   freevec(buff)
+$)
+
+// puts summary data into a buffer
+AND summary (in.buf, offset) BE
+$( LET t = VEC 1
+   let buf = vec 140/bytesperword
+   
+   !buf := 0
+   MOVE(buf, buf+1, 140/bytesperword)
+   G.ut.set32(0, #X8000, t)
+   FOR A = 0 TO 2 DO G.ut.mov32(t, buf+A) 
+                                                   // min, max, average
+   sumdata (3, buf, 10) // equal - 4
+   sumdata (4, buf, 24) // equal - 5
+   sumdata (5, buf, 42) // equal - 6
+   sumdata (3, buf, 64) // nested means
+   sumdata (3, buf, 78) // quartiles
+   sumdata (4, buf, 92) // quintiles
+   sumdata (5, buf, 110) // sextiles
+   sumdata (3, buf, 132) // signed Chi-squared
+   g.ut.movebytes(buf, 0, in.buf, offset, 140)
+$)
+
+AND sumdata (n, buf, byte.offset) BE
+$( LET t = VEC 1
+   let n.buf = vec 0
+   let t.buf = ?
+   
+   !n.buf := n
+   G.ut.movebytes(n.buf, 0, buf, byte.offset+2, 2)
+   t.buf := GETVEC(n)
+   G.ut.movebytes(buf, byte.offset+4, t.buf, 4, n*bytesperword)
+   G.ut.set32(0, #X8000, t)
+   FOR C = 1 TO n DO G.ut.mov32(t, t.buf+c)
+   G.ut.movebytes(t.buf, 4, buf, byte.offset+4, n*bytesperword)
+   FREEVEC(t.buf)
+$)
+.

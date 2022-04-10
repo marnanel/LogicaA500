@@ -1,0 +1,585 @@
+/**
+         AGGREGATION - MAIN
+         ------------------
+
+         This section contains :
+
+            G.ag.aggregate
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.aggregate
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       23.03.87   1        SRY         Initial version
+       25.06.87   2        SRY         Added equal intervals
+                                       Check overwrite file
+        8.07.87   3        SRY         More error handling
+        3.08.87   4        SRY         Removed m.ut.*
+        5.08.87   5        SRY         Changed Domesday to DataMerge
+        4.09.87   6        SRY         Delete duff o/p file
+                                       Add datoff sections!
+        7.09.87   7        SRY         Initial min.max bug
+                                       Fix 'no data' bug
+       24.11.87   8        MH          G.df.init.SRAM commented out
+       30.11.87   9        MH          Updated for Unified version
+**/
+
+SECTION "Aggregate1"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.dfhd"
+get ":4.format.h.kdhd"
+GET ":4.format.h.iophd"
+GET ":4.format.h.sdphd"
+GET ":4.format.h.uthd"
+
+static $( buff.ptr = ?; buff.off = ? $)
+
+let start() be
+$( let source.file = vec 40/bytesperword
+   let output.file = vec 40/bytesperword
+
+$<debug
+    debug(0)
+$>debug
+   setup.screen()
+   plot()
+   G.context := getvec(m.contextsize)
+   G.df := getvec(m.df.buffsize)
+   G.cachevec := GETVEC(m.io.cachesize/bytesperword)
+   G.df!m.df.buffer := getvec(250+m.df.32size.byte/bytesperword)
+     // 250 added because heap was being corrupted MH 09.12.87
+   G.df!m.df.index := getvec(m.df.fine.index.byte/bytesperword)
+   G.df!m.df.eof := false
+   G.df!m.df.err := false
+   G.sc.pointer(m.sd.off)
+//   G.df.init.SRAM()    // not used on the Arcimedes
+
+   get.filename(source.file, "Source file:*s")
+      repeatwhile source.file%0 = 0
+   get.filename(output.file, "Output file:*s")
+      repeatwhile output.file%0 = 0
+
+   G.sc.clear(m.sd.display)
+
+   if compstring(source.file, output.file) = 0
+   $( G.df.ermess("Input and output files are the same")
+      goto exit
+   $)
+
+   unless check.overwrite(output.file,
+                          "File already exists: overwrite (Y/N)? ") goto exit
+
+   UNLESS runprog("**COPY %s %s ~c~vf", source.file, output.file) THEN
+   $( let mess = vec 40/bytesperword
+      G.ut.get.ermess(mess, 39)
+      G.df.ermess(mess)
+   $)
+   unless G.df.check.() G.ag.initw(output.file)
+   unless G.df.check.()
+   $( G.ag.aggregate() // do the aggregation ...
+      G.ag.endw()
+      test G.df!m.df.err
+      then g.df.delete.file(output.file)
+      else G.df.ermess("Output file: %s", output.file)
+   $)
+
+exit:
+   freevec(G.df!m.df.buffer)
+   freevec(G.df!m.df.index)
+   freevec(g.df)
+   freevec(G.cachevec)
+   freevec(g.context)
+   freevec(g.sc.sprite.area/bytesperword) 
+   //Convert back to BCPL address N.B. see SETUP.SCREEN
+                                 
+   g.df.split.cursor()
+$)
+
+and check.overwrite(file, message) = valof
+$( let h = G.ud.open.if.can(file)
+   test h = 0
+   then resultis true
+   else $( let string = vec 1
+           G.dh.close(h)
+           get.string(message, string, 1)
+           test capch(string%1) = 'Y'
+           then resultis G.df.delete.file(file)
+           else $( G.df!m.df.err := true
+                   resultis false
+                $)
+        $)
+$)
+
+and get.string(message, string, chars) be
+$( G.sc.mess(message)
+   G.sc.movea(m.sd.message, G.sc.width(message)+8, m.sd.mesYtex)
+   string%0 := 0
+   G.key := m.kd.noact
+   G.sc.input(string, m.sd.blue, m.sd.cyan, chars)
+   $( G.key := getkey()
+      unless G.key = m.kd.noact
+      G.sc.input(string, m.sd.blue, m.sd.cyan, chars)
+   $) repeatuntil G.key = m.kd.return
+$)
+
+// Take packed file and form sub datasets by doubling resolution until
+// it is greater than 10. Append them to end of file.
+and G.ag.aggregate() be
+$(
+   manifest
+   $( hbytes = m.df.32size.byte // enough bytes to get all sub dataset indices
+      dtypeoff = 148  // Byte offset to data type
+      indoff = dtypeoff + 4 // Byte offset to indices
+      m.datsectwords = 96
+   $)
+
+   let sub, oldsize, datoff, rec.no, unit32 = ?, ?, ?, ?, ?
+   let fiddle = false
+   let lindoff = indoff
+   let buffer = G.df!m.df.buffer
+   let raster = ?
+   let dtype = ?
+   let no.def = ?
+   let bytes = hbytes
+   let prim, sec = ?, ?
+   let t = vec 1
+   let t1 = vec 1
+   let t2 = vec 1
+   let zero = vec 1
+
+   G.ut.set32(0, 0, zero)
+   G.sc.clear(m.sd.display)
+
+   // Read start of dataset into G.df!m.df.buffer
+   G.ag.length(G.df+m.df.length)
+   G.ut.set32(bytes, 0, t)
+   if G.ut.cmp32(G.df+m.df.length, t) = m.lt
+   $( bytes := G.ut.unpack16(G.df, m.df.length.byte)
+      if bytes < m.df.record.bytes goto error
+   $)
+   if G.ag.read(zero, buffer, bytes) = 0
+   $( G.df!m.df.err := true
+      return
+   $)
+   unless buffer%1 = 1
+   $( G.df.ermess("Not a grid-mappable dataset")
+      return
+   $)
+   dtype := G.ut.unpack16(buffer, dtypeoff)
+   unless dtype = 0 | dtype = 5
+   $( G.df.ermess("Not incidence or absolute data")
+      return
+   $)
+   G.df!m.df.incidence := dtype = 5        // absolute
+   sub := G.ut.unpack16(buffer, dtypeoff + 2)
+   unless sub = 1
+   $( G.df.ermess("File is already aggregated")
+      return
+   $)
+   raster := G.ut.unpack16(buffer, indoff)
+   unless 1 <= raster <= 5
+   $( G.df.ermess("Raster size is not between 1 and 5 km")
+      return
+   $)
+   datoff := G.ut.unpack16(buffer, indoff+4)
+   G.df!m.df.rastoff := G.ut.unpack16(buffer, datoff*2)
+
+   // Get 1,2,4,8 as resolutions
+   for j = 1 to 3
+   $( let o = indoff + ((j * 2) * 3)
+      let tbuff = vec 2
+      tbuff!0 := raster << j
+      tbuff!1 := 0
+      tbuff!2 := datoff*2 + j * m.datsectwords
+      G.ut.movebytes(tbuff, 0, buffer, o, 2)
+      G.ut.movebytes(tbuff+1, 0, buffer, o+2, 2)
+      G.ut.movebytes(tbuff+2, 0, buffer, o+4, 2)
+   $)
+   G.ag.pointer(zero)
+   if G.ag.write(buffer, bytes) = 0
+   $( G.df!m.df.err := true
+      return
+   $)
+
+   // Get basic grid refs and data size
+   G.ut.movebytes(buffer, datoff*2+4, G.df, m.df.base.byte, 4)
+   G.ut.movebytes(buffer, datoff*2+8, G.df, m.df.top.byte, 4)
+   prim := G.ut.unpack16(buffer, datoff*2+12)
+   sec := G.ut.unpack16(buffer, datoff*2+14)
+   G.ut.set32(0, 0, t1)
+   fiddle := (G.ut.cmp32(G.df+m.df.base, t) = m.eq)
+   oldsize := buffer%(datoff*2+16)
+   no.def := buffer%(datoff*2+17)
+   G.df!m.df.oldsize := oldsize
+   unless (oldsize = 1) | (oldsize = 2) | (oldsize = 4) goto error
+
+   // Do the doubling
+   while raster <= 5
+   $( let oldunit32 = raster * 320
+      let min = vec 1
+      let max = vec 1
+      G.ut.set32(#xffff, #x7fff, min)  // max positive
+      G.ut.set32(0, #x8000, max)       // min negative
+
+      G.ag.length(G.df+m.df.length)
+      G.ag.pointer(G.df+m.df.length)
+      raster := raster * 2
+      G.df!m.df.raster := raster
+      unit32 := raster * 320
+
+      // Adjust grid reference top bits if necessary
+      if fiddle
+      $( G.ut.set32((G.ut.unpack16(G.df, m.df.base.byte) & #X7FFF),
+             (G.ut.unpack16(G.df, m.df.baseHI.byte) & #X7FFF), G.df+m.df.base)
+         G.ut.set32((G.ut.unpack16(G.df, m.df.top.byte) & #X7FFF),
+             (G.ut.unpack16(G.df, m.df.topHI.byte) & #X7FFF), G.df+m.df.top)
+      $)
+
+      // Find datoff at new resolution
+         lindoff := lindoff + 6 
+      repeatuntil G.ut.unpack16(buffer, lindoff) >= raster
+      if (G.ut.unpack16(buffer, lindoff) > raster) | 
+            (lindoff > indoff+54) goto error
+      datoff := G.ut.unpack16(buffer, lindoff+4)
+
+      // Calculate wold and nold (easier than reading!)
+      G.df!m.df.wold := find.blocks(G.ut.unpack16(G.df, m.df.top.byte), 
+                         G.ut.unpack16(G.df, m.df.base.byte) , oldunit32)
+      G.df!m.df.nold := find.blocks(G.ut.unpack16(G.df, m.df.topHI.byte),
+                          G.ut.unpack16(G.df, m.df.baseHI.byte), oldunit32)
+
+      // Find new grid refs (adjust to 32x32 boundary)
+      G.df!m.df.xaligned := truncate.(G.df, m.df.base.byte, unit32, false)
+      G.df!m.df.yaligned := truncate.(G.df, m.df.baseHI.byte, unit32, false)
+      truncate.(G.df, m.df.top.byte, unit32, true)
+      truncate.(G.df, m.df.topHI.byte, unit32, true)  
+
+      // Calculate w and n
+      G.df!m.df.w := find.blocks(G.ut.unpack16(G.df, m.df.top.byte), 
+                      G.ut.unpack16(G.df, m.df.base.byte), unit32)
+      G.df!m.df.n := find.blocks(G.ut.unpack16(G.df, m.df.topHI.byte), 
+                      G.ut.unpack16(G.df, m.df.baseHI.byte), unit32)
+
+      // Work out new data size
+      G.df!m.df.newsize := ((sub > 1) | G.df!m.df.incidence) ->
+         oldsize, (oldsize = 1 -> 2, 4)
+
+      // Do index build, then data build
+      for i = 1 to 2
+      $( G.df!m.df.dummy := (i = 1)
+         G.df.counter(m.df.agg, 0)
+         unless G.df!m.df.dummy
+         $( let excess = ?
+            let remndr = vec 1
+            // Pad packed dataset to 6k boundary
+            G.ut.mov32(G.df+m.df.length, t)
+            G.ut.set32(m.df.record.bytes, 0, t2)
+            G.ut.div32(t2, t, remndr)
+            excess := m.df.record.bytes - !remndr
+            unless excess >= m.df.record.bytes for i = 1 to excess G.ag.wrch(0)
+            rec.no := !remndr = 0 -> !t, !t + 1
+         $)
+         G.ag.double(min, max)
+         if G.df.check.() return
+         G.df.counter(100, 100)
+         if g.ut.cmp32(min, max) = m.gt
+         $( G.ut.set32(0, 0, min)
+            G.ut.set32(0, 0, max)
+            test sub = 1 // no data at all!
+            then $( G.df.ermess("All data missing: no dataset created")
+                    return
+                 $)
+            else G.sc.ermess("Warning: all %nkm data is missing", raster)
+         $)
+      $)
+      sub := sub + 1
+      oldsize := G.df!m.df.newsize // used next time round
+      G.df!m.df.oldsize := oldsize
+
+      // Read start of dataset back into buffer for hacking and also
+      // for next time round - lindoff
+
+      if G.ag.read(zero, buffer, hbytes) = 0
+      $( G.df!m.df.err := true
+         return
+      $)
+
+      // Now write back datoff section for latest resolution
+      G.ut.movebytes(@sub, 0, buffer, dtypeoff+2, 2) // No. of sub datasets
+      G.ut.set32(rec.no, 0, t2)
+      G.ut.movebytes(t2, 0, buffer, datoff*2, 4) // Rastoff to sub dataset
+      G.df!m.df.rastoff := rec.no // to use for the next doubling
+      if fiddle
+      $( G.ut.set32((g.ut.unpack16(G.df, m.df.base.byte) | #x8000),
+          (G.ut.unpack16(G.df, m.df.baseHI.byte) | #x8000), G.df+m.df.base)
+        G.ut.set32((g.ut.unpack16(G.df, m.df.top.byte) | #x8000),
+          (G.ut.unpack16(G.df, m.df.topHI.byte) | #x8000), G.df+m.df.top)
+      $)
+      // New grid refs (base and top)
+      G.ut.movebytes(G.df, m.df.base.byte, buffer, datoff*2+4, 4)
+      G.ut.movebytes(G.df, m.df.top.byte, buffer, datoff*2+8, 4)
+      // Norm. facts
+      G.ut.set32(prim, sec, t2)
+      G.ut.movebytes(t2, 0, buffer, datoff*2+12, 4)
+      buffer%(datoff*2+16) := g.df!m.df.newsize
+      buffer%(datoff*2+17) := no.def
+
+      test G.df!m.df.incidence
+      then for i = datoff*2+18 to datoff*2+25 buffer%i := 0  // 2 defaults ?
+      else calculate.equal(buffer, datoff*2+18, min, max, no.def)
+
+      summary.data(buffer, datoff*2+18+(no.def*4))
+      // Write start of dataset back
+      G.ag.pointer(zero)
+      if G.ag.write(buffer, hbytes) = 0
+      $( G.df!m.df.err := true
+         return
+      $)
+   $)
+   return
+
+error:
+   G.df.ermess("Invalid dataset structure")
+$)
+
+// Next 3 routines taken from auto1/G.nm.to.equal in NN
+and calculate.equal(r.buff, r.off, min, max, no.def) be
+$( let diff.signs = ?
+   let ok = ?
+
+   let i32 = vec 1
+   let range = vec 1
+   let product = vec 1
+   let t = vec 1
+   let upb = vec 15/bytesperword // four 32 bit words
+
+   // range = max - min ; check that overflow doesn't occur
+   G.ut.set32(0, 0, i32)
+   diff.signs := (g.ut.cmp32 (max, i32) = m.lt) NEQV
+                 (g.ut.cmp32 (min, i32) = m.lt)
+
+   G.ut.mov32(max, range)
+   g.ut.sub32 (min, range)
+
+   ok := NOT (diff.signs & (g.ut.cmp32 (range, max) = m.lt) )
+   ok := ok & (g.ut.cmp32 (max, min) ~= m.lt)
+   for i = 1 to no.def do
+   $( // cut-point i = min + (i * range) / num.class.intervals
+      let o = upb + ((i-1)*(4/bytesperword))
+      G.ut.mov32(range, product)
+      G.ut.set32(i, 0, i32)
+      ok := ok & g.ut.mul32 (i32, product)
+      G.ut.set32(no.def+1, 0, t)
+      G.ut.movebytes(t, 0, i32, 0, 2) // was m.nm.num.of.class.intervals = 5
+      ok := ok & nm.div32 (product, i32, o)
+      g.ut.add32 (min, o)
+   $)
+
+   test ok
+   then G.ut.movebytes(upb, 0, r.buff, r.off, no.def * 4)
+   else g.sc.ermess("Warning: can't set new default ranges")
+$)
+
+/*
+      nm.div32
+
+         32 bit division:  quot = ROUND (a / b)
+         returns FALSE if an error occurred, TRUE otherwise
+*/
+
+and nm.div32 (a.ptr, b.ptr, quot.ptr) = valof
+$( let ok = true
+   let zero = vec 1
+   let two  = vec 1
+   let neg = (g.ut.cmp32 (a.ptr, zero) = m.lt)
+   let dividend = vec 1
+   let round = vec 1
+   let remdr = vec 1
+
+   G.ut.set32(0, 0, zero)
+   G.ut.set32(2, 0, two)
+   // deal with positive numbers throughout, use unsigned ut routines and
+   // recover sign at the end
+
+   if neg ok := ok & nm.neg32 (a.ptr)
+
+   if g.ut.cmp32 (b.ptr, zero) = m.lt
+   $( neg := NOT neg
+      ok := ok & nm.neg32 (b.ptr)
+   $)
+
+   // add divisor / 2 to dividend to give proper rounding
+   G.ut.mov32 (b.ptr, round)
+   ok := ok & g.ut.div32 (two, round, remdr)
+   G.ut.mov32(a.ptr, dividend)
+   g.ut.add32 (round, dividend)
+   // if addition of two +ve numbers gives -ve result then its overflow
+   ok := ok & (NOT g.ut.cmp32 (dividend, zero) = m.lt)
+   G.ut.mov32(dividend, quot.ptr)
+   ok := ok & g.ut.div32 (b.ptr, quot.ptr, remdr)
+   if neg ok := ok & nm.neg32 (quot.ptr)
+   resultis ok
+$)
+
+
+/*
+      nm.neg32
+
+         32 bit negation
+         returns TRUE if ok,
+                 FALSE if number = max. neg. value (since max. pos.
+                     value = ABS (max. neg.) - 1)
+*/
+
+and nm.neg32 (vec.ptr) = valof
+$( let temp32  =  vec 1
+   let t = vec 1
+   G.ut.set32(0, #x8000, vec.ptr)
+   if (G.ut.cmp32(vec.ptr, t) = m.eq) resultis FALSE
+
+   // negate signed 32-bit number by two's complement
+
+   G.ut.set32((g.ut.unpack16(vec.ptr, 0) NEQV #Xffff), 
+         (G.ut.unpack16(vec.ptr, 2) NEQV #Xffff), vec.ptr)
+   G.ut.set32(1, 0, temp32)
+   g.ut.add32 (temp32, vec.ptr)
+   resultis TRUE
+$)
+
+and find.blocks(top, low, interval) = valof
+$( let t = vec 1
+   let t1 = vec 1
+   let u = vec 1
+   G.ut.set32(top, 0, t)
+   G.ut.set32(low, 0, t1)
+   G.ut.set32(interval, 0, u)
+   G.ut.sub32(t1, t)
+   G.ut.div32(u, t, t1)
+   resultis !t
+$)
+
+and truncate.(gref.buf, gref.off, u, addone) = valof
+$( let result = ?
+   let t = vec 1
+   let t1 = vec 1
+   let t2 = vec 1
+   let unit = vec 1
+   G.ut.set32(u, 0, unit)
+   G.ut.set32(G.ut.unpack16(gref.buf, gref.off), 0, t)
+   G.ut.div32(unit, t, t1)
+   G.ut.set32(1, 0, t2)
+   if addone unless !t1 = 0 G.ut.add32(t2, t)
+   G.ut.mul32(unit, t)
+   result := (G.ut.unpack16(t, 0)) = (G.ut.unpack16(gref.buf, gref.off))
+   G.ut.movebytes(t, 0, gref.buf, gref.off, 2)
+   resultis result // true if not truncated
+$)
+
+and summary.data(bp, bp.off) be
+$( let t = vec 1
+   G.ut.set32(0, #x8000, t)
+   buff.ptr := bp
+   buff.off := bp.off
+   for i = 0 to 2 do
+   $( G.ut.movebytes(t, 0, buff.ptr, bp.off, 4) // Min, max, average
+      buff.off := buff.off + 4
+   $)
+   sd(3) // Equal-4
+   sd(4) // Equal-5
+   sd(5) // Equal-6
+   sd(3) // Nested means
+   sd(3) // Quartiles
+   sd(4) // Quintiles
+   sd(5) // Sextiles
+   sd(3) // Signed Chi-squared
+$)
+
+and sd(n) be // summary data block with n missing cells
+$( let t = vec 1
+   let n.buf = vec 0
+   !n.buf := n
+   G.ut.set32(0, #x8000, t)
+   G.ut.movebytes(n.buf, 0, buff.ptr, buff.off, 2)
+   buff.off := buff.off + 2
+   for i = 1 to n do
+   $( G.ut.movebytes(t, 0, buff.ptr, buff.off, 4)
+      buff.off := buff.off + 4
+   $)
+$)
+
+and plot() be
+$( G.sc.mode(1)
+   G.sc.pointer(m.sd.off)
+   G.sc.selcol(m.sd.blue)
+   G.sc.movea(m.sd.display,0,0)
+   G.sc.rect(m.sd.plot,m.sd.disw-4,m.sd.dish-4)
+   G.sc.selcol(m.sd.cyan)
+   G.sc.movea(m.sd.display,64,64)
+   G.sc.rect(m.sd.plot,m.sd.disw-128,m.sd.dish-128)
+   G.sc.movea(m.sd.display,390,m.sd.dish-128-64)
+   G.sc.odrop("DataMerge")
+   G.sc.movea(m.sd.display,436,m.sd.dish-256-90)
+   G.sc.odrop("DataAggregator")
+$)
+
+and get.filename(file.name, out.str) be
+$( let no.chars = ((m.sd.disw-(G.sc.width(out.str)+8))/m.sd.charwidth) - 1
+   get.string(out.str, file.name, no.chars)
+   unless file.name%0 = 0 then   //remove trailing spaces
+      while file.name%(file.name%0) = '*s' do
+         file.name%0 := file.name%0 - 1
+$)
+
+and getkey() = VALOF
+$( let char = G.df.getkey()
+   unless G.ut.printingchar(char) | char = m.kd.return | char = m.kd.delete
+   $( G.sc.beep()
+      resultis m.kd.noact
+   $)
+   resultis char
+$)
+
+/*
+   Initialise display and sprite space
+*/
+AND setup.screen() BE
+$(
+   LET pb = VEC 7
+
+   // N.B. these two lines must occur before Mode change
+   OSByte(144,0,0)   // Set display position and interlace - mod for A500 PAC
+   OSByte(114,1,0)   // Set non shadow modes at next mode change
+
+   G.sc.mode(1)                  // mode 1, join cursors, default palette
+   G.sc.initialise.mouse()       // new mouse init
+
+
+   // get user sprite space from the system heap
+   G.sc.sprite.area := GETVEC( m.sd.sprite.ws.size/bytesperword )
+   IF G.sc.sprite.area = 0 THEN G.ut.abort( m.ut.init.abort+1 )
+
+   //
+   // N.B. the values used below are obtained by trial and error
+   // using a BASIC program. The Acorn documentation is insufficient.
+   // The really dodgy value is the 100, which is the offset to first
+   // sprite. See the reference manual for details of control block
+   //
+
+   G.sc.sprite.area!0 := m.sd.sprite.ws.size  // set up header info
+   G.sc.sprite.area!1 := 1                    // so that the SNEW
+   G.sc.sprite.area!2 := 100                  // command will initialise
+   G.sc.sprite.area   := G.sc.sprite.area * bytesperword // m/c address
+
+   pb!0 := G.sc.sprite.area        // R1 = sprite workspace 
+
+   UNLESS OsSprite( m.sd.clear.sprite.area, pb ) // initialise sprite area
+   DO G.ut.abort( m.ut.init.abort+2 )
+
+$)
+.

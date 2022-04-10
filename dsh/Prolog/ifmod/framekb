@@ -1,0 +1,65 @@
+
+/**************************************************
+*                 SS2 / if_module                 *
+*                 ***************                 *
+*                                                 *
+* Program Id     :  Frame knowledge base          *
+* Author         :  Safa Alai                     *
+* Installation   :  Logica CES Ltd.               *
+* Project Name   :  DISH                          *
+* Language       :  PrologX                       *
+* Date Completed :  08 / 11 / 87                  *
+* Function       :  Defines frame heads and tails *
+* Entry Predicate:  _                             *
+* Called by      :  frame                         *
+* Modules called :  _                             *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+
+/* Frame KBase:  1. frame_head(+Area, +Match, -Head)
+                 2. frame_tail(+Area, +Match, -Tail)
+   Classified by area.
+   Any Match with an empty frame has been defined with empty head and tail
+   clauses.
+*/
+
+
+/* Matches with empty frames
+*/
+frame_head(_,conclusion(null_conclusion),[]).
+frame_tail(_,conclusion(null_conclusion),[]).
+
+
+/* Matches with non_empty frames
+*/
+frame_head(".PRO", end_proc(_), ".SEND.PRO.|End of Procedure:|.NL.|<|.NL").
+frame_tail(".PRO", end_proc(_), ".NL.|>|.NL.NL.|=====|.NL.NL.ENDSEND").
+frame_head(".PRO", how_intro, ".SEND.PRO.|You should:|").
+frame_tail(".PRO", how_intro, ".NL.NL.|=====|.NL.NL.ENDSEND").
+frame_head(".PRO", push_proc(_), ".SEND.PRO.|PROCEDURE -|.NL.|<|.NL").
+frame_head(".PRO", _, ".SEND.PRO.|<|.NL").
+frame_tail(".PRO", _, ".NL.|>|.NL.NL.|=====|.NL.NL.ENDSEND").
+
+frame_head(".DLIST", _, ".SEND.DLIST.NL.|Select one of the following please:|.OFF.NL.NL").
+frame_tail(".DLIST", _, ".ENDSEND").
+
+frame_head(".OPT", _, ".SEND.OPT").
+frame_tail(".OPT", _, ".ENDSEND").
+
+frame_head(".COM", Summary, ".SEND.COM.|Summary of Procedure:|.NL"):-
+   functor(Summary,summary,_).
+frame_head(".COM", why(_,_), ".SEND.COM.|You are doing this in order to:|.NL.NL.|<|.NL").
+frame_tail(".COM", why(_,_), ".NL.|>|.NL.NL.|--|.NL.ENDSEND").
+frame_head(".COM", help(_), ".SEND.COM.|Current options are:|.NL").
+frame_head(".COM", error, ".SEND.COM.|That request is not recognised,|.NL.NL.|please re_enter option.|").
+frame_head(".COM", remediation(_),".SEND.COM.|Remediation - you need to brush up on|.NL.|the following:|.NL").
+frame_head(".COM", _, ".SEND.COM").
+frame_tail(".COM", _, ".NL.NL.|--|.NL.ENDSEND").
+
+frame_head(".PEP", _, ".SEND.PEP").
+frame_tail(".PEP", _, ".NL.ENDSEND").

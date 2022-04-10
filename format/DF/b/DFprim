@@ -1,0 +1,349 @@
+/**
+         DATA FORMATTER - IO PRIMITIVES
+         ------------------------------
+
+         This section contains :
+
+            G.df.read.num
+            G.df.rdch
+            G.df.wrch
+            G.df.rewind
+            G.df.word
+            G.df.double.word
+            G.df.initw
+            G.df.initr
+            G.df.endr
+            G.df.endw
+            G.df.unrdch
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         l.DFprim
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       26.02.87   1        SRY         Initial version
+        9.04.87   2        SRY         Check for overflow in read.num
+       16.04.87   3        MH          Check for underflow in read.num
+       21.05.87   4        SRY         More checking
+        3.08.87   5        SRY         Changed m.ut.lt etc
+**/
+
+section "DFprim"
+
+get "libhdr"
+get ":4.format.gh.glhd"
+get ":4.format.h.uthd"
+get ":4.format.h.dfhd"
+
+static $( r = ?         // byte pointer in readbuff
+          w = ?         // byte pointer in writebuff
+          fptr = ?      // pointer in input file
+          size = ?      // Size of data buffers
+          bytes = ?     // Bytes in above
+          hwm = ?       // Bytes actually read into buffer
+          handle = ?    // Read file handle
+          lastch = ?    // last char. read
+          un = ?        // There has been an unrdch
+          length = ?    // Bytes in read file - ptr to 32-bit no.
+          writebuff = 0 // Write buffer
+          readbuff = 0  // Read buffer
+          werr = ?      // error in write
+          val = ?
+       $)
+
+/**
+G.df.read.num
+
+This routine reads a signed or unsigned 16 or 32 bit ASCII number from
+the input file. Two flags indicate whether the number is allowed to be
+signed and/or 32-bit. An error string is passed to the routine in case
+of error reading the digit string. In this case the global G.df!m.df.err
+is set. If the end of file is encountered BEFORE a legal number has been
+read, G.df!m.df.eof is set.
+**/
+
+let G.df.read.num(neg.flag, bits32, string) be // Read 32-bit number into val
+$( let neg, sptr = false, 0
+   let ch = ?
+   let s = vec 10/bytesperword // max 10 digits
+   let radix = vec 1
+   let n = vec 1
+   let t = vec 1
+
+   g.ut.set32(1, 0, radix)
+   g.ut.set32(0, 0, val)
+
+   // Read until digit or '+' or '-'
+   $( ch := G.df.rdch(); if ch = -1 return
+      if '0' <= ch <= '9' break
+      if ch = '-'
+      $( unless neg.flag goto error.exit
+         neg := true
+         ch := '+'
+      $)
+      if ch = '+'
+      $( ch := G.df.rdch(); if ch = -1 return
+         test '0' <= ch <= '9' then break else goto error.exit
+      $)
+      unless pad(ch) goto error.exit
+   $) repeat
+   // Get digit string into local vector
+   $( unless '0' <= ch <= '9'
+      $( G.df.unrdch()
+         break
+      $)
+      sptr := sptr + 1
+      if sptr > 10 goto error.exit // max 10 digits
+      s%sptr := ch
+      ch := G.df.rdch()
+      if G.df!m.df.eof
+      $( G.df!m.df.eof := false
+         break // hit end of file: ok - get it next time
+      $)
+      if G.df!m.df.err return
+   $) repeat
+
+   G.df!m.df.digits := sptr
+
+   // Decode number into 32-bit value
+   for i = sptr to 1 by -1
+   $( G.ut.set32(s%i - '0', 0, n)
+      unless G.ut.mul32(radix, n) goto error.exit // check for overflow
+      G.ut.add32(n, val)    // 32 bits
+      unless (G.ut.unpack16(val, 2) & #X8000) = 0 | neg goto error.exit 
+                                                           // more overflow
+      G.ut.set32(10, 0, t)
+      G.ut.mul32(t, radix)
+   $)
+
+   unless (g.ut.unpack16(val, 2) = 0) | bits32 goto error.exit
+
+   if neg // reverse sign of val
+   $( g.ut.set32((G.ut.unpack16(val, 0) neqv #Xffff), 
+       (G.ut.unpack16(val, 2) neqv #Xffff), val)
+      G.ut.set32(1, 0, t)
+      G.ut.add32(t, val)
+      if (g.ut.unpack16(val, 2) & #X8000) = 0 goto error.exit
+   $)
+   return
+
+error.exit:
+   G.df.ermess(string)
+$)
+
+/**
+G.df.rdch
+
+Reads the next character from the input file. Buffering is all transparent.
+G.df!m.df.err or G.df!m.df.eof can be set. In this case -1 is returned.
+NB: This routine is time-critical!
+**/
+
+and G.df.rdch() = valof
+$( if un $( un := false; resultis lastch $)
+   r := r + 1
+   if r >= hwm
+      test r >= bytes
+      then $( read.bytes(bytes)
+              if G.df!m.df.err | G.df!m.df.eof resultis -1
+              r := 0
+           $)
+      else $( G.df!m.df.eof := true
+              resultis -1
+           $)
+   lastch := readbuff%r
+   test G.ut.printingchar(lastch) | pad(lastch)
+   then resultis lastch
+   else $( G.df.ermess("Unprintable character")
+           resultis -1
+        $)
+$)
+
+/**
+G.df.unrdch
+
+Equivalent of unrdch.
+**/
+
+and G.df.unrdch() be un := true
+
+/**
+G.df.initr
+
+Initialise read buffer and open file. This routine must be
+called before any read IO with this subsystem.
+**/
+
+and G.df.initr(rstring) = valof
+$( // Open read file
+   handle := G.ud.open(rstring)
+   if handle = 0 resultis -1
+
+   unless get.store(@readbuff) = m.ut.success resultis -1
+
+   length := getvec(1)
+   fptr := getvec(1)
+   G.dh.length(handle, length)
+
+   // Initialise file for reading at start
+   G.df.rewind()
+   val := G.df + m.df.val
+   resultis m.ut.success
+$)
+
+/**
+G.df.initw
+
+Initialise write buffer and open file. This routine must be
+called before any write IO with this subsystem.
+**/
+
+and G.df.initw(wstring) = valof
+$( // Open write file
+   unless G.ut.open.file(wstring) = m.ut.success resultis -1
+   w := 0
+   werr := false
+   G.df!m.df.err := false
+   resultis get.store(@writebuff)
+$)
+
+and get.store(bufferptr) = valof
+$( if (readbuff = 0) & (writebuff = 0)
+   $( let max = MAXVEC() / 2
+      test max >= #x1FFE then
+         size := #x1FFE - 20
+      else
+         size := (max & #X1FFE) - 20 // <= 4th of 16bits positive
+      bytes := size * bytesperword
+   $)
+   if !bufferptr = 0 then !bufferptr := getvec(size)
+   if !bufferptr = 0
+   $( G.df.ermess("Not enough store for buffer")
+      resultis -1
+   $)
+   resultis m.ut.success
+$)
+
+/**
+G.df.rewind
+
+Rewind input file so that next rdch will read from beginning of file
+**/
+
+and G.df.rewind() be
+$( G.ut.set32(0, 0, fptr)  // file pointer zero
+   hwm, r, un, lastch := bytes, bytes, false, -1
+   G.df!m.df.eof, G.df!m.df.err := false, false
+$)
+
+/**
+G.df.endr
+
+This routine must be called after all read IO has been finished.
+Close file and free buffers.
+**/
+
+and G.df.endr() be // tidy up read and write
+$( G.dh.close(handle)
+   freevec(readbuff)
+   readbuff := 0
+   freevec(length)
+   freevec(fptr)
+$)
+
+/**
+G.df.endw
+
+This routine must be called after all write IO has been finished. Flush buffer,
+close file and free buffers.
+**/
+
+and G.df.endw() be // tidy up read and write
+$( flush()
+   G.ut.close.file()
+   freevec(writebuff)
+   writebuff := 0
+$)
+
+/**
+G.df.double.word
+
+Output four bytes at a 32-bit number pointer
+**/
+
+and G.df.double.word(ptr) be // output a 4-byte value
+$( G.df.word(g.ut.unpack16(ptr, 0))
+   G.df.word(g.ut.unpack16(ptr, 2))
+$)
+
+/**
+G.df.word
+
+Output 2 bytes
+**/
+
+and G.df.word(v) be // output a 2-byte value
+$( G.df.wrch(v & #XFF)
+   G.df.wrch((v >> 8) & #xFF)
+$)
+
+/**
+G.df.wrch
+
+Output a byte
+**/
+
+and G.df.wrch(v) be
+$( if G.df!m.df.dummy | werr return
+   writebuff%w := v
+   w := w + 1
+   if w >= bytes - 1 flush()
+$)
+
+/**
+read.bytes
+
+Read up to 'rbytes' bytes into the read buffer.
+Set high water mark (hwm) to number of bytes actually read, to allow
+testing of end of file. Keep track of position in file with fptr.
+**/
+
+and read.bytes(rbytes) be  // read rbytes if possible from current point
+$( let b = vec 1
+   let t = vec 1
+   G.ut.set32(0, 0, t)
+   G.ut.set32(rbytes, 0, b)
+   G.ut.add32(fptr, b)
+   IF G.ut.cmp32(b, length) = m.gt // bytes to read will be length - offset
+   $( G.ut.mov32(length, b)
+      G.ut.sub32(fptr, b)
+      if G.ut.cmp32(b, t) = m.lt
+      $( G.df!m.df.eof := true
+         return
+      $)
+      rbytes := G.ut.unpack16(b, 0)
+   $)
+   test G.ud.read(handle, fptr, readbuff, rbytes) = 0
+   then G.df!m.df.err := true
+   else $( G.ut.set32(rbytes, 0, b) // Keep track of read pointer
+           G.ut.add32(b, fptr)
+           hwm := rbytes
+        $)
+$)
+
+/**
+flush
+
+Write out part of dataset processed so far. Reset buffer pointer.
+**/
+
+and flush() BE
+$( if (w = 0) | werr return
+   werr := G.ut.write(writebuff, w) ~= m.ut.success
+   w := 0
+$)
+
+and pad(ch) = ch = '*S' | ch = '*N' | ch = '*C'
+.

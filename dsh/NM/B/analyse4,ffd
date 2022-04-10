@@ -1,0 +1,198 @@
+//  AES SOURCE  6.87
+
+/**
+         NM.ANALYSE4 - NATIONAL MAPPABLE ANALYSE OPERATION
+         -------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         MAPPROC
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         14.04.86 1        D.R.Freed   Initial version
+
+         g.nm.to.write
+         g.nm.write
+**/
+
+section "nmanalyse4"
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNMhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.sihd"
+get ":4.DSH.H.kdhd"
+get ":4.DSH.H.nmhd"
+
+get ":4.DSH.H.nmrehd"
+
+
+/*
+      g.nm.to.write
+
+         changes the state of the local state machine for
+         the Retrieve operation to the Write state and
+         performs the associated housekeeping
+
+         the Write handler is in child overlay cnmWRIT due to lack
+         of room in cnmRETR; control for swapping overlays is
+         in the parent overlay MAPPROC
+*/
+
+let g.nm.to.write (box3, box5) be
+$(
+   let prompt = "Insert disc; type R(ready) or Q(Quit):"
+
+   if g.nm.s!m.restore then
+      $(
+         g.nm.restore.screen (NOT g.nm.s!m.saved)
+         g.nm.s!m.restore := FALSE
+      $)
+
+   g.nm.s!m.local.state := m.wwrite
+   if box3 ~= m.sd.act then
+      g.nm.s!(m.nm.menu + m.box3) := box3
+   if box5 ~= m.sd.act then
+      g.nm.s!(m.nm.menu + m.box5) := box5
+   g.nm.s!(m.nm.menu + m.box6) := m.wblank
+   g.sc.menu (g.nm.s + m.nm.menu)
+
+   // issue warning message since Write is not interruptable and can take
+   // about an hour for maximum number of data points with a non-empty disc;
+   // number of areas includes missing values since these get written out as
+   // well
+   g.nm.s!m.sum.total :=
+      (g.nm.s!m.nm.dataset.type = m.nm.grid.mappable.data) ->
+          ((g.nm.s!m.nm.grid.sq.top.e - g.nm.s!m.nm.grid.sq.low.e) *
+           (g.nm.s!m.nm.grid.sq.top.n - g.nm.s!m.nm.grid.sq.low.n)),
+          g.nm.s!m.nm.num.areas
+
+   g.sc.beep ()
+   g.sc.mess ("%n values; write could be very slow", g.nm.s!m.sum.total)
+   g.ut.wait (m.sd.errdelay)
+
+   g.sc.mess (prompt)
+   g.sc.movea (m.sd.message,
+               g.sc.width (prompt) + m.sd.mesXtex,
+               m.sd.mesYtex)
+$)
+
+
+/**
+         G.NM.WRITE - WRITE FUNCTION IN RETRIEVE
+         ---------------------------------------
+
+         Handler for the Write local state within Retrieve;
+         included here due to lack of room in the child
+         overlay, cnmRETR.
+
+         Performs the writing of data to floppy in the Retrieve
+         operation.
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.nm.s
+
+         SPECIAL NOTES FOR CALLERS:
+
+         No kernel state change is involved, only a
+         local state change within the retrieve handler.
+
+         When the routine is entered, it is waiting for the
+         answer to a prompt issued by the main retrieve handler.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.nm.write []
+         ----------
+
+         IF a key has been pressed THEN
+            echo 'R' or 'Q'
+            wait a while so echo can be seen
+            IF 'R' or 'r' pressed THEN
+               turn off mouse pointer
+               load child overlay "cnmWRIT"
+               write data on screen out to floppy
+               restore child overlay "cnmRETR"
+               reposition videodisc for underlay
+               restore mouse pointer
+            ENDIF
+            change state to Retrieve (top level)
+            IF key is function key 3 THEN
+               change state to Sum or Values
+            ENDIF
+            IF key is function key 5 THEN
+               change state to Unit or GridRef
+            ENDIF
+            IF key is not Main THEN
+               restore message area
+               put write back on menu bar
+            ENDIF
+            flush keyboard buffer
+         ENDIF
+**/
+
+and g.nm.write () be
+$(
+   let echo, entry.state =  ?, ?
+
+   if (g.key ~= m.kd.noact) then
+
+      $(
+         echo := (CAPCH (g.key) = 'R') -> 'R', 'Q'
+         g.sc.ofstr ("%c", echo)
+         g.ut.wait (50)    // let user see response
+
+         if echo = 'R' then
+            $(
+               entry.state := g.sc.pointer (m.sd.off)
+               g.nm.load.child ("cnmWRIT")
+               g.nm.write.data ()
+               g.nm.load.child ("cnmRETR")
+               g.nm.position.videodisc ()
+               g.sc.pointer (entry.state)
+            $)
+
+         g.nm.s!m.local.state := m.wretrieve
+
+         if g.key = m.kd.fkey3 then
+            $(
+               g.nm.s!m.local.state := g.nm.s!(m.nm.menu + m.box3)
+               g.nm.s!(m.nm.menu + m.box3) := m.wclear
+            $)
+
+         if g.key = m.kd.fkey5 then
+            $(
+               g.nm.s!m.local.state := g.nm.s!(m.nm.menu + m.box5)
+               g.nm.s!(m.nm.menu + m.box5) := m.wclear
+            $)
+
+         g.nm.s!(m.nm.menu + m.box6) := m.sd.act
+
+         // restore message area and draw new menu bar unless leaving
+         // the current kernel state, in which case both will happen anyway
+         if g.key ~= m.kd.fkey2 then
+            $(
+               g.nm.restore.message.area ()
+               g.sc.menu (g.nm.s + m.nm.menu)
+            $)
+
+         // since we were waiting for a printable character to be typed,
+         // we should make sure that the buffer is flushed, since the
+         // kernel won't do it
+         g.sc.keyboard.flush ()
+      $)
+$)
+
+.
+

@@ -1,0 +1,49 @@
+// ****************************************************************
+// this version doesn't update the offset pointer 
+// properly, and returns an incorrect string.
+// 
+//  e.g. given "fred.bill." it returns "ffred"
+// ****************************************************************
+                   
+// gets next string before a dot, or null if it's the end of string
+
+AND next.section( cstr, buff, ptr ) = valof
+$(
+   let i   = 1
+   let ch  = cstr%(!ptr)
+
+   while (ch ~= '.') & (!ptr <= cstr%0) do
+   $(
+      buff%i := ch           // save character
+      !ptr   := !ptr + 1     // increment source ptr
+      i      := i + 1        // increment dest. ptr
+      ch     := cstr%(!ptr)  // get next char
+   $)
+   buff%0 := i - 1    // set length
+   resultis buff
+$)
+
+// ****************************************************************
+// this version is O.K.
+// ****************************************************************             
+// gets next string before a dot, or null if it's the end of string
+
+AND next.section( cstr, buff, ptr ) = valof
+$(
+   let i   = 1
+   let p   = !ptr
+   let ch  = cstr%p
+
+   while (ch ~= '.') & (p <= cstr%0) do
+   $(
+      buff%i := ch           // save character
+      p      := p + 1        // increment source ptr
+      i      := i + 1        // increment dest. ptr
+      ch     := cstr%p       // get next char
+   $)
+   buff%0 := i - 1    // set length
+   !ptr   := p+1      // update pointer
+   resultis buff
+$)
+
+

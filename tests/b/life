@@ -1,0 +1,153 @@
+// Play Life
+
+Section "life"
+
+STATIC $( workv = ?
+          a     = ?
+          b     = ?
+          living = TRUE
+       $)
+
+GET "LIBHDR"
+
+MANIFEST $( rows = 30
+            cols = 80
+            min  = 2 // limits for cell survival
+            max  = 5
+            boundsX = 0
+            boundsY = 5
+            worksize = 2 * rows * cols
+         $)
+
+LET Start() BE 
+$(                 
+   LET gens = 0
+   LET x,y,k = ?,?,0
+
+   workv := GETVEC( worksize ) // room for two fields
+
+   Fillwords( workv, worksize, 0 ) 
+
+   a := workv               // first
+   b := workv + (rows*cols) // second field
+
+   osbyte(200,1,0)
+   cls()
+   VDU("23,1,0,0;0;0;0;")
+
+   $(
+      oscli("pointer*c") 
+      setup()
+      oscli("pointer 0*c")
+      gens := 0
+      $(
+         gens := gens + 1
+         if ((gens rem 1) = 0) 
+         $(
+            display()
+            Writef("Generation : %n*n",gens) 
+         $)
+         evolve()
+         swap()
+         mouse(@x,@y,@k)
+      $) repeatuntil (k=1) | ~living | esc()
+
+   $) repeatuntil esc() 
+
+   osbyte(200,0,0)
+$) 
+        
+AND setup() BE
+$(
+   LET n = 1000
+   LET x,y,k = ?,?,?
+
+   display()
+
+   Writes("Select points                    *n")
+
+   $(
+      mouse( @x,@y,@k )
+    
+      x := x*cols/1280+1
+      y := (1024-y)/32+1
+
+      if y>=rows-1 y := rows-1
+      if x>=cols-1 x := cols-1
+
+      unless k = 0
+      $(
+         let bt = (k=4)->1,0
+         a!(cols*y+x) := bt
+         VDU("31,%,%",x-1,y-1)
+         WRCH(bt->'**',' ') 
+      $)
+
+      if clr() 
+      $( fillwords( workv,worksize,0 )
+         Osbyte(15,0) 
+         display()
+      $)
+
+   $) repeatuntil (k = 1) | esc()
+$)
+
+// evolve inspects the current pattern, 
+// and creates the new one from it
+
+AND evolve() BE
+$(
+   living := false
+   FOR y = 1 to rows-1
+     FOR x = 1 to cols-1
+     $(
+        let neighbours,v = ?,0
+        let alive        = (val(x,y) ~= 0)
+
+        neighbours := val( x-1, y-1 ) + val( x, y-1 ) + val( x+1, y-1 ) +
+                      val( x-1, y   )                 + val( x+1, y   ) +
+                      val( x-1, y+1 ) + val( x, y+1 ) + val( x+1, y+1 )
+
+        if (alive & (2 <= neighbours <= 3)) | 
+           (~alive & (neighbours = 3))
+        then $( v := 1; living := true $)
+
+        put( x,y,v )
+     $)
+$)
+
+AND display() BE
+$(
+   VDU("30")
+
+   FOR y = 1 to rows-1
+     $(
+        FOR x = 1 to cols-1 WRCH( val(x,y) -> '**',' ' )
+        NEWLINE()
+     $)
+$)
+
+AND put( x,y,v ) BE b!(cols*y+x) := v
+
+AND val( x,y ) = a!(cols*y+x)
+
+AND cls() BE VDU("12")
+
+AND swap() BE $( let t = a ; a := b; b := t $)
+
+AND clr() = (osbyte( #x81,0,0 ) = 12)
+
+AND esc() = VALOF
+$(
+   LET r = OsByte( #x81, -113, #xFF )
+   RESULTIS (r = Result2 = #xFF)
+$)
+ 
+AND mouse( xp,yp,bp ) BE
+$(
+   LET buf = VEC 5
+   OsMouse( buf )
+   !xp := buf!0
+   !yp := buf!1 
+   !bp := buf!2  
+$)

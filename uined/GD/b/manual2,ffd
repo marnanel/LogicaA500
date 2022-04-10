@@ -1,0 +1,138 @@
+SECTION "GR-manual2"
+
+/**
+         GR.MANUAL2 - STRING TO NUMBER CONVERSION FOR RANGES OPERATION
+         -------------------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.gridh
+
+         REVISION HISTORY:
+
+         DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+         17.6.87     1        SA       Adapted for User Data from
+                                       nm.manual2
+
+         g.gd.string.to.num
+**/
+
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+
+MANIFEST $( m.msw = 1
+            m.lsw = 0
+            m.msb = 1
+            m.lsb = 0
+         $)
+
+/**
+      g.gd.string.to.num
+      ------------------
+
+         inputs:
+            string.ptr     pointer to string for conversion
+            norm.factor    normalising factor (power of 10)
+            vec.ptr        pointer to vector for 2-word integer
+                                                      result
+         outputs:
+            returns TRUE if conversion was successful,
+                    FALSE otherwise
+
+            converts a floating point string literal into a class
+            interval cut-point by inversely applying normalising
+            factor and then converting floating point result into
+            a rounded double word integer
+
+            note that the number must not be converted to an
+            integer until it has been denormalised, since it
+            may be too big in its absolute form
+
+            NB: assumes m.gd.max.data.size = 2
+**/
+
+LET g.gd.string.to.num (string.ptr, norm.factor, vec.ptr) = VALOF
+$(
+   LET fp.num     = VEC FP.LEN
+   AND fp.div     = VEC FP.LEN
+   AND fp.2.to.8  = VEC FP.LEN
+   AND fp.2.to.16 = VEC FP.LEN
+   AND fp.result  = VEC FP.LEN
+   AND fp.temp    = VEC FP.LEN
+   AND temp32     = VEC 2
+   AND neg = ?
+
+   FPEXCEP := 0
+
+   // convert fp string to number
+   FLIT (string.ptr, fp.num)
+
+   // evaluate normalising factor - 10 to power of factor
+
+   FLN (FFLOAT (10, fp.temp), fp.div)
+   FMULT (fp.div, FFLOAT (norm.factor, fp.temp), fp.result)
+   FEXP (fp.result, fp.div)
+
+   // apply normalising factor inversely to number to get internal
+   // representation of number
+
+   FDIV (fp.num, fp.div, fp.result)
+
+
+   // convert fp result into two word integer;
+
+   neg := FSGN (fp.result) < 0
+   IF neg THEN
+      FABS (fp.result, fp.result)
+
+   // multiply by a correction factor to ensure correct rounding for numbers
+   // of all magnitudes - this compensates for the loss of accuracy after
+   // floating point division ; the correction factor is derived as follows:-
+   //    let  i = original number
+   //         n = normalising factor
+   //    result = i/n + (i/n * 1e-10)
+   //           = i/n * (1 + 1e-10)
+
+   FLIT  ("10000000001e-10", fp.temp)
+   FMULT (fp.result, fp.temp, fp.result)
+
+   //    get ms word
+   FLIT ("65536", fp.2.to.16)
+   FDIV (fp.result, fp.2.to.16, fp.div)
+   g.ut.set32(0, fint(fp.div), vec.ptr)
+//   vec.ptr!m.msw := FINT (fp.div)
+
+   //    get ls word
+   FMULT  (FFLOAT (g.ut.unpack16(vec.ptr, 2), fp.temp), fp.2.to.16, fp.num)
+   FMINUS (fp.result, fp.num, fp.result)
+
+   // convert ls word byte by byte to handle full 16-bit unsigned numbers;
+
+   //    get ms byte of ls word
+   FFLOAT (256, fp.2.to.8)
+   FDIV   (fp.result, fp.2.to.8, fp.div)
+   vec.ptr%(m.lsw * 2 + m.msb) := FINT (fp.div)
+
+   //    get ls byte of ls word
+   FMULT (FFLOAT (vec.ptr%(m.lsw * 2 + m.msb), fp.temp), fp.2.to.8, fp.num)
+   FMINUS (fp.result, fp.num, fp.result)
+   vec.ptr%(m.lsw * 2 + m.lsb) := FFIX (fp.result)
+
+   IF neg THEN
+      $(
+         // negate signed 32-bit number by two's complement
+
+//         vec.ptr!m.msw := vec.ptr!m.msw NEQV #Xffff
+//         vec.ptr!m.lsw := vec.ptr!m.lsw NEQV #Xffff
+//         temp32!m.lsw  := 1
+//         temp32!m.msw  := 0
+         g.ut.set32(g.ut.unpack16(vec.ptr, 0) neqv #xFFFF, 
+                      g.ut.unpack16(vec.ptr, 2) neqv #xFFFF, vec.ptr)
+         g.ut.add32 (temp32, vec.ptr)
+      $)
+
+   RESULTIS (FPEXCEP = 0)
+$)
+.

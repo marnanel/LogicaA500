@@ -1,0 +1,115 @@
+
+
+Section "DISH.dummy"
+
+GET "LIBHDR"  
+    
+GET ":4.DSH.gh.glhd"
+GET ":4.DSH.h.sthd"
+GET ":4.DSH.h.stphd"
+GET ":4.DSH.h.sdhd"
+
+LET start() BE
+$(
+   g.context := GETVEC ( m.contextsize )
+   g.states := FILETOVEC(":4.dsh.r.states")+2
+
+   boot()
+
+   debug(0)
+
+   $( 
+      get.action()
+      g.dy.action()
+      general.action()
+   $) repeatuntil checkesc() | (G.key < 0)
+
+$)
+
+AND get.action() BE
+$(
+   Writef("*n[%n] icon-> ",G.context!m.state)
+   G.key := READN()
+$)
+
+AND boot() BE
+$(
+   let action.routine.addr = ?
+
+   G.key := 0
+
+   Fillwords( G.context, m.contextsize, 0 )
+
+   G.context!m.state     := m.st.find // top.level
+   G.context!m.laststate := m.st.start.stop
+
+   G.dy.action := !(G.states!(G.context!m.state*m.st.esize + m.st.actr) + @G0)
+$)
+
+
+AND general.action() BE
+$(
+   let icon.offset = ?
+   let icon.record = ?
+   let found = FALSE
+   let initr = ?
+   let actr  = ?
+   let new.state = ?
+
+   IF g.key <= 0 RETURN
+
+   // find icon record for given icon (g.key)
+   // and state (g.context!m.state)
+
+   icon.offset := G.states!(G.context!m.state * m.st.esize + m.st.icons) 
+   icon.record := G.states + icon.offset - m.st.isize
+
+   $(
+      icon.record := icon.record + m.st.isize   
+      found := (icon.record!m.st.icon.no = G.key)    
+   $) 
+      repeatuntil found | (icon.record!m.st.icon.no = m.st.invalid)
+
+   UNLESS found $( Writes("*nIcon not found"); RETURN $)
+
+   new.state     := icon.record!m.st.next.st
+
+   actr := !(G.states!(new.state * m.st.esize + m.st.actr) + @G0)
+
+   IF actr = G0 $( Writes("*nState not defined"); RETURN $)
+
+   G.context!m.laststate := G.context!m.state   
+   G.context!m.state     := new.state
+   G.dy.action := actr
+
+   initr := !(icon.record!m.st.initr + @G0)
+
+   initr()
+$)
+
+AND G.sc.mess(str) BE Writef("%S*n",str)
+
+AND CHECKESC() = VALOF
+$( LET r = OsByte( #x81, -113, #xFF )
+   RESULTIS (r = Result2 = #xFF)
+$)
+
+AND g.pl.planini()       BE G.sc.mess("g.pl.planini")
+AND g.nf.findini()       BE G.sc.mess("g.nf.findini")
+AND g.nt.conini()        BE G.sc.mess("g.nt.conini")
+AND g.ov.shutdown()      BE G.sc.mess("g.ov.shutdown")
+AND g.he.helpini()       BE G.sc.mess("g.he.helpini")
+AND g.nf.find()          BE G.sc.mess("g.nf.find")
+AND g.nf.handle.keys()   BE G.sc.mess("g.nf.handle.keys")
+AND g.nf.checkbox()      BE G.sc.mess("g.nf.checkbox")
+AND g.ov.init.top()      BE G.sc.mess("g.ov.init.top")
+AND g.nf.old.query()     BE G.sc.mess("g.nf.old.query")
+AND g.nf.copy.query()    BE G.sc.mess("g.nf.copy.query")
+AND g.nt.contents()      BE G.sc.mess("g.nt.contents")
+AND g.nt.handle.keys()   BE G.sc.mess("g.nt.handle.keys")
+AND g.nt.goto.top()      BE G.sc.mess("g.nt.goto.top")
+AND g.nt.go.up()         BE G.sc.mess("g.nt.go.up")
+AND g.nt.display.xrefs() BE G.sc.mess("g.nt.display.xrefs")
+AND g.nt.cross.ref()     BE G.sc.mess("g.nt.cross.ref")
+AND g.dummy()            BE G.sc.mess("g.Dummy")
+.

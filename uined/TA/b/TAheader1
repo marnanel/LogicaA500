@@ -1,0 +1,417 @@
+SECTION "TAheader1"
+
+/**
+         TABULAR HEADER INITIALISATION
+         -----------------------------
+
+         This module contains
+
+         G.ta.arealhini
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         15.7.87     6       SA        chart header version
+         12.8.87     7       SA        Added error checking
+         13.08.87    8       SRY       Removed let a =
+         22.10.87    9       MH        updated for UNI version
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.INITH - ENTER TABULAR HEADER AT TOP LEVEL
+         ----------------------------------------------
+
+         Tabular header initialisation and reselect
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.ta.buff
+         g.context!m.justselected
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Initialise data buffer variables for old or new data
+         Display the menu bar if altered
+         Turn mouse pointer off
+         Display screen
+         Turn mouse pointer on
+         show initial values
+         Set 'justselected' false
+**/
+
+LET G.ta.inith() BE
+$( LET boxes = TABLE m.sd.act, m.sd.wBlank, m.sd.act,
+                     m.sd.act, m.sd.act, m.sd.act
+   LET col = VEC 3
+   let t = vec 1
+
+// variables not dependent on existing or new data
+   g.ta.buff!m.ta.box          := m.ta.unknown
+   g.ta.buff!m.ta.screenstate  := m.ta.unknown
+   g.ta.buff!m.ta.last.box     := m.ta.unknown
+   g.ta.buff!m.ta.boxtype      := m.ta.unknown
+   g.ta.buff!m.ta.cycol        := m.ta.unknown
+   g.ta.buff!m.ta.datacyc      := m.ta.add
+   g.ta.buff!m.ta.status       := m.ta.on
+   g.ta.buff!(m.ta.temp.cols+0) := m.sd.yellow
+   g.ta.buff!(m.ta.temp.cols+1) := m.sd.blue
+   g.ta.buff!(m.ta.temp.cols+2) := m.sd.cyan
+
+// variables set according to old or new data input
+   TEST g.context!m.oldfile
+   THEN $(
+           let f.ptr = vec 1
+           let h = G.context!m.data.handle
+           let colour = vec 1
+           let add.flag = vec 0
+           let length = vec 1
+
+           G.dh.length(h, length)
+           G.ut.set32(210, 0, t)
+           if G.ut.cmp32(t, length) = m.gt then
+           $(
+              G.sc.ermess("File is too short")
+              goto exit
+           $)
+           unless init.labels() goto exit
+           G.ut.set32(m.ta.colour.pos, 0, f.ptr)
+           if G.dh.read(h, f.ptr, colour, 3) = 0 goto exit // read colours in
+           for i = 0 to 2 col!(1+i) := colour%i
+           G.ut.set32(m.ta.title.pos, 0, f.ptr)
+           if G.dh.read(h, f.ptr, G.ta.buff+m.ta.title, 
+                                         41) = 0 goto exit // read title
+           G.ut.set32(m.ta.yaxis.pos, 0, f.ptr)
+           if G.dh.read(h, f.ptr, G.ta.buff+m.ta.axis, 
+                                          41) = 0 goto exit // read y-axis
+           unless check.string (G.ta.buff+m.ta.title, 41)
+           $(
+              g.sc.ermess ("Unprintable character in Title string")
+              goto exit
+           $)
+           unless check.string (G.ta.buff+m.ta.axis, 41)
+           $(
+              g.sc.ermess ("Unprintable character in Y-axis string")
+              goto exit
+           $)
+
+           unless read.display() goto exit 
+                                //read display and default display methods
+           unless read.exponent() goto exit
+           G.ut.set32(m.ta.add.pos, 0, f.ptr)
+           if G.dh.read(h, f.ptr, add.flag, 1) = 0 goto exit 
+                                                   // read additive flag
+           unless add.flag%0 = 4 then
+           $(
+              G.sc.ermess("Invalid additive flag")
+              goto exit
+           $)
+        //for reading colours from old file
+        for i = 1 to 3 do
+           unless 1 <= col!i <= 7
+           then $( g.sc.ermess ("Invalid palette")
+                   goto exit
+                $)
+           g.sc.palette (m.sd.yellow, col!1)
+           g.sc.palette (m.sd.blue, col!2)
+           g.sc.palette (m.sd.cyan, col!3)
+           g.ta.buff!m.ta.no.data := (G.ta.area%m.ta.no.vars = 0)
+        $)
+   ELSE $(
+           unless set.up.header() goto exit
+           unless init.labels() goto exit
+           G.ta.buff!m.ta.no.data := true
+           col!1 := G.sc.physical.colour(m.sd.yellow)
+           col!2 := G.sc.physical.colour(m.sd.blue)
+           col!3 := G.sc.physical.colour(m.sd.cyan)
+           g.ta.buff!m.ta.title := 0
+           g.ta.buff!m.ta.axis  := 0
+           g.ta.buff%(m.ta.nfac*bytesperword+m.lsb) := 1
+           g.ta.buff%(m.ta.nfac*bytesperword+m.msb) := '0'
+           g.ta.buff!(m.ta.display+1) := true
+           g.ta.buff!m.ta.disp.default := 1
+           FOR H = 2 TO 6 DO
+              g.ta.buff!(m.ta.display+H) := false
+           g.ta.buff!m.ta.h.written := false
+
+        $)
+
+   FOR W = 0 TO 2 DO
+      g.ta.buff!(m.ta.palette+W) := col!(W+1)
+
+   test putdata() = m.wBlank
+   then for i = m.box4 to m.box6 boxes!i := m.sd.wBlank
+   else for i = m.box4 to m.box6 boxes!i := m.sd.act
+
+   G.sc.pointer(m.sd.off)
+   G.sc.clear (m.sd.message)
+   G.sc.clear (m.sd.display)
+   G.sc.menu(boxes)
+   if G.redraw then G.redraw := false
+   $( LET g = g.key
+      g.key := m.kd.noact
+      g.ta.hi.label (m.ta.title, m.sd.blue, m.sd.yellow)
+      g.ta.hi.label (m.ta.axis,  m.sd.blue, m.sd.yellow)
+      g.ta.hi.label (m.ta.nfac,  m.sd.blue, m.sd.yellow)
+      g.ta.select (false)
+      g.ta.selcol ()
+      g.key := g
+   $)
+   G.sc.movea(m.sd.display, m.ta.posX, m.ta.titleY+m.sd.linW)
+   G.sc.odrop("Title:")
+   G.sc.movea(m.sd.display, m.ta.posX, m.ta.axisY+m.sd.linW)
+   G.sc.odrop("Y-axis label:")
+   G.sc.movea(m.sd.display, m.ta.halfX, m.ta.dispY)
+   G.sc.odrop("Display Methods:")
+   G.sc.movea(m.sd.display, m.ta.posX, m.ta.nfacY+m.sd.linW)
+   G.sc.odrop("Normalising Factor:")
+   G.sc.movea(m.sd.display, m.ta.posX, m.ta.nfacY-m.sd.linW)
+   G.sc.odrop("10")
+   G.sc.movea(m.sd.display, m.ta.posX, m.ta.colY+m.sd.linW)
+   G.sc.odrop("Colour Set:")
+   G.sc.pointer (m.sd.on)
+
+   G.context!m.oldfile := true
+
+   return
+
+exit:
+   g.key := - m.st.inputed
+   G.sc.pointer (m.sd.on)
+$)
+
+// labels initialisation
+and init.labels() = VALOF
+$(
+   let l = G.ta.area + (m.ta.labels / bytesperword)
+
+   G.ut.set32(m.ta.data.offset, 0, G.ta.area + (m.ta.st.data / bytesperword))
+   for i = 1 to 52 do
+   $(
+      l%0 := m.ta.free  //set labels tags to free
+      l%1 := m.ta.free
+      l := l + (m.ta.l.width / bytesperword)
+
+   $)
+   l := G.ta.area + (m.ta.var.table / bytesperword)
+   for i = 0 to 23 do
+      l%i := 0  //clear variable table
+   G.ta.area%m.ta.no.labels := 0
+   G.ta.area%m.ta.no.vars := 0
+   G.ta.area%m.ta.l.written := m.ta.false    // n.b. may need to be placed
+
+   if G.context!m.oldfile then                                          //elsewhere !!!
+      unless G.ta.read.labels() resultis false // read in data
+   resultis true
+$)
+
+
+AND read.display() = VALOF  // read display methods and default display method
+$(
+   let f.ptr = vec 1
+   let display = vec 5
+   let h = G.context!m.data.handle
+
+   G.ut.set32(m.ta.display.pos, 0, f.ptr)
+   if G.dh.read(h, f.ptr, display, 11) = 0 resultis false
+   for i = 0 to 5 G.ta.buff!(m.ta.display+1+i) := false
+   for i = 0 to 5 do
+      switchon display%i into
+      $(
+      case 0: endcase
+      case 1: G.ta.buff!(m.ta.display + 1) := true // bar chart
+              endcase
+      case 2: G.ta.buff!(m.ta.display + 4) := true // back to back
+              endcase
+      case 6: G.ta.buff!(m.ta.display + 5) := true // looping bar chart
+              endcase
+      case 7: G.ta.buff!(m.ta.display + 2) := true // pie chart
+              endcase
+      case 8: G.ta.buff!(m.ta.display + 3) := true // line graph
+              endcase
+      case 10:G.ta.buff!(m.ta.display + 6) := true // multi line graph
+              endcase
+      default:G.sc.ermess("Invalid display method")
+              resultis false
+      $)
+   switchon display%10 into
+   $(
+   case 1: G.ta.buff!m.ta.disp.default := 1 // bar chart
+           endcase
+   case 2: G.ta.buff!m.ta.disp.default := 4 // back to back
+           endcase
+   case 6: G.ta.buff!m.ta.disp.default := 5 // looping bar chart
+           endcase
+   case 7: G.ta.buff!m.ta.disp.default := 2 // pie chart
+           endcase
+   case 8: G.ta.buff!m.ta.disp.default := 3 // line graph
+           endcase
+   case 10:G.ta.buff!m.ta.disp.default := 6 // multi line graph
+           endcase
+   default:G.sc.ermess("Invalid default display method")
+           resultis false
+   $)
+   resultis true
+$)
+
+AND read.exponent() = VALOF
+$(
+   let f.ptr = vec 1
+   let norm = vec 2
+   let h = G.context!m.data.handle
+
+   G.ut.set32(m.ta.norm.pos, 0, f.ptr)
+   unless data.size() resultis false
+   if G.dh.read(h, f.ptr, norm, 6) = 0 resultis false
+               // read expoent and scaling factor
+   G.ta.buff!m.ta.M.or.D := capch(norm%4) //set multiplier/divisor
+   test capch(norm%5) = 'E' then
+   $(
+      G.ta.buff!m.ta.norm := capch(norm%4) = 'M' -> !norm, -!norm
+      num.to.string(G.ta.buff!m.ta.norm, G.ta.buff+m.ta.nfac)
+   $)
+   else
+   $(
+      // convert multiplier to exponent
+      // convert data in data file
+      unless G.ta.parse.data(norm) resultis false
+      G.ta.buff!m.ta.norm := !norm
+      num.to.string(G.ta.buff!m.ta.norm, G.ta.buff+m.ta.nfac)
+    $)
+   if (-99 <= g.ta.buff!m.ta.norm <= 99)
+   then resultis true
+   g.sc.ermess ("Invalid normalising factor")
+   resultis false
+$)
+
+and data.size() = VALOF
+$(
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+   let data.type = vec 0
+
+   G.ut.set32(m.ta.dsize.pos, 0, f.ptr)
+   if G.dh.read(h, f.ptr, data.type, 1) = 0 resultis false
+   test (data.type%0 & #x80) = 0  then
+      G.ta.area%m.ta.data.sign := m.ta.false // data is signed
+   else
+      G.ta.area%m.ta.data.sign := m.ta.true // data is unsigned
+   G.ta.area%m.ta.data.size := data.type%0 & #x0F //get data size without sign bit
+   if G.ta.area%m.ta.data.size=4 & G.ta.area%m.ta.data.sign=m.ta.false then
+      G.ta.area%m.ta.data.sign:=m.ta.true
+$)
+
+
+AND num.to.string (n, string) be
+$(
+   string%0 := 0
+   if n < 0 then
+   $(
+      string%0 := 1
+      string%(string%0) := '-'
+      n := -n
+   $)
+   test n < 10 then
+   $(
+      string%0 := string%0 + 1
+      string%(string%0) := n + '0'
+   $)
+   else
+   $(
+      string%0 := string%0 + 2
+      string%(string%0) := (n rem 10) + '0'
+      string%(string%0-1) := (n / 10) + '0'
+   $)
+$)
+
+and set.up.header() = VALOF
+$(
+   let header1 = table #x0400, -1, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0,
+                      -1, -1, #x0101 // N.B. last two bytes are no. dims and
+                                     // dummy dim. no. vars = no. dims - 1
+   let header2 = table #xFFFF0400, -1, -1, #xFFFF, 0, 0, -1, #x0101
+                                     // N.B. last two bytes are no. dims and
+                                     // dummy dim. no. vars = no. dims - 1
+   let header = bytesperword = 2 -> header1, header2
+   let space.needed = vec 1
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+   let out.buf = vec 2  //output buffer
+   let buff = GETVEC((m.ta.data.offset / bytesperword)+3)
+                                      //data.offset is in bytes
+   let add.flag = table 4  //additive flag = 4
+
+   G.ut.set32(m.ta.data.offset, 0, space.needed)
+   unless G.dh.space(space.needed) resultis false
+   for i = 0 to ((m.ta.data.offset / bytesperword)+2) buff!i := 0
+   G.ut.set32(m.ta.header.pos, 0, f.ptr)
+   unless G.dh.write(h, f.ptr, buff, (m.ta.data.offset+4)) resultis false
+      //write out zeros plus 1st data element of 4 bytes
+   G.ut.set32(m.ta.header.pos, 0, f.ptr)
+   if G.dh.write(h, f.ptr, header, 30) = 0 resultis false //write out header
+   G.ut.set32(m.ta.offset.pos, 0, f.ptr)
+   G.ut.set32(m.ta.data.offset, 0, out.buf) //offset to data
+   out.buf%4 := #x84 //signed 4 byte data size
+   G.ta.area%m.ta.data.size := 4        //4 byte data size
+   G.ta.area%m.ta.data.sign := m.ta.true  //data is signed
+   if G.dh.write(h, f.ptr, out.buf, 5) = 0 resultis false
+          //write out data offset and data size
+   G.ut.set32(m.ta.add.pos, 0, f.ptr)
+   if G.dh.write(h, f.ptr, add.flag, 1) = 0 then // read additive flag
+   $(
+      G.key := -m.st.inputed
+      return
+   $)
+   G.ut.set32(m.ta.norm.pos, 0, f.ptr)
+   G.ut.set32(0, 0, out.buf) //normalising factor
+   out.buf%4, out.buf%5 := 'M', 'E' //scaling data
+   if G.dh.write(h, f.ptr, out.buf, 5) = 0 resultis false
+          //write out normalising data
+   G.ut.set32(m.ta.data.offset, 0, G.ta.area + (m.ta.st.data / bytesperword))
+   G.dh.ensure()
+   FREEVEC(buff)
+   resultis true
+$)
+
+and putdata() = VALOF
+$(
+   let p = true
+
+   test G.ta.area%m.ta.no.vars = 0 then
+      p := false
+   else
+      for i = 1 to G.ta.area%m.ta.no.vars do
+         if G.ta.area%(m.ta.var.table + i - 1) < 2 p := false
+   resultis p -> m.wData, m.wBlank
+$)
+
+and check.string (string) = valof
+$( for i = 1 to string%0 do
+     unless g.ut.printingchar (string%i) resultis false
+   resultis true
+$)
+.

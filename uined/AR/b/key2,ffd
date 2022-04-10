@@ -1,0 +1,261 @@
+SECTION "Areal key2"
+
+/**
+         AR.KEY2 - KEY DISPLAY FOR AREAL HEADER
+         --------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR     DETAILS OF CHANGE
+         14.5.87      1       SA       Adapted for User Data from
+                                       NM package
+         21.5.87      2       SA       Add check.class.intervals
+          4.9.87      3       SRY      Always display number in box
+         20.10.87     4       MH       updated for UNI version
+
+         g.ar.display.key
+         g.ar.display.box
+         g.ar.check.class.intervals
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.arhd"
+
+// manifests local to this module
+MANIFEST
+$( m.ar.box0.size =  m.sd.charwidth*2 + m.ar.x.pixels.to.graphics*2 $)
+
+
+/**
+         G.AR.DISPLAY.KEY - DISPLAY KEY TO AREAL DATA
+         --------------------------------------------
+
+         Displays the key to the current mappable data display
+         in the message area.
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.ar.buff!m.ar.box.position
+         g.ar.buff!m.ar.number.width
+
+         SPECIAL NOTES FOR CALLERS:
+
+         This routine should work for any sensible number of
+         class intervals (m.ar.num.of.class.intervals), ie.
+         2 - 5. Five is the maximum because it uses all the
+         available colours.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.ar.display.key []
+         -------------------
+
+         turn off mouse pointer
+
+         calculate box positions and number width
+         display all regular boxes, suppressing numbers in duplicate boxes
+         display last box ( > - all values greater than last cut-point)
+
+         restore mouse pointer
+
+         (displaying a box involves drawing the box in the
+         interval's colour and then displaying the upper bound
+         for the interval in the complementary colour, so that it
+         is visible)
+**/
+
+LET g.ar.display.key (outline.flag) BE
+$( LET entry.state = g.sc.pointer (m.sd.off)
+   nm.setup.key ()
+                                  // regular boxes containing actual cut-points
+   FOR K = 1 TO m.ar.num.of.class.intervals-1 DO
+           // this box identical to previous one (number and physical colour) ?
+/*
+      TEST (g.ut.cmp32 ((g.ar.buff+m.ar.ranges) + (K*m.ar.max.data.size),
+                        (g.ar.buff+m.ar.ranges) + ((K-1)*m.ar.max.data.size)) =
+                                                                       m.eq)
+      THEN g.ar.display.box (K, TRUE)                // suppress number display
+      ELSE g.ar.display.box (K, FALSE)                           // show number
+*/
+      g.ar.display.box (K, FALSE)                           // show number
+   // Above line replaces above 3 lines - SRY 4.9.87
+
+                                                              // last box - ">"
+   g.ar.display.box (m.ar.num.of.class.intervals, FALSE)
+   g.sc.pointer (entry.state)
+$)
+
+
+/**
+         G.AR.DISPLAY.BOX - DISPLAY INDIVIDUAL BOX IN KEY
+         ------------------------------------------------
+
+         Displays the specified box in the key ; if the suppress
+         flag is FALSE, then the number is displayed in the box.
+
+         INPUTS:
+
+         Index into class and box position vectors
+         Suppress flag
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.ar.display.box [index, suppress]
+         ----------------------------------
+
+         select background colour
+         move to box start position (in position vector)
+         draw box of appropriate size
+
+         IF suppress = TRUE
+         THEN RETURN
+         ENDIF
+
+         move inside box for number/symbol display
+
+         IF index = 1 (first cut-point)
+         THEN display "<" in box
+         ENDIF
+
+         IF index = m.ar.num.of.class.intervals
+         THEN display centred ">" in box
+         ELSE display number in box using primary normalising factor
+         ENDIF
+**/
+
+AND g.ar.display.box (index, suppress.flag) BE
+$( LET offset, end =  ?, ?
+   LET box  = index + m.ar.box.position      // pointer to box position
+   LET num.index = index - 1                 // pointer to actual ranges number
+
+   g.sc.selcol ((index REM 2 = 0) -> m.sd.yellow, m.sd.cyan)
+   g.sc.movea (m.sd.message, g.ar.buff!box, m.ar.y.pixels.to.graphics)
+
+   TEST index = m.ar.num.of.class.intervals
+   THEN end := m.sd.mesw - m.ar.x.pixels.to.graphics - 1
+   ELSE end := g.ar.buff!(box + 1)
+
+   g.sc.rect (m.sd.plot, end - g.ar.buff!box - 1,
+                                   m.sd.mesh - 2*m.ar.y.pixels.to.graphics - 1)
+
+   g.sc.selcol (m.sd.blue)
+   IF suppress.flag THEN RETURN
+   TEST index = m.ar.num.of.class.intervals
+   THEN                              // centre ">" character in available width
+        offset := (end - g.ar.buff!box)/2 - m.ar.x.pixels.to.graphics
+   ELSE offset := m.ar.x.pixels.to.graphics
+
+   g.sc.movea (m.sd.message, g.ar.buff!box + offset - 1, m.sd.mesYtex)
+   IF index = 1 THEN g.sc.oprop ("<")                 // first box needs prefix
+   TEST index = m.ar.num.of.class.intervals
+   THEN g.sc.oprop (">")
+   ELSE g.sc.opnum ((g.ar.buff+m.ar.ranges)+num.index*m.ar.max.data.size,
+                              g.ar.buff!m.ar.norm, g.ar.buff!m.ar.number.width)
+$)
+
+/*
+      nm.setup.key
+         calculates the starting position of each box in the key,
+          in graphics co-ords, and the character width available
+          for each number
+*/
+AND nm.setup.key () BE
+$(
+   // 6 character positions are lost to "   ", "<", " > " plus
+   // 2 pixels before "  ", 1 pixel at the end of each number box
+   // and 2 pixels at end of last box
+
+   g.ar.buff!m.ar.number.width := (m.sd.mesw - 6*m.sd.charwidth -
+                   (m.ar.num.of.class.intervals+1)*m.ar.x.pixels.to.graphics) /
+                    ((m.ar.num.of.class.intervals-1)*m.sd.charwidth)
+
+   g.ar.buff!m.ar.box.position := 0
+   g.ar.buff!(m.ar.box.position+1) := m.ar.box0.size
+
+             // next box has to allow for the "<" character in the previous box
+   g.ar.buff!(m.ar.box.position+2) :=
+                          g.ar.buff!(m.ar.box.position+1) +
+                             (g.ar.buff!m.ar.number.width+1)*m.sd.charwidth +
+                                 m.ar.x.pixels.to.graphics
+
+   FOR G = 3 TO m.ar.num.of.class.intervals DO
+      g.ar.buff!(m.ar.box.position+G) :=
+                                     g.ar.buff!(m.ar.box.position + G-1) +
+                                      g.ar.buff!m.ar.number.width*m.sd.charwidth +
+                                       m.ar.x.pixels.to.graphics
+$)
+
+
+/**
+         G.AR.CHECK.CLASS.INTERVALS - CHECK CLASS CONSISTENCY
+         ----------------------------------------------------
+
+         Checks the class interval vector for consistent upper
+         bound values
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         Returns TRUE if values are consistent,
+                 FALSE otherwise
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.ar.check.class.intervals
+         --------------------------
+
+         IF any element is greater than its successor
+         THEN RETURN FALSE
+         ELSE RETURN TRUE
+         ENDIF
+**/
+
+AND g.ar.check.class.intervals() = VALOF
+$( LET range = g.ar.buff+m.ar.ranges
+   FOR G = 0 TO m.ar.num.of.class.intervals - 3 DO
+      IF g.ut.cmp32 (range + G*2, range + (G+1)*2) = m.gt
+      THEN $( g.sc.ermess ("Inconsistent class intervals")
+              RESULTIS false
+           $)
+   RESULTIS true                    // all elements were <= to their successors
+$)
+.

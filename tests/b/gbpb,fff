@@ -1,0 +1,120 @@
+//
+// OSgbpb test program
+//                      
+// 11.5.87 PAC 
+                                              
+Section "test.Osgbpb"
+  
+Get "Libhdr"
+
+Get ":0.AES.H.dhhd"
+Get ":0.AES.H.dhphd"
+                    
+MANIFEST 
+$( 
+size = #x5000/4 // 65472/BYTESPERWORD   // sideways RAM size
+mask = #xFF    // mask for low byte
+page = 10*10
+
+// for OSgbpb
+m.osgbpb.newptr.op = 3
+h.shift = 16 // shift for file handle
+
+//  result := Osgbpb( op.and.handle, vector, size.in.bytes, file.offset )
+//  N.B. op.and.handle is low 8 bits = OP, high 16 bits = handle 
+//  format of word : HHHHNNOO  H-handle N-not used O-opcode
+//  result is bytes transferred, Result2 is non-zero if carry set
+
+$)
+
+
+LET Start() BE
+$(
+   LET bs     = GETVEC( size )      
+   LET handle = G.dh.open(":0.doc**.BCPLdoc")
+   LET res    = ?
+   LET fptr   = VEC 1 
+   LET h = 0
+                  
+   Fillwords( bs, size, 0 )
+                                 
+   g.dh.length( handle, fptr )
+
+   Writef("*nLength is %n, &%x8", fptr!0, fptr!0 )
+
+   Writef("*nCalling Osgbpb..")
+
+   fptr!0 := -500
+   res := g.dh.read( h, fptr, bs, size*bytesperword )
+                    
+   Writef(".. res = %n, res2 = %n*n",res,result2 )
+           
+   TEST result2 ~= 0 
+   THEN Writef( "*n%c%s *n",7,TKRErr( bs, 100 ) ) 
+   ELSE display( bs, page )
+                  
+   g.dh.close( handle )
+
+   FREEVEC( bs )
+$)   
+
+AND display( vect, words ) BE
+$( 
+  LET lines = words/4 + 1 
+
+  FOR i = 0 TO lines 
+  $(
+     Writef("%x8 : ",4*i)
+     FOR j = 0 TO 3 Writef( "%x8 ", vect!(4*i+j) ) 
+     FOR j = 0 TO 4*bytesperword-1 
+     $( let ch = (vect+4*i)%j
+        Wrch( 31<ch<127->ch,'.')
+     //   Wrch('*s')
+     $)
+     Wrch('*n')
+  $)
+  Wrch('*n')
+$)
+
+
+and g.dh.open (filename) = valof
+$( let temp.vec = vec (m.name.size.words)    // one spare for CR
+   let handle = ?
+
+ //  move (filename, temp.vec, m.name.size.words)                              
+   for i = 0 to m.name.size.words temp.vec!i := filename!i
+
+   temp.vec%(filename%0 + 1) := '*C'
+
+   handle := Osfind( m.osfind.open.read.op, temp.vec )
+
+   Writef("*nOpen: %s : %n",filename, handle )
+
+   if handle = 0 do          // bad handle: out of range
+   $(
+      Writef("*nFile %S not found", filename)
+      abort(999)                             // fatal error !!
+   $)  
+   resultis handle                           // all ok
+$)
+
+
+and g.dh.close (handle) be Osfind( 0, handle )       
+
+and g.dh.read (handle, file.pointer, dest.vec, bytes) = valof
+$( 
+   handle := handle << h.shift | m.osgbpb.gb.newptr.op 
+
+   bytes := Osgbpb( handle, dest.vec, bytes, file.pointer!0 )
+
+   unless result2 = 0 do abort(999) // g.ut.videodisc.error ()   // fatal !
+   
+   resultis bytes                                  // all OK
+$)
+
+and g.dh.length (handle, dest.vec) be
+$( 
+   Osargs( m.osargs.flength.op, handle, 0 )
+
+   dest.vec!0 := Result2   // copy out to caller's vec
+$)

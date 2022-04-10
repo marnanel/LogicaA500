@@ -1,0 +1,186 @@
+      section "crc calculation"
+G.df.crc       global         341
+
+                              ; system reserved zero page
+buffer    equ  $52                  ; crc buffer address
+                                    ; crc buffer: crc 2 bytes
+                                    ;             crc.value 2 bytes
+                                    ;             x.value 1 byte
+                                    ;             char 1 byte
+                              ; data handler reserved zero page
+count     equ  116                  ; single byte count
+i         equ  117                  ; single byte itteration counter
+mask      equ  118                  ; ex-or mask
+setbit    equ  119                  ; bit set on result of ex-or
+xvalue    equ  120                  ; xvalue
+
+;     /**
+;            section - DF.A.CRC
+;            ------------------
+;   MH  19.03.87
+;
+;
+;   Assembler routine for crc calculation.
+;
+;
+;      **/
+
+; /**
+;            G.df.crc(crc.buffer)
+;            --------------------
+;            called from cincode as:
+;                G.df.crc(buffer)
+;
+;            pseudo BCPL:  CRC calculation
+;            clear crc.value
+;            clear x.value
+;            x.value := char ex-or (#00FF & crc)
+;            crc := crc >> 8
+;            crc.value := get.crc.value()
+;            crc := crc ex-or crc.value
+; **/
+
+             proc "G.df.crc"
+G.df.crc:
+           db            $0d     ; no fault swapping
+           asl buffer            ; convert to byte addresses
+           rol buffer+1          ;
+           ldy #$2               ; clear crc.value
+           lda #$0               ;
+           sta (buffer),y        ;
+           iny                   ;
+           sta (buffer),y        ;
+           iny                   ; clear x.value
+           sta (buffer),y        ;
+           ldy #$5               ;
+           lda (buffer),y        ; load a with char
+           ldy #$0               ;
+           eor (buffer),y        ; ex-or char with low order byte of crc
+           ldy #$4               ;
+           sta (buffer),y        ; store x.value
+           ldy #$1               ; shift crc 8 bits to the right
+           lda (buffer),y        ;
+           ldy #$0               ;
+           sta (buffer),Y        ;
+           lda #$0               ;
+           ldy #$1               ;
+           sta (buffer),y        ;
+           sta count             ; clear count
+           sta i                 ; clear itteration
+           ldy #$4               ;
+           lda (buffer),y        ; load y with x.value
+           sta xvalue            ;
+for1:                            ; for i = 0 to 7 do
+                                 ; $(
+           lsr xvalue            ;    shift x.value right
+           bcc notset            ;    if carry set then
+           inc count             ;       increment count
+notset:                          ;    end if
+           lda #$0               ;
+           cmp i                 ;    if i = 0 then
+           bne not0              ;
+           lda count             ;
+           lsr A                 ;       if count is odd then
+           bcc even0             ;
+           ldy #$2               ;
+           lda (buffer),y        ;          set bit 6 in crc.value
+           ora #$40              ;
+           sta (buffer),y        ;
+even0:                           ;       end if
+not0:                            ;     end if
+           lda #$1               ;
+           cmp i                 ;    if i = 1 then
+           bne not1              ;
+           lda count             ;
+           lsr A                 ;       if count is odd then
+           bcc even1             ;
+           ldy #$2               ;
+           lda (buffer),y        ;          set bit 7 in crc.value
+           ora #$80              ;
+           sta (buffer),y        ;
+even1:                           ;       end if
+not1:                            ;     end if
+           lda #$6               ;
+           cmp i                 ;    if i = 6 then
+           bne not6              ;
+           lda count             ;
+           lsr A                 ;       if count is odd then
+           bcc even6             ;
+           ldy #$3               ;
+           lda (buffer),y        ;          set bit 14 in crc.value
+           ora #$40              ;
+           sta (buffer),y        ;
+even6:                           ;       end if
+not6:                            ;     end if
+           lda #$7               ;
+           cmp i                 ;    if i = 7 then
+           bne not7              ;
+           lda count             ;
+           lsr A                 ;       if count is odd then
+           bcc even7             ;
+           ldy #$3               ;
+           lda (buffer),y        ;          set bit 15 in crc.value
+           ora #$80              ;
+           sta (buffer),y        ;
+           ldy #$2               ;
+           lda (buffer),y        ;          set bit 0 in crc.value
+           ora #$1               ;
+           sta (buffer),y        ;
+even7:                           ;       end if
+not7:                            ;     end if
+           inc i                 ; $) //end for
+           lda #$8               ;
+           cmp i                 ;
+           bne for1              ;
+           lda #$6               ; mask = 6
+           sta mask              ;
+           lda #$1               ; setbit = 1
+           sta setbit            ;
+           sta i                 ; for i = 1 to 6 do
+for2:                            ; $(
+           ldy #$4               ;
+           lda (buffer),y        ;    load a with x.value
+           and mask              ;    and a with mask
+           cmp #$0               ;    unless a = 0 or
+           beq noteor            ;
+           cmp mask              ;       a = mask then
+           beq noteor            ;     $(
+           ldy #$3               ;
+           lda (buffer),y        ;
+           ora setbit            ;         set bit in high byte of crc.value
+           sta (buffer),y        ;
+noteor:                          ;      $)
+           asl mask              ;      shift mask left one bit
+           asl setbit            ;      shift setbit left one bit
+           inc i                 ;
+           lda #$7               ; $)
+           cmp i                 ;
+           bne for2              ;
+           ldy #$0               ; crc = crc exor crc.value
+           lda (buffer),y        ;
+           ldy #$2               ;
+           eor (buffer),y        ;
+           ldy #$0               ;
+           sta (buffer),y        ;
+           ldy #$1               ;
+           lda (buffer),y        ;
+           ldy #$3               ;
+           eor (buffer),y        ;
+           ldy #$1               ;
+           sta (buffer),y        ;
+endcrc:    rts                   ; return
+
+           end
+
+
+
+
+
+
+
+
+
+
+
+
+

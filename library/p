@@ -1,0 +1,4 @@
+*dir :4.prolog
+*gos
+*key1 system('quit').|m
+prologX zap_out

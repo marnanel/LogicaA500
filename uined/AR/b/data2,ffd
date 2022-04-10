@@ -1,0 +1,84 @@
+SECTION "Data2"
+
+/**
+         DATA SCREEN INITIALISATION
+         --------------------------
+
+         This module contains
+
+         G.ar.arealdini
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         2.6.87     1       SA        Initial version
+         20.10.87   2       MH        updated for UNI version
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.AREALDINI - ENTER DATA SCREEN AT TOP LEVEL
+         -----------------------------------------------
+
+         Data screen initialisation
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.ar.buff
+         g.context!m.justselected
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Initialise data buffer variables
+         Turn mouse pointer off
+         Display the menu bar if altered
+         Display screen
+         show initial values
+         Turn mouse pointer on
+         Set 'justselected' false
+**/
+
+LET G.ar.arealdini() BE
+$( LET mbar = TABLE m.sd.act, m.sd.act, m.sd.act,
+                    m.sd.wBlank, m.sd.act, m.sd.act
+   LET mouse = ?
+
+   g.ar.buff!m.ar.box         := m.ar.unknown
+   g.ar.buff!m.ar.screenstate := m.ar.unknown
+   g.ar.buff!m.ar.last.box    := m.ar.unknown
+   g.ar.buff!m.ar.status      := m.ar.on
+   g.ar.buff!m.ar.firstfind   := true
+   g.ar.buff!m.ar.top         := 1
+   g.ar.buff!m.ar.data.areas  := g.ar.buff!m.ar.areas
+   G.ut.mov32(g.ar.buff+m.ar.gptr, g.ar.buff+m.ar.gtopptr)
+
+   mouse := G.sc.pointer (m.sd.off)
+   G.sc.menu (mbar)
+   G.sc.clear (m.sd.message)
+   G.sc.clear (m.sd.display)
+   g.ar.page  (m.ar.display)
+   G.sc.pointer (mouse)
+   G.context!m.justselected := FALSE
+$)
+.

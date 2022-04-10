@@ -1,0 +1,82 @@
+// /**
+//       UTHDR - UILITIES HEADER
+//       -----------------------
+//
+//       manifests for UT:
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       21.4.87     1       SA        Adopted for Input Editor
+// **/
+
+manifest
+$(
+//       manifests results for G.ut.cmp32: signed 32 bit compare
+//       NB: these 3 manifests are also defined in the assembler sources
+//           UT.a.calc32b and NN.a.classify; any changes must be made to
+//           all three files
+// m.ut.lt = -1   // Moved to glhdr
+// m.ut.eq = 0
+// m.ut.gt = 1
+
+// manifest for G.ut.wait
+m.ut.loops.per.sec = 4764
+
+// manifests for G.ut.print
+// m.ut.stepsize =  10   // software timeout step size : smaller => slower timeout
+// m.ut.maxchars =  55   // 55 chars per line of print
+// m.ut.emptybuff = 63   // buffer size of an empty buffer
+
+// manifests for G.ut.write
+// m.ut.success    = 0
+// m.ut.CR         = #x0D
+// m.ut.osfind     = #xFFCE
+// m.ut.osfile     = #xFFDD
+m.ut.osgbpb     = #xFFD1
+m.ut.osword     = #xFFF1
+// m.ut.write.op   = 2    // OSGBPB - append bytes to file
+// m.ut.read.op    = 4    // OSGBPB - read from current pos in file
+// m.ut.close      = 0    // OSFIND - close file
+// m.ut.open.read  = #x40 // OSFIND - open file to read
+// m.ut.open.write = #x80 // OSFIND - open file to write
+// m.ut.delete.file= 6    // OSFILE - delete file
+// m.ut.min.error  = #x80
+// m.ut.text       = 1
+// m.ut.dump16bit  = 2
+// m.ut.dump32bit  = 3
+
+// for SRAM commands
+m.ut.from.SRAM = #x40
+m.ut.to.SRAM   = #xC0
+
+// for bookmark save/load
+// m.ut.new.mark   = 1
+// m.ut.old.mark   = 2
+// m.ut.Community  = 3
+// m.ut.National   = 4
+
+// m.ut.16bit.nos.per.line = 5
+// m.ut.32bit.nos.per.line = 3
+
+// m.ut.linewidth      = 40   // 40 chars (max) in one line
+m.ut.chars.per.line = 40
+// m.ut.words.per.line = 20   // words in one line
+
+// m.ut.chars16 = 7  // chars in a 16 bit number
+// m.ut.chars32 = 12 // chars in a 32 bit number
+
+// manifests for g.ut.copy.screen
+// m.ut.main   =  0
+// m.ut.shadow =  1
+
+//  abort codes
+m.ut.kernel.abort = 700
+m.ut.root.abort = 710
+// m.ut.help.abort = 720
+m.ut.videodisc.abort = 730
+m.ut.trap.abort = 740
+m.ut.map.abort  = 750
+// m.ut.area.abort = 760
+m.ut.init.abort = 770 // dud SRAM
+$)

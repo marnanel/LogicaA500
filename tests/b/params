@@ -1,0 +1,19 @@
+Section "Hello"
+
+GET "LIBHDR"
+
+LET start() BE
+$(
+   WRITEF("Hello (yawn) World*n")
+
+   procA( 1,2,3,4 )
+
+   WRITEF("Hello (yawn) World*n")    
+$)
+
+AND procA( p1,p2,p3,p4 ) BE
+$(
+   WRITEF("%n %n %n %n", p1,p2,p3,p4 )
+$)
+
+

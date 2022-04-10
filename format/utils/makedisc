@@ -1,0 +1,14 @@
+// Make a disc with the User Data Formatter software on drive 4
+mode 7
+*dir :4
+errcont
+*access * WR
+*destroy *
+*opt 4,2
+*title "DataFormat"
+*move :0.format.s.format !boot
+*copy :0.format.s.aggregate @
+*access !boot LR
+errcont off
+mode 3
+*back

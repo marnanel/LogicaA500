@@ -1,0 +1,48 @@
+// Show Store, MAXVEC, etc. on ARM
+
+Section "STORE"
+
+GET "LIBHDR"
+
+LET Start() BE 
+$(                 
+   LET v   = MAXVEC()
+   LET t   = v
+   LET i,j = 0,0
+  
+   WRITEF("*nStore snooper V.1 PAC*n")
+   
+   Writef("*nMaxVec : %n",v) 
+
+   IF v > 0 THEN j := GETVEC( v )
+   $(
+      i := MAXVEC() 
+      Writef("*nNext   : %n",i )
+      IF i > 0 THEN 
+      $( GETVEC( i ); t := t + i $)       
+
+   $) REPEATUNTIL i <= 0 
+
+   WRITEF("*nWords free = %n + ... = %n*n*n", v , t)
+
+   FREEVEC( j )
+   
+ //   Func1( @j )
+$) 
+
+AND Func1( a ) = Func2( @a+1 )
+AND Func2( a ) = Func3( @a+1 )
+AND Func3( a ) = Func4( @a+1 )
+AND Func4( a ) = Func5( @a+1 )
+AND Func5( a ) = Func6( @a+1 )
+AND Func6( a ) = Func8( @a+1 )
+AND Func8( a ) = Func9( @a+1, 1, 2, 3, Func2, 5, 6, 7, 8, 9, Func3 )
+
+AND Func9(a,b,c,d,e,f,g,h,i,j,k) BE
+$(         
+   Writef("*nAbout to backtrace %n*n",a,b,c,d,e,f,g,h,i,j)
+ 
+   BackTrace()
+
+   MapStore()
+$)  

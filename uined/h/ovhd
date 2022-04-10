@@ -1,0 +1,33 @@
+// /**
+//       OVHDR - ROOT HEADER FILE
+//       ------------------------
+//
+//       This file contains private manifests for the OV
+//       Package
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       04/06/86 1        JIBC        Initial version
+//       27/06/86 2        JIBC        Adjust sizes for latest info
+//       30/06/86 3        PAC         Add setstate params
+//       30/07/86 4        PAC         Adjust for final film
+//        7/10/86 5        NRY         Start of Nat. film is 51 not 57
+//       14.10.86 6        PAC         cfilmE now 1600, was 1900
+// **/
+MANIFEST $(
+m.ov.cfilmS = 51
+m.ov.cfilmE = 1600
+m.ov.nfilmS = 51
+m.ov.nfilmE = 803
+
+// used by setstate to restore video frame
+m.ov.no.frame  = 1 // don't restore
+m.ov.set.frame = 2 // do restore
+$)
+
+
+
+
+
+

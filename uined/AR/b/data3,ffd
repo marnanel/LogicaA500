@@ -1,0 +1,290 @@
+SECTION "Data3"
+
+/**
+         DATA SCREEN PAGING ROUTINE
+         --------------------------
+
+         This module contains
+
+         G.ar.page
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+          2.6.87     1       SA        Initial version
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.PAGE - DATA PAGE CONTROL
+         -----------------------------
+
+         Controls display, storage and paging forwards
+         and backwards in the areal data page mode
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.ar.buff including:
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+         ------------------------
+
+         G.ar.page (function)
+         --------------------
+
+         SWITCHON function INTO
+         page forward : TEST top of next page beyond number of areas
+                        THEN beep
+                        ELSE store current page
+                             reset top page item for next page
+                             dsipaly page
+         page back    : TEST top of current page is first area
+                        THEN beep
+                        ELSE store current page
+                             find top of previous page
+                             show page
+         display      : display page
+         store        : store page
+**/
+
+LET G.ar.page (function) BE
+$( SWITCHON function INTO
+   $( CASE m.ar.forward : TEST g.ar.buff!m.ar.top + g.ar.buff!m.ar.page.items >
+                                                      g.ar.buff!m.ar.data.areas
+                          THEN g.sc.beep()
+                          ELSE $( store.page()
+                                  IF g.key = -m.st.inputed THEN RETURN
+                                  g.ar.buff!m.ar.top := g.ar.buff!m.ar.top +
+                                                  g.ar.buff!m.ar.page.items - 1
+                                  display.page ()
+                               $)
+                          ENDCASE
+      CASE m.ar.back    : TEST g.ar.buff!m.ar.top = 1
+                          THEN g.sc.beep()
+                          ELSE $( store.page()
+                                  IF g.key = -m.st.inputed THEN RETURN
+                                  g.ar.buff!m.ar.top := previous.page.top()
+                                  display.page ()
+                               $)
+                          ENDCASE
+      CASE m.ar.display : display.page()
+                          ENDCASE
+      CASE m.ar.store   : store.page()
+                          ENDCASE
+   $)
+$)
+
+
+AND display.page () BE
+$( LET rec.size   = vec 1
+   LET data.size  = VEC 1
+   LET string.ptr = VEC 1
+   LET start.ptr  = VEC 1
+   LET val        = VEC 1
+   LET ptr        = VEC 1
+   LET top   = ?
+   LET size  = ?
+   LET count = ?
+   LET items = ?
+   LET mouse = ?
+   G.ut.set32(m.ar.gazbytes, 0, rec.size)
+                             // find pointer to correct place in gazetteer file
+   top  := g.ar.buff!m.ar.top
+   size := g.ar.buff!m.ar.size
+   G.ut.set32(top-1, 0, start.ptr)
+   G.ut.mov32(rec.size, string.ptr)
+   g.ut.mul32 (start.ptr, string.ptr)
+   g.ut.add32 (g.ar.buff+m.ar.gtopptr, string.ptr)
+   G.ut.set32(size, 0, data.size)
+
+   mouse := g.sc.pointer (m.sd.off)
+   g.sc.clear (m.sd.message)
+   g.sc.clear (m.sd.display)
+   g.sc.selcol (m.sd.cyan)                                     // set up screen
+   count := 0
+   items := 0
+   g.ar.selfs (m.dh.vfs)
+                      // read and display area name strings from gazetteer file
+   $( IF G.ar.read.gaz(string.ptr) = 0
+      THEN $( g.key := -m.st.inputed ; RETURN $)
+      g.ut.add32 (rec.size, string.ptr)
+      IF g.ar.buff!m.ar.map.num ~= 0
+      THEN $( LET string = g.ar.buff+m.ar.gstr
+              string.size (string)
+              g.sc.movea (m.sd.display, m.ar.posX, m.sd.linW*(m.sd.displines-
+                                                                        count))
+              g.sc.oprop (string)
+              g.ar.buff!(m.ar.value.index+count) := g.ar.buff!m.ar.area - 1
+              count := count + 1
+           $)
+      items := items + 1
+   $) REPEATUNTIL (count = m.sd.displines) |
+                  (top + items > g.ar.buff!m.ar.data.areas)
+   g.ar.buff!m.ar.page.items := items              // number of areas looked at
+   g.ar.buff!m.ar.page.list  := count              // number of areas recorded
+
+                                      // read and display values from data file
+   g.ar.selfs (m.dh.adfs)
+   FOR K = 0 TO count-1 DO
+   $( G.ut.set32(g.ar.buff!(m.ar.value.index+K), 0, ptr)
+                    // will crash if max. number of areas exceeds 16-bits worth
+      g.ut.mul32 (data.size, ptr)
+      g.ut.add32 (g.ar.buff+m.ar.values.ptr,  ptr)
+      IF g.dh.read (g.context!m.data.handle, ptr, val, size) = 0
+      THEN $( g.key := -m.st.inputed ; RETURN $)
+      IF size = 2 THEN G.ut.set32(G.ut.unpack16(val, 0), 0, val)
+      G.ut.mov32(val, g.ar.buff+m.ar.values+K*2)
+      num.to.string (val, g.ar.buff+m.ar.values.str+m.ar.val.len.words*K)
+      g.ar.highlight (m.ar.values, m.sd.blue, m.sd.yellow, K+1)
+   $)
+   g.sc.pointer (mouse)
+$)
+
+// ensure area name string will fit in allowed space
+AND string.size (string) BE
+$( LET width = ?
+   LET max = m.ar.valueXstr-m.ar.posX-m.sd.disXtex
+   $( width := g.sc.width (string)
+      IF width >  max
+      THEN string%0 := string%0-1
+   $) REPEATUNTIL width <= max
+$)
+
+// convert a number to a string for screen display
+AND num.to.string (num, string) BE
+$( LET base = 1
+   LET missing = false
+   LET zero = VEC 1
+   LET r = VEC 1
+   LET c = m.ar.value.length
+   LET t = VEC m.ar.value.length/bytesperword       // strictly /bytesperword
+   LET t1 = VEC 1
+
+   G.ut.set32(0, 0, zero)
+   IF g.ar.buff!m.ar.size = 2
+   THEN conv16 (num)
+
+   G.ut.set32(0, #X8000, t1)
+   IF G.ut.cmp32(num, t1) = m.eq
+   THEN missing := true
+
+   IF missing THEN $( string%0 := 0 ; RETURN $)
+
+   IF g.ut.cmp32 (num, zero) = m.lt
+   THEN $( rev32 (num)
+           string%1 := '-'
+           base := 2
+        $)
+
+   $( G.ut.set32(10, 0, t1)
+      G.ut.div32(t1, num, r)
+      t%c := G.ut.unpack16(r, 0) + '0'
+      UNLESS G.ut.cmp32(num, zero) = m.gt BREAK
+      c := c - 1
+   $) REPEAT
+   FOR i = m.ar.value.length TO c BY -1
+      string%(base + i - c) := t%i
+   string%0 := base + m.ar.value.length - c
+$)
+
+// convert an 16-bit number to a 32-bit number
+AND conv16 (num) BE
+   IF G.ut.unpack16.signed(num, 0) < 0
+   THEN $( IF G.ut.unpack16(num, 0) = #X8000
+           THEN $( G.ut.set32(0, #X8000, num)
+                   RETURN
+                $)
+           G.ut.set32(G.ut.unpack16(num, 0), #XFFFF, num)
+           RETURN
+        $)
+
+// convert a 32-bit number to its negative equivalent
+AND rev32 (num) BE
+$( let t = VEC 1
+   G.ut.set32((G.ut.unpack16(num, 0) NEQV #XFFFF),
+     (G.ut.unpack16(num, 2) NEQV #XFFFF), num)
+   G.ut.set32(1, 0, t)
+   G.ut.add32(t, num)
+$)
+
+// find sequential number of area to be shown at top of previous page
+AND previous.page.top() = VALOF
+$( LET rec.size   = VEC 1
+   LET string.ptr = VEC 1
+   LET start.ptr  = VEC 1
+   LET top   = ?
+   LET count = ?
+
+   G.ut.set32(m.ar.gazbytes, 0, rec.size)
+   top := g.ar.buff!m.ar.top
+   G.ut.set32(top-1, 0, start.ptr)
+   G.ut.mov32(rec.size, string.ptr)
+   g.ut.mul32 (start.ptr, string.ptr)
+   g.ut.add32 (g.ar.buff+m.ar.gtopptr, string.ptr)
+
+   count := 0
+   g.ar.selfs (m.dh.vfs)
+   $( IF G.ar.read.gaz(string.ptr) = 0
+      THEN $( g.key := -m.st.inputed ; RETURN $)
+      g.ut.sub32 (rec.size, string.ptr)
+      IF g.ar.buff!m.ar.map.num ~= 0
+      THEN count := count + 1
+      top := top - 1
+   $) REPEATUNTIL (count = m.sd.displines) | (top = 0)
+
+   RESULTIS top+1
+$)
+
+// store the data contained on the current page to the file
+AND store.page() BE
+$( LET data.size = VEC 1
+   LET data      = VEC 1
+   LET val       = VEC 1
+   LET ptr       = VEC 1
+   LET size      = ?
+
+   size  := g.ar.buff!m.ar.size
+   G.ut.set32(size, 0, data.size)
+
+   g.ar.selfs (m.dh.adfs)
+   FOR K = 0 TO g.ar.buff!m.ar.page.list - 1 DO
+   $( G.ut.set32(g.ar.buff!(m.ar.value.index+K), 0, ptr)
+      g.ut.mul32 (data.size, ptr)
+      g.ut.add32 (g.ar.buff+m.ar.values.ptr,  ptr)
+      SWITCHON size INTO
+      $( CASE 2 : data!0 := g.ar.buff!(m.ar.values+K*2)
+                  ENDCASE
+         CASE 4 : G.ut.mov32(g.ar.buff+m.ar.values+K*2, data)
+                  ENDCASE
+      $)
+      IF g.dh.write (g.context!m.data.handle, ptr, data, size) = 0
+      THEN $( g.key := -m.st.inputed
+              RETURN
+           $)
+   $)
+$)
+.
+

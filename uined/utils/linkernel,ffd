@@ -1,0 +1,19 @@
+*spool :4.uined.scratch.linkernel
+*| LINKERNEL Version 3 22.05.86
+*| link the system kernel
+*dir :4.UINED
+*|
+*| first the library
+*|
+join SC.c.kernel DH.c.kernel VH.c.kernel UT.c.kernel -to tkernel
+*|
+*| overlays
+join l.areal l.chart l.top l.grid l.gridh -to overlays 
+*| N.B grid is missing at the moment - also remember to remove insert
+*|
+*| Finally the stand alone version
+*|
+join $.alib.lib KE.c.kernel tkernel overlays -to :4.UINED.r.kernel
+*delete tkernel
+*delete overlays
+*spool

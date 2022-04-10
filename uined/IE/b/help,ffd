@@ -1,0 +1,93 @@
+section "help"
+
+/**
+         CM.B.HE - Help text for Top Level of User data
+         ----------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.top
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         18.6.87     1       SA        Initial version
+         17.8.87     2       SA        Text added
+          9.9.87     3       SRY       Kick pointer up on exit
+                                       + change title
+
+         GLOBALS DEFINED:
+
+         G.help
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.sihd"
+
+STATIC $( save.cur = ? $)
+
+/**
+   This routine either draws the help page or restores the previous state
+   of the screen according to the setting of the first menu bar entry.
+**/
+
+LET G.help() BE
+$( LET t = G.sc.pointer(m.sd.off)
+   TEST G.menubar!m.box1 = m.wExit
+   THEN $( G.sc.mode(1)                                       // exit from help
+           G.menubar!m.box1 := m.sd.act
+           G.redraw := true
+           G.sc.rescur (save.cur)
+           if G.screen = m.sd.menu
+              G.sc.moveptr( G.xpoint, G.sc.dtob(m.sd.display,4) )
+           FREEVEC (save.cur)
+        $)
+   ELSE $( save.cur := GETVEC (3)
+           G.sc.savcur (save.cur)
+           G.sc.mode (129)
+           G.sc.selcol (m.sd.blue)
+           G.sc.movea (m.sd.message, 0, 0)
+           G.sc.rect (m.sd.plot, m.sd.mesW-1, m.sd.mesH-1)
+           G.sc.movea (m.sd.message, m.sd.propXtex, m.sd.mesYtex)
+           G.sc.selcol (m.sd.yellow)
+           G.sc.oprop ("Help with Filename Specification")
+           G.sc.clear (m.sd.display)
+           G.sc.selcol (m.sd.cyan)
+
+           oline( 2, "Enter the filename of the dataset to be edited")
+           oline( 3, "and then press ACTION.  The filename can include")
+           oline( 4, "a full directory path.  If a disc error occurs")
+           oline( 5, "or the file contains data which isn't in Domesday")
+           oline( 6, "format you will be warned and allowed to change")
+           oline( 7, "the filename.  You can use the System option on")
+           oline( 8, "the menu bar to enter any system command (e.g.")
+           oline( 9, "to see what files already exist on your disc).")
+
+           oline(11, "If you specify a file which does not yet exist,")
+           oline(12, "a new file will be created and you will be asked")
+           oline(13, "to select the type of the data set from the")
+           oline(14, "menu bar.")
+
+           oline(16, "If the file you choose already exists you can")
+           oline(17, "make a copy of it to use in this editing session")
+           oline(18, "by typing another filename below.  If this file")
+           oline(19, "already exists you will have the option to")
+           oline(20, "overwrite it or choose another filename.  For")
+           oline(21, "existing data files the system will proceed")
+           oline(22, "directly to the correct editing mode.")
+
+           G.menubar!m.box1 := m.wExit
+           FOR i = m.box2 TO m.box6 G.menubar!i := m.wBlank
+           G.sc.menu(G.menubar)
+        $)
+   G.sc.pointer(t)
+$)
+
+AND oline (line.no, text) BE
+$( G.sc.movea(m.sd.display, 0, m.sd.disH-(line.no-1)*m.sd.linW)
+   G.sc.oprop(text)
+$)
+.

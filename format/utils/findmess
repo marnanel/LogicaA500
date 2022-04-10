@@ -1,0 +1,6 @@
+*dir :0
+*spool :0.format.scratch.messages
+utils.search "*"" in format.DF.b
+utils.search "*"" in format.AG.b
+*back
+*spool

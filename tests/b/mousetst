@@ -1,0 +1,96 @@
+Section "Mouse Test"
+
+STATIC $( s.i = 0 $)
+
+GET "LIBHDR"
+
+GET ":4.ads.gh.glhd"
+
+GET ":4.ads.h.sdhd"
+
+LET start() BE
+$(
+   LET rvec = VEC 3
+   LET X,Y,K = ?,?,?
+   LET mode  = 9
+
+   G.sc.mode(mode)
+
+   G.sc.initialise.mouse()  
+
+   G.sc.pointer( m.sd.on )   
+
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex )
+
+   G.sc.odrop("   ARM Display tester")
+
+   G.ut.wait(200)
+
+   textpage.()
+
+   $(
+      G.sc.mouse( rvec )
+ 
+      IF X ~= rvec!0 | Y ~= rvec!1 | K ~= rvec!2 DO
+      $(
+         G.sc.mess( "position X: %n Y: %n key: %n",rvec!0,rvec!1,rvec!2 )
+         X := rvec!0 ; Y := rvec!1 ; K := rvec!2 
+      $)
+
+      IF rvec!2 = 5 DO G.sc.ermess("Here is an error message") 
+
+      IF rvec!2 = 22 DO
+      $( mode := mode NEQV #x80
+         G.sc.pointer(m.sd.off) 
+         G.sc.mode(mode) 
+         G.sc.pointer(m.sd.on)
+      $)
+
+      IF rvec!2 = 4 DO textpage.()
+
+   $) REPEATUNTIL rvec!2 = 1
+
+$)
+
+AND textpage.() BE
+$(
+   LET line.(string) BE
+   $( g.sc.movea(m.sd.display,m.sd.propXtex,m.sd.disYtex-m.sd.linw*s.i)
+      g.sc.oprop(string)
+      s.i := s.i+1
+   $)
+
+   s.i := 0
+
+   G.sc.clear( m.sd.display )
+
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex )
+   G.sc.odrop("   ARM Display tester")
+
+   G.sc.clear( m.sd.message )
+   G.sc.selcol( m.sd.cyan )
+
+   line.("")
+   line.("")
+   line.("   Help with operating system commands")
+   line.("")
+   line.("This function allows you to enter operating")
+   line.("system (star) commands - for example: **TIME.")
+   line.("")
+   line.("Type in the command you want executed and")
+   line.("then press <ACTION> ( <RETURN> on the")
+   line.("keyboard ). The cursor keys and <DELETE>")
+   line.("are available for correction. You do not")
+   line.("have to type in the initial '**': it is")
+   line.("provided for you.")
+   line.("")
+   line.("Beware of any commands that can affect the")
+   line.("running of the system. If you change filing")
+   line.("systems, corrupt memory, or load a new")
+   line.("language, then the Domesday system will have")
+   line.("to be restarted with <SHIFT> / <BREAK>.")
+   line.("")
+   line.("")
+
+   s.i := 0
+$)

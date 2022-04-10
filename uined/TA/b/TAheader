@@ -1,0 +1,498 @@
+SECTION "TAheader"
+
+/**
+         TABULAR HEADER ACTION ROUTINE
+         -----------------------------
+
+         This section contains :
+
+            G.ta.header and its utility routines
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.header
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         30.4.87     1       SA        Initial version
+         29.5.87     6       SA        Converted for Tabular data
+         17.7.87     7       SA        Remove nearly all reference to data
+                                       type cycle field
+         13.08.87    8       SRY       Removed let a =
+         22.10.87    9       MH        updated for UNI version
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.TAhd"
+GET ":4.UINED.h.sthd"
+
+/**
+         G.TA.HEADER - SET UP HEADER PAGE
+         --------------------------------
+
+         Specific action routine for tabular header
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.ta.buff
+
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.header []
+         --------------
+
+         IF state justselected
+         THEN call initialise routine
+         ENDIF
+
+         <Take action depending on function key>
+
+         CASE OF key
+            Function 4 : show ranges
+                         allow edits
+                         ENDCASE
+            Function 3 :
+            Function 5 : IF data not valid
+                         THEN key = no action
+                         ENDCASE
+            Default    :
+         <Take action depending on screen state>
+
+         CASE OF screen state
+            0 :   entry mode - do nothing
+            1 :   find current box
+                  last box = Current box
+                  IF current box =  unknown
+                  THEN IF key is alphanumeric
+                       THEN beep
+                  ELSE highlight last box
+                       initialise for input
+                       set screen state = 2
+            2 :   IF last box = current box
+                  THEN screen state = 3
+                  ELSE de-highlight last box
+                       set screen state = 1
+            3 :   CASE OF last box
+                   title              :
+                   Y-axis             :
+                   normalising factor : read input
+                                        IF key = return
+                                        THEN IF validate
+                                             THEN screen state = 1
+                                             ELSE warning message
+                                        ENDCASE
+                   data               : IF key = change
+                                        THEN show next string
+                                        IF last box ~= current box
+                                        THEN screen state = 1
+                                        ENDCASE
+                   selection          : control selection box field
+                                        ENDCASE
+                   colour             : control colour changing
+                                        ENDCASE
+         default : screen state = 1
+         ENDCASE
+**/
+
+LET G.ta.header() BE
+$(
+   let space = table m.ta.header.space, 0
+   let boxes = table m.sd.act, m.sd.wblank, m.sd.act, m.sd.act,
+                     m.sd.act,m.sd.act
+
+   if G.menubar!m.box1 = m.wEXIT return
+
+   test G.context!m.justselected then
+   $(
+      G.ta.inith()
+      if G.key = -m.st.inputed return
+      G.context!m.justselected := false
+   $)
+   else if G.redraw then
+   $(
+      G.sc.palette(m.sd.yellow, G.ta.buff!m.ta.palette)
+      G.sc.palette(m.sd.blue, G.ta.buff!(m.ta.palette+1))
+      G.sc.palette(m.sd.cyan, G.ta.buff!(m.ta.palette+2))
+
+      test putdata() = m.wBlank then
+      $(
+         boxes!m.box4 := m.sd.wBlank  //move to "Data" state not allowed
+         boxes!m.box5 := m.sd.wBlank  //move to "Save" state not allowed
+         boxes!m.box6 := m.sd.wBlank  //move to "Exit" state not allowed
+      $)
+      else
+      $(
+         boxes!m.box4 := m.sd.act   //move to "Data" state allowed
+         boxes!m.box5 := m.sd.act   //move to "Save" state allowed
+         boxes!m.box6 := m.sd.act   //move to "Exit" state allowed
+      $)
+      G.sc.menu(boxes)
+   $)
+   SWITCHON G.key INTO
+   $(
+
+      CASE m.kd.Fkey1 : endcase
+      CASE m.kd.Fkey3 :
+      CASE m.kd.Fkey4 :
+      CASE m.kd.Fkey5 :
+      CASE m.kd.Fkey6 : UNLESS valid.for.next.state()
+                        DO g.key := m.kd.noact
+                        unless save.in.file() then
+                        $(
+                           G.key := -m.st.inputed
+                           return
+                        $)
+                        unless G.key = m.kd.fkey5 G.sc.setpal(m.sd.defpal)
+                        endcase
+      DEFAULT         : handle.states()
+                        ENDCASE
+   $)
+// test for data state allowed
+   $( let i = false
+      let l = putdata()  // test that there is 1 or more variables each with
+                         // 2 or more categories
+
+      if G.menubar!m.box4 = m.sd.act G.menubar!m.box4 := m.wData
+      if G.menubar!m.box4 = m.sd.wBlank G.menubar!m.box4 := m.wBlank
+      unless G.menubar!m.box4 = l then    // if menu bar o.k.  don't draw
+         test l = m.wBlank then
+         $( G.menubar!m.box4 := m.wBlank  //move to "Data" state not allowed
+            i := true
+         $)
+         else
+         $( G.menubar!m.box4 := m.wData   //move to "Data" state allowed
+            i := true
+         $)
+      if i G.sc.menu(G.menubar) //redraw menu bar
+   $)
+$)
+
+AND handle.states() BE
+$( IF g.ta.buff!m.ta.xpos ~= G.xpoint |
+      g.ta.buff!m.ta.ypos ~= G.ypoint |
+      g.ta.buff!m.ta.last.box ~= on.box()
+   THEN g.ta.buff!m.ta.status := m.ta.on
+
+   SWITCHON g.ta.buff!m.ta.screenstate INTO
+   $( CASE 1 : UNLESS (on.box() = m.ta.unknown) |
+                      (g.ta.buff!m.ta.status = m.ta.off)
+               $( LET box = g.ta.buff!m.ta.box
+                  LET g = G.key
+                  g.ta.buff!m.ta.last.box := box
+                  G.key := m.kd.noact           // initialise boxes - no action
+                  SWITCHON type (box) INTO
+                  $( CASE m.ta.entry     : g.ta.hi.label (box, m.sd.cyan,
+                                                                     m.sd.blue)
+                                           g.ta.char.input(box)
+                                           ENDCASE
+                     CASE m.ta.selection : g.ta.select (true)
+                                           ENDCASE
+                     CASE m.ta.colour    : ENDCASE
+                  $)
+                  g.ta.buff!m.ta.status := m.ta.on
+                  screen(2)
+                  G.key := g
+               $)
+               ENDCASE
+      CASE 2 : $( LET box  = g.ta.buff!m.ta.last.box
+                  TEST (on.box() = box) & (g.ta.buff!m.ta.status = m.ta.on)
+                  THEN $( g.ta.buff!m.ta.oldstr   := true
+                          g.ta.buff!m.ta.old.cols := true
+                          screen(3)
+                       $)
+                  ELSE $( LET g = G.key
+                          G.key := m.kd.noact
+                          SWITCHON type(box) INTO
+                          $( CASE m.ta.entry     : g.ta.hi.label (box,
+                                                        m.sd.blue, m.sd.yellow)
+                                                   ENDCASE
+                             CASE m.ta.selection : g.ta.select (false)
+                                                   ENDCASE
+                             CASE m.ta.colour    : ENDCASE
+                          $)
+                          G.key := g
+                          screen(1)
+                       $)
+               $)
+               ENDCASE
+      CASE 3 : $( LET box = g.ta.buff!m.ta.last.box
+                  SWITCHON box INTO
+                  $( CASE m.ta.title   :
+                     CASE m.ta.axis    :
+                     CASE m.ta.nfac    : entry (box)
+                                         ENDCASE
+                     CASE m.ta.display : TEST box = on.box()
+                                         THEN g.ta.select (true)
+                                         ELSE screen(2)
+                                         ENDCASE
+                     CASE m.ta.palette : TEST box ~= on.box() &
+                                              g.ta.buff!m.ta.old.cols
+                                         THEN screen(2)
+                                         ELSE UNLESS g.key = m.kd.noact DO
+                                                 g.ta.selcol()
+                                         ENDCASE
+                  $)
+               $)
+               ENDCASE
+      default: screen(1)
+   $)
+$)
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+//                  Utility routines used by TABULAR only                    //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+AND valid.for.next.state() = VALOF
+$( UNLESS g.ta.valid(m.ta.nfac) RESULTIS false
+   UNLESS g.ta.valid.colours()  RESULTIS false
+   RESULTIS true
+$)
+
+// controls highlighting and input to entry boxes in screen state 3
+AND entry (box) BE
+$( TEST g.key = m.kd.noact |
+        g.key = m.kd.up    |
+        g.key = m.kd.down
+   THEN IF g.ta.buff%(box*bytesperword) = 0 | g.ta.buff!m.ta.oldstr
+        THEN IF on.box() ~= box             // if moved off box without editing
+             THEN screen(2)
+   ELSE $( g.ta.char.input(box)
+           g.ta.buff!m.ta.oldstr := false
+        $)
+   IF g.key = m.kd.return
+   THEN TEST g.ta.valid (box)
+        THEN $( g.ta.buff!m.ta.status := m.ta.off
+                g.ta.buff!m.ta.xpos   := G.Xpoint
+                g.ta.buff!m.ta.ypos   := G.Ypoint
+                IF box = m.ta.nfac
+                THEN $( LET one = vec 1
+                        G.ut.set32(1, 0, one)
+                        g.ta.buff!m.ta.norm :=
+                                            string.to.num (g.ta.buff+m.ta.nfac)
+                        g.sc.clear (m.sd.message)
+                        g.sc.movea (m.sd.message, 0, 0)
+                        g.sc.selcol (m.sd.cyan)
+                        g.sc.rect (m.sd.plot, m.sd.mesw-1, m.sd.mesh-1)
+                        g.sc.movea (m.sd.message, 0, m.sd.mesYtex)
+                        g.sc.selcol (m.sd.blue)
+                        g.sc.opnum (one, g.ta.buff!m.ta.norm, 40)
+                     $)
+                screen(2)
+             $)
+        ELSE $( LET g = G.key
+                IF box = m.ta.nfac
+                THEN $( LET ptr = VEC 3
+                        g.sc.savcur (ptr)
+                        g.sc.clear (m.sd.message)
+                        g.sc.rescur (ptr)
+                     $)
+                G.key := m.kd.noact
+                g.ta.char.input (box)
+                G.key := g
+             $)
+$)
+
+// Return identifier to the field the cursor is on
+AND on.box() = VALOF
+$( LET box = m.ta.unknown
+   IF (m.ta.nfacY -m.sd.linW <= G.ypoint <=  m.ta.nfacY) &
+                               (G.xpoint <   m.ta.halfX) THEN box := m.ta.nfac
+   IF (m.ta.titleY-m.sd.linW <= G.ypoint <= m.ta.titleY) THEN box := m.ta.title
+   IF (m.ta.axisY -m.sd.linW <= G.ypoint <=  m.ta.axisY) THEN box := m.ta.axis
+   IF (m.ta.colY  -m.sd.linW <= G.ypoint <=   m.ta.colY)
+                                                       THEN box := m.ta.palette
+   IF (m.ta.dispY-7*m.sd.linW <= G.ypoint <= m.ta.dispY-m.sd.linw) &
+                              (G.xpoint >= m.ta.halfX) THEN box := m.ta.display
+   g.ta.buff!m.ta.box := box
+   RESULTIS box
+$)
+
+// returns type of current field
+AND type (box) = VALOF SWITCHON box INTO
+$( CASE m.ta.nfac    :
+   CASE m.ta.axis    :
+   CASE m.ta.title   : RESULTIS m.ta.entry
+   CASE m.ta.palette : RESULTIS m.ta.colour
+   CASE m.ta.display : RESULTIS m.ta.selection
+   CASE m.ta.unknown :
+   DEFAULT           : RESULTIS m.ta.unknown
+$)
+
+// convert digit string to 16-bit number
+AND string.to.num (string) = VALOF
+$( LET chs = string%0
+   LET number = 0
+   LET index  = 1
+   FOR H = chs TO 1 BY -1 DO
+   $( UNLESS string%H = '-' DO
+      $( number := number + ((string%H)-'0')*index
+         index  := index*10
+      $)
+   $)
+   IF string%1 = '-'
+   THEN number := -number
+   RESULTIS number
+$)
+
+AND screen(state) BE g.ta.buff!m.ta.screenstate := state
+
+AND save.in.file() = VALOF
+$(
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+   let buffer = getvec(126/bytesperword - 1) // 3 labels * 42 bytes
+   let out.str = G.ta.buff + m.ta.title
+   let result = true
+   let mess = "Saving data"
+
+   G.ut.set32(m.ta.title.pos, 0, f.ptr)
+   if G.key = m.kd.fkey5 G.sc.mess(mess)
+   for i = 0 to (126/bytesperword - 1) do
+     buffer!i := bytesperword = 2 -> #x2020, #x20202020
+                                   //fill dummy label with spaces
+   for i = 0 to out.str%0 buffer%i := out.str%i
+   out.str := G.ta.buff + m.ta.axis
+   for i = 0 to out.str%0 buffer%(i + 42) := out.str%i
+   if G.dh.write(h, f.ptr, buffer, 126) = 0 goto error
+   unless write.display()  goto error
+   unless write.exponent() goto error
+   G.dh.ensure()
+   goto exit
+
+error:
+   result := false
+
+exit:
+   freevec(buffer)
+   if result & G.key = m.kd.fkey5 G.sc.clear(m.sd.message)
+   resultis result
+$)
+
+and write.display() = VALOF
+$(
+   let f.ptr = vec 1
+   let display = vec 6
+   let h =G.context!m.data.handle
+   let c = 0
+
+   G.ut.set32(m.ta.display.pos, 0, f.ptr)
+   for i = 0 to 4 display!i := 0
+   for i = 1 to 6 do
+      if G.ta.buff!(m.ta.display+i) then
+      $(
+         switchon i into
+         $(
+         case 1: display%c := 1 // bar chart
+                 endcase
+         case 2: display%c := 7 // pie chart
+                 endcase
+         case 3: display%c := 8 // line graph
+                 endcase
+         case 4: display%c := 2 // back to back
+                 endcase
+         case 5: display%c := 6 // looping bar chart
+                 endcase
+         case 6: display%c := 10 // multi line graph
+                 endcase
+         $)
+         c := c + 1
+      $)
+   sort.(display) //sort display methods into order
+   switchon G.ta.buff!m.ta.disp.default into
+   $(
+   case 1: display%10 := 1 // bar chart
+           endcase
+   case 2: display%10 := 7 // pie chart
+           endcase
+   case 3: display%10 := 8 // line graph
+           endcase
+   case 4: display%10 := 2 // back to back
+           endcase
+   case 5: display%10 := 6 // looping bar chart
+           endcase
+   case 6: display%10 := 10 // multi line graph
+           endcase
+   $)
+   for i = 0 to 2 display%(i+11) := G.ta.buff!(m.ta.palette + i)
+   if G.dh.write(h, f.ptr, display, 14) = 0 resultis false
+   resultis true
+$)
+
+and sort.(l) be
+$(
+   let sorted = ?
+   $(
+      sorted := true
+      for i = 0 to 4 do
+         test l%(i+1) = 0 then
+            break
+         else if l%i > l%(i + 1) then
+         $( let temp = l%i
+            l%i := l%(i + 1)
+            l%(i + 1) := temp
+            sorted := false
+         $)
+   $) repeatuntil sorted
+$)
+
+// writes out the additive flag, normalising value and the scaling
+AND write.exponent() = VALOF
+$(
+   let f.ptr = table m.ta.add.pos, 0
+   let norm = vec 3
+   let h = G.context!m.data.handle
+
+   norm%6 := 'E'
+   norm%3, norm%4 := 0, 0
+   G.ta.buff!m.ta.norm := string.to.num(G.ta.buff+m.ta.nfac)
+   test G.ta.buff!m.ta.norm < 0 then
+   $(
+      norm%1, norm%2 := -G.ta.buff!m.ta.norm, 0
+      norm%5 := 'D'
+   $)
+   else
+   $(
+      norm%1, norm%2 := G.ta.buff!m.ta.norm, 0
+      norm%5 := 'M'
+   $)
+   norm%0 := 4
+   if G.dh.write(h, f.ptr, norm, 7) = 0 resultis false
+     //write out addivite, normalising and scaling
+   resultis true
+$)
+
+and putdata() = VALOF
+$(
+   let p = true
+
+   test G.ta.area%m.ta.no.vars = 0 then
+      p := false
+   else
+      for i = 1 to G.ta.area%m.ta.no.vars do
+         if G.ta.area%(m.ta.var.table + i - 1) < 2
+            p := false
+   resultis p -> m.wData, m.wBlank
+$)
+.
+

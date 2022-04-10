@@ -1,0 +1,39 @@
+SECTION "dummy interface"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+
+let G.ma.insert.cat(c,v,ct,nv,ds,sf) = VALOF
+$(
+   G.sc.ermess("c=%n v=%n nv=%n ds=%n sf=%n",c,v,nv,ds,sf)
+   resultis true
+$)
+
+and G.ma.delete.cat(c,v,ct,nv,ds,sf) = VALOF
+$(
+   G.sc.ermess("c=%n v=%n nv=%n ds=%n sf=%n",c,v,nv,ds,sf)
+   resultis true
+$)
+
+and G.ma.remove.var(v,ct,nv,ds,sf) = VALOF
+$(
+   G.sc.ermess("v=%n nv=%n ds=%n sf=%n",v,nv,ds,sf)
+   resultis true
+$)
+
+.
+
+
+
+
+
+
+
+
+
+
+
+
+

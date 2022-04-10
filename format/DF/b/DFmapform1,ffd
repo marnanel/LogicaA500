@@ -1,0 +1,490 @@
+/**
+         DATA FORMATTER - TOP LEVEL MAP + AREAL MAP
+         ------------------------------------------
+
+         This section contains :
+
+            G.df.mapform
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.format
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       23.02.87   1        SRY         Initial version
+       16.04.87   2        MH          Update to G.df.def.ranges; check
+                                       for upper and lower case delimitter
+       25.06.87   3        SRY         Added query of optimisation
+       16.07.87   4        SA          Handles areal units with limitless areas
+       31.07.87   5        SA          Message area cleared before warnings
+        3.08.87   6        SRY         Removed m.ut.* & uthdr
+        7.09.87   7        SRY         Incidence norm factor set to zero
+        8.09.87   8        SRY         Incidence ranges set to zero
+       26.11.87   9        MH          Updated for UNI version
+**/
+
+SECTION "Mapform1"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.dfhd"
+
+STATIC
+$( areas = ?
+   val = ?
+   datatype = ?
+$)
+
+/**
+         G.DF.MAPFORM
+         ------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.mapform
+         ------------
+
+         Read type of dataset
+         If type not A or G error
+         Read to next line
+         Do the data-sizing pass
+         Write out 28-byte header
+         Do the formatting pass
+**/
+
+LET G.df.mapform() be
+$( // Determine type: 'A' or 'G' for areal or grid
+   // It will not at this stage be anything else
+   let type = G.df.rdch()
+   let areal = type = 'A'
+
+   val := G.df + m.df.val
+   nextline.()
+   if G.df.check.() return
+
+   // Data sizing or index building pass
+
+   G.df!m.df.dummy := true
+   header.(areal)
+   if G.df.check.() return
+   test areal then format.areal() else G.df.format.grid(datatype)
+   if G.df.check.() return
+
+   // Do the main part of the formatting
+
+   G.df!m.df.dummy := false
+   G.df.rewind()
+   nextline.()
+   header.(areal)
+   if G.df.check.() return
+   test areal then format.areal() else G.df.format.grid(datatype)
+$)
+
+and header.(areal) be // 28-byte header + mappable data common header
+$(
+   // Write 28-byte header
+   G.df.wrch(0)                  // level
+   G.df.wrch(areal -> 3, 1)      // type
+   for i = 1 to 6 G.df.word(-1)  // text addresses
+   for i = 1 to 5 G.df.word(0)   // thes. terms
+   for i = 1 to 2 G.df.word(-1)  // Names file pointer
+
+   blank.string()                // title blank
+   get.string()                  // primary units string
+   if G.df.check.() return
+   blank.string()                // secondary units string blank
+
+   // Data type
+   G.df.read.num(false, false, "Bad data type")
+   if G.df.check.() return
+   datatype := !val
+   switchon datatype into
+   $( case 0: case 2: case 3: case 5: case 6: case 7:
+      endcase
+      case 1: case 4:
+         datatype := (datatype + 5)/3  // 1 -> 2; 4 -> 3
+         if G.df!m.df.dummy
+            G.sc.ermess("Warning: data type changed to %n", datatype)
+      endcase
+      default:
+         G.df.ermess("Illegal data type: %N", datatype)
+         return
+   $)
+
+   G.df.word(datatype)
+$)
+
+and format.areal() be
+$( let l, code  = ?, ?
+   let bb = "Bad boundary code"
+   let bnf = "Bad normalising factor"
+   let exp.areas = 0
+   let ranges = vec 20/bytesperword // range values stored as 4 byte values
+   let areatab = table
+       1,   5, 13, 74, 488,   280,  136,  18,  650, 124,
+      32, 334, -1, 15,  -1,    -1,   -1,  -1,  852,  79,
+      54,  15, 15, 15, 242, 10444, 8400, 119, 2570,  -1, 166
+
+   G.df.counter(m.df.areal, 0) // initialise screen display
+   G.df.word(1)                // 1 subdataset
+
+   // Read and check boundary code
+   G.df.read.num(false, false, bb)
+   if G.df.check.() return
+   code := !val
+   if 11 <= code <= 41
+   $( exp.areas := areatab!(code - 11)
+      if exp.areas <= 0
+      $( G.df.ermess(bb)
+         return
+      $)
+   $)
+
+   G.df.word(code) // Boundary code
+   G.df.word(0)    // record number
+   G.df.word(80)   // word offset to subdataset (datoff)
+   G.df.word(0)    // 1 word pad
+
+   // Datoff section
+
+   G.df.word(0)    // rec. number of data values
+   G.df.word(176)  // word offset for data values (valoff)
+
+   // Normalising factor
+   G.df.read.num(true, false, bnf)
+   if G.df.check.() return
+   unless -99 <= !val <= 99
+   $( G.df.ermess(bnf)
+      return
+   $)
+   if (!val ~= 0) & (datatype = 5) // incidence
+   $( if g.df!m.df.dummy
+         G.sc.ermess("Warning: normalising factor changed to 0")
+      G.ut.set32(0, 0, val)
+   $)
+   G.df.double.word(val)
+
+   // Data size from input file (- but throw it away for areal)
+   G.df.get.datasize()
+   if G.df.check.() return
+
+   // Number of areas - 16 bits
+   G.df.read.num(false, false, "Bad number of areas")
+   if G.df.check.() return
+   areas := !val
+   unless (areas = exp.areas) | (exp.areas = 0)
+   $( G.df.ermess("Number of areas should be %N", exp.areas)
+      return
+   $)
+
+   G.df.word(areas)
+   G.df.word(0)
+   G.df.wrch(G.df!m.df.datasize)
+
+   // Default ranges
+   l := G.df.def.ranges(ranges, 'A')
+   if G.df.check.() return
+   G.df.wrch(l)
+   for i = 0 to (4/bytesperword)*l-1 by (4/bytesperword) do
+      G.df.double.word(ranges+i)  //write out 4 byte range value 
+
+   // 74 words of summary data
+   G.df.summary.data()
+   // Pad up to  a) 10 words for default ranges
+   //            b) 5 zero words to 96 + 80 words
+   for i = 4*l to 29 G.df.wrch(0)
+
+   // now read 'A='
+   l :=  G.df.rdch() = 'A'
+   l := l & (G.df.rdch() = '=')
+   unless l G.df.ermess("Bad data delimiter")
+
+   // Valoff section
+   unless G.df.check.() areal.data()
+$)
+
+and get.string() be
+$( let l = 39
+   let s = vec 40/bytesperword
+   for i = 1 to 39 s%i := ' '
+   for i = 1 to 39
+   $( let ch = G.df.rdch()
+      if G.df.check.() return
+      if eol.(ch) $( l := i-1; break $)
+      s%i := ch
+   $)
+   G.df.wrch(' ') // first byte is abbreviation, not used
+   for i = 1 to 39 G.df.wrch(s%i)
+$)
+
+and G.df.def.ranges(ranges, delim) = valof // read in default ranges
+$( let n = 0
+   let finished = false
+   let d = 0
+   let non.zero = false
+   let bdr = "Bad default ranges"
+   let t = vec 1
+   for i = 0 to 19/bytesperword ranges!i := 0
+
+   $( $( let ch = G.df.rdch()
+         if G.df.check.() resultis 0
+         if capch(ch) = delim $( finished := true; break $)
+         if '0' <= ch <= '9' | ch = '-' | ch = '+' break
+         unless pad(ch) goto error.exit
+      $) repeat
+
+      G.df.unrdch() // read number or 'A' again
+      if finished break
+
+      n := n + 1
+      if n > 4 goto error.exit // Max 4 default ranges
+      G.df.read.num(true, true, bdr)
+      if G.df.check.() resultis 0
+      G.ut.set32(0, 0, t)
+      unless g.ut.cmp32(val, t) = m.eq
+         non.zero := true
+      G.ut.mov32(val, ranges+d)
+      d := d + (4/bytesperword)
+   $) repeat
+   unless n = 1
+      for i = 0 to (n-2)*(4/bytesperword) by (4/bytesperword) do
+         if G.ut.cmp32(ranges+i, ranges+i+(4/bytesperword)) = m.gt then
+            goto error.exit
+
+   if (datatype = 5) & non.zero
+   $( if g.df!m.df.dummy g.sc.ermess("Warning: default ranges changed to 0")
+      for i = 0 to 19/bytesperword ranges!i := 0
+   $)
+
+   resultis n
+
+error.exit:
+   G.df.ermess(bdr)
+   resultis 0
+$)
+
+and G.df.summary.data() be // all missing - 74 words
+$( let d = G.df!m.df.datasize
+   G.df!m.df.datasize := 4
+
+   for i = 1 to 3 G.df.missing.cell() // min, max, average
+   sd(3) // Equal-4
+   sd(4) // Equal-5
+   sd(5) // Equal-6
+   sd(3) // Nested means
+   sd(3) // Quartiles
+   sd(4) // Quintiles
+   sd(5) // Sextiles
+   sd(3) // Signed Chi-squared
+
+   G.df!m.df.datasize := d
+$)
+
+and sd(n) be // summary data block with n missing cells
+$( G.df.word(n)
+   for i = 1 to n G.df.missing.cell()
+$)
+
+and G.df.get.datasize() be
+$( let precise = true
+   let dummy = G.df!m.df.dummy
+   let bds = "Bad data size"
+   let min = vec 1
+   let max = vec 1
+
+   if dummy G.df!m.df.datasize := 0
+
+   $( let ch = G.df.rdch()
+      if G.df.check.() return
+      if ch = '=' break
+      if '0' <= ch <= '9' | ch = '-' | ch = '+'
+      $( precise := false
+         G.df.unrdch()
+         break
+      $)
+      unless pad(ch) goto error.exit
+   $) repeat
+
+   test precise
+   then $( G.df.read.num(false, false, bds)
+           if G.df.check.() return
+           if dummy G.df!m.df.datasize := !val
+        $)
+   else $( G.df.read.num(true, true, bds)  // two numbers
+           if G.df.check.() return
+           G.ut.mov32(val, min)
+           G.df.read.num(true, true, bds)
+           if G.df.check.() return
+           G.ut.mov32(val, max)
+           if G.ut.cmp32(min, max) = m.gt then
+           $( G.ut.mov32(min, max)
+              G.ut.mov32(val, min)
+              if dummy
+              $( g.sc.clear (m.sd.message)
+                 G.sc.ermess("Warning: min/max values in wrong order")
+                 G.sc.ermess("Values have been swapped")
+              $)
+           $)
+           if dummy G.df!m.df.datasize := size.(min, max)
+        $)
+
+   if 1 <= G.df!m.df.datasize <= 4
+   $( if G.df!m.df.datasize = 3
+      $( if dummy
+         $( g.sc.clear (m.sd.message)
+            G.sc.ermess("Warning: data size changed to 4")
+         $)
+         G.df!m.df.datasize := 4
+      $)
+      return
+   $)
+
+error.exit:
+   G.df.ermess(bds)
+$)
+
+and areal.data() be // Full areal vector with missing values
+$( let current = 1
+   let num = ?
+   let dummy = G.df!m.df.dummy
+   let min = vec 1
+   let max = vec 1
+
+   G.ut.set32(0, 0, min)
+   G.ut.set32(0, 0, max)
+
+   // Read data from file, filling in missing values
+   $( G.df.read.num(false, false, "Bad area type")  // read boundary code
+      if G.df!m.df.eof break  // list finished, fill in missing to end
+      if G.df!m.df.err return
+      num := !val
+      if num < current
+      $( G.df.ermess("Area code %N not in order", num)
+         return
+      $)
+      if num > areas
+      $( G.df.ermess("Area code %N larger then limit %N", num, areas)
+         return
+      $)
+      for i = current + 1 to num G.df.missing.cell()   // fill in gaps
+      current := num + 1
+      G.df.read.num(true, true, "Bad data value")  // get actual value
+      if G.df.check.() return
+      test missing()
+      then G.df.missing.cell()
+      else $( if dummy
+              $( if G.ut.cmp32(val, min) = m.lt then
+                    G.ut.mov32(val, min)
+                 if G.ut.cmp32(val, max) = m.gt then
+                    G.ut.mov32(val, max)
+              $)
+              G.df.cell() // write out value
+           $)
+      if (num & 3) = 0 G.df.counter(num, areas) // Every 4
+   $) repeatuntil num = areas
+   G.df!m.df.eof := false // prevent errors
+   if dummy
+   $( let s = size.(min, max)
+      if s > G.df!m.df.datasize
+         G.sc.ermess("Warning: user data exceeds data size")
+      if s = 1 s := 2
+      G.df!m.df.datasize := G.df!m.df.opt -> s, 4
+   $)
+   for i = current to areas G.df.missing.cell()
+   G.df.counter(areas, areas) // force 100%
+$)
+
+and missing() = valof
+$( let t = vec 1
+   let result = valof switchon G.df!m.df.datasize into
+   $( case 1: G.ut.set32(#x80, 0, t)
+              resultis (G.ut.cmp32(val, t) = m.eq)
+      case 2: G.ut.set32(#x8000, 0, t)
+              resultis (G.ut.cmp32(val, t) = m.eq)
+      case 4: G.ut.set32(0, #x8000, t)
+              resultis (G.ut.cmp32(val, t) = m.eq)
+   $)
+   test result then
+      resultis true
+   else 
+   $(
+      G.ut.set32(0, #x8000, t)
+      test G.ut.cmp32(t, val) = m.eq then
+         resultis true
+      else
+         resultis false 
+   $)
+$)
+
+and G.df.cell() be
+   switchon G.df!m.df.datasize into
+   $( case 1: G.df.wrch(!val); endcase
+      case 2: G.df.word(!val); endcase
+      case 4: G.df.double.word(val)
+   $)
+
+and G.df.missing.cell() be switchon G.df!m.df.datasize into
+   $( case 1: G.df.wrch(#X80); endcase
+      case 2: G.df.word(#X8000); endcase
+      case 4: $( let t = vec 1
+                 G.ut.set32(0, #x8000, t)
+                 G.df.double.word(t)
+              $)
+   $)
+
+and size.(min, max) = VALOF
+$( let t = vec 1
+   let t1 = vec 1
+   let byte.size = ?
+   G.ut.set32(#x8000, #xFFFF, t)
+   G.ut.set32(#x7FFF, 0, t1)
+   test (G.ut.cmp32(min, t) = m.lt) | (G.ut.cmp32(max, t1) = m.gt) then 
+      byte.size := 4
+   else
+   $( G.ut.set32(#xFF80, #xFFFF, t)
+      G.ut.set32(#x7F, 0, t1)
+      test (G.ut.cmp32(min, t) = m.lt) | (G.ut.cmp32(max, t1) = m.gt) then
+         byte.size := 2
+      else
+         byte.size := 1
+   $)
+   resultis byte.size
+$)
+
+and nextline.() be
+$( $( let ch = G.df.rdch()
+      if G.df.check.() return
+      if eol.(ch) break
+   $) repeat
+   $( let ch = G.df.rdch()
+      if G.df.check.() return
+      unless eol.(ch) break
+   $) repeat
+   G.df.unrdch() // leave at first char on line
+$)
+
+and blank.string() be for i = 1 to 40 G.df.wrch(' ')
+
+and pad(ch) = (ch = '*S') | eol.(ch)
+
+and eol.(ch) = (ch = '*N') | (ch = '*C')
+.
+

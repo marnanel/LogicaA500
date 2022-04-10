@@ -1,0 +1,4 @@
+*|  link Window manager
+*dir c                    
+Join wimp1 wimp2 wimp3 -to kernel
+*back

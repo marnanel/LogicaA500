@@ -1,0 +1,66 @@
+section "vhtst3"
+
+get "libhdr"
+get ":4.ads.gh.glhd"
+get ":4.ads.h.vhhd"
+
+/*
+   25.4.86
+   Tester for package VH.  Not a system component.  Not to be released.
+*/
+
+
+let start () be
+$(
+   let mo  = ?   
+  
+   writes ("Video mode tester. Press return to change mode*N")
+   debug(0)
+   $(
+      let buf = VEC m.vh.poll.buf.words
+      let j   = ?
+
+      wait()
+      writes ("*nLV video on")
+      g.vh.video (m.vh.video.on)
+
+      wait()
+      writes("*n*nGive new video mode : ")
+      mo := '0'+readn() 
+      g.vh.video( mo )
+
+      g.vh.video (m.vh.inquire)
+//      read.fcode.reply( buf )
+      g.vh.poll  (m.vh.read.reply, buf)
+      writes("*nVideo mode reply : ")
+
+      j := 0
+      $( writef ("%C", G.ut.printingchar(buf%j)->buf%j,'+')
+         j := j+1
+      $) repeatuntil buf%j = #X0d     // CR
+
+      wait()
+      writes ("*nLV video off*N")
+      g.vh.video (m.vh.video.off)
+
+   $) repeatuntil ~('1' <= mo <= '5')
+$)
+
+and wait() be
+$( let ch = ?
+   ch := rdch () repeatuntil ch = '*N'
+$)
+
+and read.fcode.reply (buf) be
+$(
+   LET rcb = GETVEC (1024/bytesperword) // private buffer for reply
+
+   Fillwords( rcb, 1024/bytesperword, #xfdfdfdfd )
+
+   unless OSReadFcode( rcb ) do   // read the fcode
+      g.ut.videodisc.error()      // fatal error !!!
+
+   Movewords( 1, m.vh.poll.buf.words, rcb, buf ) // set up reply buffer
+$)
+.
+

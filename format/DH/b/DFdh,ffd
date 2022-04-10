@@ -1,0 +1,82 @@
+/**
+         DH.B.DH1 - Primitives for the Data Handler
+         ------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         l.DFread
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       7.04.87    1        SRY         Modified for User Data
+      26.06.87    2        SRY         open.if.can added
+       3.08.87    3        SRY         Removed uthd
+**/
+
+section "dh1"
+
+get "libhdr"
+get ":4.format.gh.glhd"
+get ":4.format.h.dhhd"        // public header
+get ":4.format.h.dhphd"       // private header
+
+/**
+         G.ud.open (filename)
+         --------------------
+         opens the filename, specified as a string, for read
+         only, returning a non-zero handle.  If the call fails
+         for any reason this is a fatal error and an ermess is
+         output.  Then 'g.ut.videodisc.error' is called.
+         There is no check on the string parameter.
+**/
+
+let G.ud.open(file) = udopen(file, true)
+and G.ud.open.if.can(file) = udopen(file, false)
+
+and udopen (filename, messages) = valof
+$( let handle = ?
+
+   handle := osfind(m.osfind.open.read.op, filename)
+   if handle = 0 do         // bad handle: out of range
+   $( if messages g.df.ermess ("File %S not found", filename)
+      handle := 0
+   $)
+   resultis handle                           // all ok
+$)
+
+/**
+         G.ud.read (handle, file-pointer, destination-vector,
+         ---------                             bytes-to-be-read)
+         Returns the number of bytes read successfully into the
+         destination vector from the file specified by 'handle'
+         starting from the 32-bit offset 'file-pointer' within
+         the file.  The offset is not altered by the call
+         whether it succeeds or fails.
+         If the call fails for any reason (eg. end of file)
+         g.ut.videodisc.error is called - a fatal error - with
+         the last SCSI error code.
+         Uses 'osgbpb'.
+**/
+
+and G.ud.read (handle, file.pointer, dest.vec, bytes) = valof
+$( 
+   LET pb = VEC 6
+
+ //  handle := (handle << 16) | m.osgbpb.gb.newptr.op  
+
+
+   pb!0 := handle                 // r1
+   pb!1 := dest.vec*bytesperword  // r2
+   pb!2 := bytes                  // r3
+   pb!3 := file.pointer!0         // r4
+
+   bytes := bytes-Osgbpb( m.osgbpb.gb.newptr.op, pb ) // opcode
+
+
+   unless result2 = 0 do g.ut.videodisc.error ()   // fatal !
+   
+   resultis bytes                                  // all OK
+$)
+.
+

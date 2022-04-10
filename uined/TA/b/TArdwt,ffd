@@ -1,0 +1,375 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.read.labels
+            G.ta.write.labels
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         19.06.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         21.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TArdwt"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGRhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+
+/**
+         G.TA.READ.LABELS
+         ----------------
+
+         This routine reads the label data in from an old file.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.read.labels[]
+         ------------------
+
+         read number of variables
+         read number of categories
+         calculate total number of labels
+         read data size and data sign
+         IF data offset = maximum data offset THEN
+            data offset = maximum data offset
+            insert dummy data to expand labels area to 52 labels
+         END IF
+         read variable and category labels
+
+
+**/
+
+
+let G.ta.read.labels() = VALOF
+$(
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+   let dummy = vec 2 // dummy input data area
+   let mess = "Too many labels in file"
+
+   unless shuffle.() resultis false //check for space in file for 52 labels
+   G.ut.set32(m.ta.nvar.pos, 0, f.ptr)
+   if G.dh.read(h, f.ptr, dummy, 1) = 0 resultis false
+                 //read number of vars
+   g.ta.area%m.ta.no.vars := dummy%0 - 1
+   if g.ta.area%m.ta.no.vars > m.ta.v.max then
+   $(
+      G.sc.ermess(mess)
+      resultis false
+   $)
+   G.ut.set32(m.ta.ncats.pos,G.ut.unpack16(f.ptr, 2), f.ptr)
+   if G.dh.read(h, f.ptr, g.ta.area + (m.ta.var.table / bytesperword),
+                  24) = 0 resultis false //read in number of cats
+
+   // calculate total number of labels
+   g.ta.area%m.ta.no.labels := g.ta.area%m.ta.no.vars
+   for i = 0 to g.ta.area%m.ta.no.vars - 1 do
+   $(
+      test (g.ta.area%(m.ta.var.table + i) & #x80) = 0 then
+         g.ta.area%(m.ta.add.table + i) := m.ta.true
+      else
+      $(
+         g.ta.area%(m.ta.var.table + i) := -g.ta.area%(m.ta.var.table + i)
+         g.ta.area%(m.ta.add.table + i) := m.ta.false
+      $)
+      if g.ta.area%(m.ta.var.table + i) > m.ta.c.max then
+      $(
+         G.sc.ermess(mess)
+         resultis false
+      $)
+      g.ta.area%m.ta.no.labels := g.ta.area%m.ta.no.labels +
+                   g.ta.area%(m.ta.var.table + i)
+   $)
+   if g.ta.area%m.ta.no.labels > m.ta.l.max then
+   $(
+      G.sc.ermess(mess)
+      resultis false
+   $)
+   unless read.in.labels() resultis false
+   resultis true
+$)
+
+and read.in.labels() = VALOF
+$(
+   let f.pos = m.ta.labels.pos
+   let l.pos = g.ta.area+(m.ta.labels / bytesperword)
+   let t = true
+
+   for i = 1 to g.ta.area%m.ta.no.vars do
+   $(
+      l.pos%0 := i
+      l.pos%1 := m.ta.free
+      unless read.or.write(f.pos, l.pos, true) then
+      $(
+         t := false
+         BREAK
+      $)
+      l.pos := l.pos + (m.ta.l.width / bytesperword)
+                                  //increment to start of next label
+      f.pos := f.pos + 42
+      for j = 1 to g.ta.area%(m.ta.var.table + i - 1) do
+      $(
+         l.pos%0 := i
+         l.pos%1 := j
+         unless read.or.write(f.pos, l.pos, true) then
+         $(
+            t := false
+            BREAK
+         $)
+         l.pos := l.pos + (m.ta.l.width / bytesperword)
+         f.pos := f.pos + 42
+      $)
+      unless t BREAK
+   $)
+   resultis t
+$)
+
+/**
+         G.TA.WRITE.LABELS
+         -----------------
+
+         This routine writes the edited label data out to the current
+         tabular data file.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.write.labels[]
+         -------------------
+
+         write number of variables
+         write number of categories
+         write data size and data sign
+         write variable and category labels
+**/
+
+and G.ta.write.labels() = VALOF
+$(
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+   let dummy = vec 2 // dummy output data area
+   let length = vec 1
+   let r.length = vec 1
+   let no.elements = vec 1
+   let st.data = vec 1
+   let var.table = vec 11 //24 bytes for no.cats
+
+   G.sc.pointer(m.sd.off)
+   G.ta.box(m.sd.off)
+   if g.ta.buff!m.ta.no.data then
+   $(
+      // calculate number of data elements
+      G.ut.set32(1, 0, no.elements)
+      for i = 0 to g.ta.area%m.ta.no.vars - 1 do
+      $( let no.cats = vec 1
+         G.ut.set32(g.ta.area%(m.ta.var.table + i), 0, no.cats)
+         G.ut.mul32(no.cats, no.elements)
+      $)
+      G.ut.set32(g.ta.area%m.ta.data.size, 0, length)
+      G.ut.mul32(no.elements, length) //get data length in bytes
+      G.ut.set32(g.ta.area!(m.ta.st.data / bytesperword), 0, st.data)
+      unless G.dh.space(length) goto error
+      unless write.data(length) goto error
+      G.ta.buff!m.ta.no.data := false
+   $)
+
+   G.ut.set32(m.ta.nvar.pos, 0, f.ptr)
+   dummy%0 := g.ta.area%m.ta.no.vars + 1
+   dummy%1 := 1  //dummy label
+   if G.dh.write(h, f.ptr, dummy, 2) = 0 goto error //write out no.vars
+   G.ut.set32(m.ta.ncats.pos, G.ut.unpack16(f.ptr, 2), f.ptr)
+   for i = 0 to 11 var.table!i := 0  // okay for UNI
+   for i = 0 to g.ta.area%m.ta.no.vars - 1 do
+   $(
+      var.table%i := g.ta.area%(m.ta.var.table + i)
+      if g.ta.area%(m.ta.add.table + i) = m.ta.false then
+         var.table%i := -var.table%i
+   $)
+   if G.dh.write(h, f.ptr, var.table, 24) = 0 goto error
+                            //write out number of categories
+   unless write.out.labels() goto error
+   G.dh.ensure()
+   if G.key = m.kd.fkey5 G.ta.box(m.sd.on)
+   G.sc.pointer(m.sd.on)
+   resultis true
+error: G.sc.pointer(m.sd.on)
+       resultis false
+$)
+
+and write.data(l) = VALOF
+$(
+   let b.size = vec 1
+   let b. = ?
+   let max = vec 1
+   let f.ptr = vec 1
+   let len = vec 1
+   let t = vec 1
+   let tmaxvec = maxvec()
+
+   G.ut.mov32(l, len)
+   G.ut.set32(G.ut.unpack16(G.ta.area, m.ta.st.data), 0, f.ptr)
+   G.ut.set32(tmaxvec & #xFFFF, tmaxvec >> 16, max) //buffer size
+   G.ut.mov32(max, b.size)
+   G.ut.set32(bytesperword, 0, t)
+   G.ut.mul32(t, b.size) //convert word size to bytes
+   if G.ut.cmp32(l, b.size) = m.lt  then
+   $( let temp = vec 1
+      G.ut.mov32(l, b.size)
+      G.ut.mov32(b.size, max)
+      G.ut.set32(bytesperword, 0, t)
+      G.ut.div32(t, max, temp) // max buff size becomes l / bytesperword
+   $)
+   b. := getvec(G.ut.unpack16(max, 0))
+   for i = 0 to G.ut.unpack16(max, 0) b.!i := 0
+   $(
+      if G.dh.write(G.context!m.data.handle,
+              f.ptr, b., G.ut.unpack16(b.size, 0)) = 0 resultis false
+      G.dh.ensure()
+      G.ut.sub32(b.size, len)
+      G.ut.add32(b.size, f.ptr)
+      if G.ut.cmp32(len, b.size) = m.lt then
+        G.ut.mov32(len, b.size)
+      G.ut.set32(0, 0, t)
+   $) repeatuntil G.ut.cmp32(len, t) = m.lt |
+             G.ut.cmp32(len, t) = m.eq
+   freevec(b.)
+   resultis true
+$)
+
+
+
+and write.out.labels() = VALOF
+$(
+   let f.pos = m.ta.labels.pos
+   let l.pos = ?
+
+   for i = 1 to g.ta.area%m.ta.no.vars do
+   $(
+      l.pos := getlabel(i, m.ta.free) // get variable
+      unless read.or.write(f.pos, l.pos, false) resultis false
+            //write out label
+      f.pos := f.pos + 42
+      for j = 1 to g.ta.area%(m.ta.var.table + i - 1) do
+      $(
+         l.pos := getlabel(i, j) //get category
+         unless read.or.write(f.pos, l.pos, false) resultis false
+             //write out category
+         f.pos := f.pos + 42
+      $)
+   $)
+   resultis true
+$)
+
+and getlabel(v, c) = VALOF
+$(
+   let l = g.ta.area + (m.ta.labels / bytesperword)
+
+   for i = 1 to 52 do
+   $(
+      if l%0 = v & l%1 = c BREAK
+      l := l + (m.ta.l.width / bytesperword)
+   $)
+   resultis l
+$)
+
+and read.or.write(f, string, read.it) = VALOF
+$(
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+
+   string := string + 1
+   G.ut.set32(f, 0, f.ptr)
+   test read.it then
+      if G.dh.read(h, f.ptr,string, 42) = 0 resultis false
+   else
+      if G.dh.write(h, f.ptr,string, 42) = 0 resultis false
+   resultis true
+$)
+
+/*
+   shuffle. creates the maximum space for the labels for an already existing
+   file i.e.  maximum label space before data is 52 labels * 42 bytes
+*/
+and shuffle.() = VALOF
+$(
+   let f.ptr = VEC 1
+   let space.needed = vec 1
+   let h = G.context!m.data.handle
+   let st.data = g.ta.area + (m.ta.st.data / bytesperword) //start address of data
+
+   G.ut.set32(m.ta.offset.pos, 0, f.ptr)
+   if G.dh.read(h, f.ptr, st.data, 4) = 0 resultis false // read offset to data
+   unless !st.data >= m.ta.data.offset then
+   $(
+      G.ut.set32(m.ta.data.offset - G.ut.unpack16(st.data, 0),
+                    0, space.needed)
+      unless G.dh.space(space.needed) resultis false  //find free space
+      unless G.gr.insert.bytes(space.needed, st.data) resultis false
+                  // make label block 52 labels * 42 bytes long
+      G.ut.set32(m.ta.data.offset, 0, st.data)
+      if G.dh.write(h, f.ptr, st.data, 4) = 0 resultis false
+   $)
+   resultis true
+$)
+
+.
+
+
+
+
+
+
+
+
+
+
+
+

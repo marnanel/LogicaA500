@@ -1,0 +1,57 @@
+// /**
+//       IOPHDR - PRIVATE I/O WORKSPACE HEADER
+//       -------------------------------------
+//
+//       This file defines the addresses in the I/O processor
+//       for the CACHE/RESTORE operation.
+//
+//       N.B. ensure that the area numbers in this file tie up
+//       with the manifests in IOHDR.
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//    10.06.87    1        SRY         ADOPTED FOR Input Editor
+// **/
+
+ MANIFEST
+ $(
+//
+//  All addresses are BYTE offsets within the cache vector 'G.cachevec'
+//  G.cachevec is obtained from  the heap on system startup, and is a
+//  getvec of size m.io.cachesize.
+//
+//  The screen is not held within the cache area, but remains within
+//  sideways RAM. The whole screen is now saved, including the menu bar.
+//
+//  To address an area of the cache, we use the current tables set up in
+//  the UTILS2 module. As before, each cache area has a number associated
+//  with it, which is used as an index to look up in the tables.
+//
+
+// these values refer to the SRAM locations for the screen
+// and message bar, and also the size of a display screen.
+
+ m.io.messadd   = 0      // sram start of message bar cache
+ m.io.screenadd = #x500  // sram start of place to save screen
+ m.io.scrsize   = #x5000 // = 20k (i.e. all the screen)
+ m.io.second.screen = m.io.screenadd+m.io.scrsize // spare screen area used for copy.screen
+ m.io.index = m.io.second.screen+m.io.scrsize // used for block indices (GR)
+
+ m.io.main.addr = #XE00   // bottom of I/O processor memory (bytes)
+ m.io.main.size = #X8000 - m.io.main.addr
+
+ m.io.cachesize = #x10000          // just have 64k for starters
+
+// m.io.maxram   = #xFFBF  // top address in sideways ram
+$)
+
+
+
+
+
+
+
+
+
+

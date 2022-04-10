@@ -1,0 +1,5 @@
+|*  link kernels
+*dir c
+*|  standalone kernel
+join root general kernel1 kernel2 init -to kernel
+*back

@@ -1,0 +1,21 @@
+*| LINKERNEL - DSH Version 1 14.9.87
+*|
+*| make the kernel, using the bits in the l directory
+*|
+*dir $.DSH
+Join DH.c.kernel UD.c.kernel SC.c.kernel -to l.t1
+Join UT.c.kernel VH.c.kernel WM.c.kernel -to l.t2
+Join l.t1 l.t2 -to l.kernel
+*remove l.t1
+*remove l.t2
+*|
+*| Sublink the national disc overlays
+*|
+*| Join l.contents l.natfind l.area l.chart l.mapproc -to l.national
+Join l.natfind l.chart l.mapproc -to l.national
+*|
+*| now make the runnable kernel
+*|                                     
+Join $.alib.lib l.kernel KE.c.kernel BI.c.kernel l.national -to r.kernel
+fix &.r.kernel 250000
+*dir $.DSH.utils

@@ -1,0 +1,155 @@
+/**
+         DATA FORMATTER - GRID MAPPABLE
+         ------------------------------
+
+         This section contains :
+
+            G.df.counter
+            G.df.ermess
+            G.df.check.
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.format
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       18.03.87   1        SRY         Initial version
+       21.04.87   2        SRY         CI gref fix
+**/
+
+SECTION "Mapform4"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.dfhd"
+
+STATIC $( type = ? $)
+
+/**
+         G.DF.FORMAT.GRID
+         ----------------
+
+         GLOBALS MODIFIED:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+**/
+
+let G.df.counter(count, total) be
+$(
+   manifest
+   $( squareX = m.sd.disXtex + m.sd.charwidth * 26
+      squareW = m.sd.charwidth * 5
+      squareT = squareX + 4
+      squareY = m.sd.disYtex + 8
+      gridX = m.sd.disXtex + m.sd.charwidth * 16
+      gridY = m.sd.disYtex - m.sd.linW * 2
+      gridboxY = gridY + 8
+      gridW = m.sd.charwidth * 10 - 4
+      gridT = gridX + 4
+   $)
+
+   let percent = ?
+   let dummy = G.df!m.df.dummy
+
+   if total = 0 // initialise
+   $( let bi = "Building %nkm indices"
+      let bd = "Building %nkm data"
+      let r = G.df!m.df.raster
+      switchon count into
+      $( case m.df.chart:
+         case m.df.areal:
+            test dummy
+            then init.mess("Sizing data")
+            else G.sc.mess("Building data")
+         endcase
+         case m.df.grid:
+            test dummy
+            then $( init.mess(bi, r)
+                    G.sc.movea(m.sd.display, m.sd.disXtex, gridY)
+                    writes("Grid Reference:")
+                 $)
+            else $( G.sc.mess(bd, r)
+                    G.sc.movea(m.sd.display, m.sd.disXtex, gridboxY)
+                    G.sc.rect(m.sd.clear, m.sd.disW, -m.sd.linW)
+                 $)
+         endcase
+         case m.df.agg:
+            test dummy then init.mess(bi, r) else G.sc.mess(bd, r)
+      $)
+      total := 1
+      type := count
+      count := 0
+   $)
+
+   percent := muldiv(count, 100, total)
+   G.sc.movea(m.sd.display, squareX, squareY)
+   G.sc.selcol(m.sd.blue)
+   G.sc.rect(m.sd.plot, squareW, -m.sd.linW)
+   G.sc.movea(m.sd.display, squareT, m.sd.disYtex)
+   G.sc.selcol(m.sd.cyan)
+   writef("%i3%%", percent)
+
+   if dummy & (type = m.df.grid) // display grid ref
+   $( let str = vec 3
+      let t = vec 1
+      let t1 = vec 1
+      let ten = vec 1
+      G.ut.set32(10, 0, ten)
+      G.sc.movea(m.sd.display, gridX, gridboxY)
+      G.sc.selcol(m.sd.blue)
+      G.sc.rect(m.sd.plot, gridW, -m.sd.linW)
+      G.sc.movea(m.sd.display, gridT, gridY)
+      G.ut.set32(G.ut.unpack16(G.df, m.df.gref.byte), 0, t)
+      G.ut.div32(ten, t, t1)
+      grid.to.string(G.ut.unpack16(t, 0), str)
+      G.sc.selcol(m.sd.cyan)
+      writes(str)
+      wrch(' ')
+      G.ut.set32(g.ut.unpack16(G.df, m.df.grefHI.byte), 0, t)
+      G.ut.div32(ten, t, t1)
+      grid.to.string(G.ut.unpack16(t, 0), str)
+      writes(str)
+   $)
+$)
+
+and init.mess(str, p1) be
+$( G.sc.clear(m.sd.display)
+   G.sc.mess(str, p1)
+   G.sc.movea(m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   G.sc.selcol(m.sd.cyan)
+   writes("Percentage through build:")
+$)
+
+and grid.to.string(value, str) be
+$( let b = vec 1
+   let c = vec 1
+   let ten = vec 1
+   G.ut.set32(10, 0, ten)
+   G.ut.set32(value, 0, b)
+   for j = 4 to 1 by -1
+   $( G.ut.div32(ten, b, c)
+      str%j := !c + '0'
+   $)
+   str%0 := 4
+$)
+
+and G.df.ermess(string, n1, n2, n3) be
+$( G.sc.mess(string, n1, n2, n3)
+   G.sc.beep()
+   G.df!m.df.err := true
+$)
+
+and G.df.check.() = valof
+$( if G.df!m.df.eof
+   $( G.df!m.df.eof := false // don't want > 1 message
+      G.df.ermess("File is truncated")
+   $)
+   resultis G.df!m.df.err
+$)
+.

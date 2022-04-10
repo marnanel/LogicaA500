@@ -1,0 +1,86 @@
+// /**
+//       STHDR - STATE TABLE HEADER FILE
+//       -------------------------------
+//
+//       Contains the constant definitions for the various states
+//       that the system can be in.
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+//       15.9.87     1     PAC      New states for DISH
+//                                  N.B. gaps left in table 
+//                                  for now - may be changed later
+// **/
+
+MANIFEST $(
+
+// operation numbers
+
+m.st.top.op      = 0
+m.st.find.op     = 1
+m.st.contents.op = 2
+m.st.chart.op    = 3
+m.st.maps.op     = 4
+
+// state numbers
+
+m.st.start.stop     = 0  // startup condition
+m.st.top.level      = 1  // top level of DISH
+m.st.plan           = 2  // plan state
+
+m.st.find.entry     = 5  // find entry state
+m.st.find           = 6  // find main state
+m.st.find.review    = 7  // find review
+m.st.find.dialogue  = 8  // find dialogue
+
+m.st.contents       = 10  // contents main state
+m.st.contents.Xref  = 11  // contents Xref state
+m.st.contents.dialogue = 12 // contents dialogue
+
+m.st.chart.main     = 20  // chart main state 
+m.st.chart.type     = 21  // change chart type
+m.st.secondary      = 22  // select a secondary variable
+m.st.regroup        = 23  // regroup chart
+m.st.sample.distrib = 24  // sample distribution
+m.st.categories     = 25  // change categories
+m.st.chart.text     = 26  // chart datatext
+m.st.chart.system   = 27  // os commands in chart
+
+m.st.help           = 30
+
+
+m.st.map.main       = 40 // mappable data main state     
+m.st.area.main      = 41 // new area main state
+m.st.new.map        = 42 // change map
+m.st.resolution     = 43 // change resolution
+m.st.areas          = 44 // change areas
+m.st.manual         = 45 // manual reclass
+m.st.automatic      = 46 // automatic reclassing
+m.st.link           = 47 // link datasets
+m.st.correlate      = 48 // correlate datasets
+m.st.chisquared     = 49 // show results of chisquared
+m.st.correlate      = 50 // show results of correlate
+m.st.rank           = 51 // display for rank
+m.st.map.text       = 52 // map datatext
+m.st.map.system     = 53 // os commands in map
+
+m.st.nostates = 60 // maximum value of state, defining size of state tables
+
+m.st.esize = 4  // entry size for main part of table
+m.st.isize = 3  // entry size for icon part of table
+m.st.invalid = -1 // flag for last icon in an icon block
+
+// offsets in main state table
+m.st.op      = 0  // operation number
+m.st.whandle = 1  // window handle
+m.st.actr    = 2  // action routine
+m.st.icons   = 3  // offset to icon list
+
+// offsets in icon list
+
+m.st.icon.no = 0  // identifier
+m.st.next.st = 1  // next state for this icon
+m.st.initr   = 2  // initialisation routine
+
+$)

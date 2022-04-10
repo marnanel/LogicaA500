@@ -1,0 +1,247 @@
+section "gr5"
+
+/**
+         CM.B.GR5 - Expansion of dataset grid refs
+         -----------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       20.05.87   1        SRY         Initial version
+
+         GLOBALS DEFINED:
+
+         G.gr.extend.refs
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.grhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.cmhd"
+get ":4.UINED.h.sthd"
+get ":4.UINED.h.dhhd"
+
+static
+$( blocks=? new.blocks=? new.w=? new.n=? baseX=? baseY=? topX=?
+   topY=? w=? n=? dw=? dn=?
+$)
+
+let G.gr.extend.refs() = valof
+$( let init = ?
+   let x, y = G.cm.s!m.km.x, G.cm.s!m.km.y
+   let unit32 = (G.context!m.resolution) << 5
+   let bytes.extra = vec 1
+   let offset = vec 1
+   let t = vec 1
+
+   baseX, baseY, topX, topY :=
+      G.cm.s!m.km.base.X, G.cm.s!m.km.base.Y,
+      G.cm.s!m.km.top.X, G.cm.s!m.km.top.Y
+   w, n := G.cm.s!m.blocks.w, G.cm.s!m.blocks.n
+   blocks := w * n
+
+   init := (baseX = 0 = topX) // initial case - see cm0
+
+   // Find new base and top and new blocks west and north
+   test x < baseX
+   then $( baseX := (x/unit32)*unit32
+           dw := (G.cm.s!m.km.base.X - baseX)/unit32
+        $)
+   else test x >= topX
+        then $( topX := (x/unit32+1)*unit32
+                dw := (G.cm.s!m.km.top.X - topX)/unit32 // negative
+             $)
+        else dw := 0
+   new.w := w + abs(dw)
+   if (new.w > m.max.blocks.w) & ~init goto error1
+   test y < baseY
+   then $( baseY := (y/unit32)*unit32
+           dn := (G.cm.s!m.km.base.Y - baseY)/unit32
+        $)
+   else test y >= topY
+        then $( topY := (y/unit32+1)*unit32
+                dn := (G.cm.s!m.km.top.Y - topY)/unit32 // negative
+             $)
+        else dn := 0
+   new.n := n + abs(dn)
+   if (new.n > m.max.blocks.n) & ~init goto error1
+
+   test init
+   then $( G.sc.mess("Initialising dataset")
+           baseX := topX - unit32  // were both zero
+           baseY := topY - unit32
+           blocks := 1
+           w, n := 1, 1
+           new.w, new.n := 1, 1
+           dw, dn := 0, 0
+           g.ut.set32(#X8000, 0, G.cm.s!m.coarse.index)
+           G.cm.s!m.data.grid := G.cm.s!m.grid.system
+        $)
+   else $( // Save all data before expanding
+           G.gr.save.data()
+           G.sc.mess("Expanding dataset grid references")
+        $)
+
+   new.blocks := new.w * new.n
+   g.ut.set32(((new.blocks - blocks) << 1), 0, bytes.extra) // 16-bit words
+   // Round upwards to insert multiple of 32 words (alignment)
+   unless (g.ut.unpack16(bytes.extra, 0) & #XFFE0) = 
+              g.ut.unpack16(bytes.extra, 0)
+     g.ut.set32((g.ut.unpack16(bytes.extra, 0) & #xFFE0) +32, 0, bytes.extra)
+   g.ut.set32(g.ut.unpack16(bytes.extra, 0) << 1, 0, bytes.extra) // now bytes
+
+   // Insert delta-w entries in coarse index before or after every w entries
+   // remembering to add on the delta-w after each one to the end and the
+   // index variable!
+   test dw = 0
+   then if dn < 0
+        $( let start = G.cm.s!m.coarse.index + (blocks * (4/bytesperword))
+           for i = blocks+1 to new.blocks
+           $( g.ut.set32(#X8000, 0, start) // record missing, offset 0
+              start := start + 4/bytesperword
+           $)
+        $)
+   else $( let start = dw > 0 -> 0, w
+           let end = blocks-1
+           let i = start
+           let tdw = abs(dw)
+           while i <= end
+           $( insert.coarse(tdw, i)
+              i := i + new.w
+              end := end + tdw
+           $)
+           start := G.cm.s!m.coarse.index + (i * (4/bytesperword)) 
+                                                        // i+1st position
+           for j = i + 1 to new.blocks
+           $( g.ut.set32(#X8000, 0, start)
+              start := start + 4/bytesperword
+           $)
+        $)
+   // Insert block of entries before whole coarse index if dn positive
+   if dn > 0 insert.coarse(dn*new.w, 0)
+
+   // Insert the bytes at the start of the coarse index
+   G.gr.find.offset(1, 1, offset)
+   g.ut.set32(4, 0, t)
+   G.ut.add32(t, offset)
+   G.gr.check.fs()
+   unless G.gr.insert.bytes(bytes.extra, offset) goto error
+
+   // Store w, n, base, top into file and context
+   unless update.headers() goto error
+
+   // Add onto all offsets the space we have inserted
+   G.gr.adjust.coarse(1, new.blocks, bytes.extra)  // this stores too
+   if G.key < 0 goto error
+   G.gr.adjust.fine(1, new.blocks, bytes.extra)
+   if G.key < 0 goto error
+
+   // Change map and LRU to new block numbers
+   for i = 0 to 3
+   $( scale.block(G.cm.s + m.bmap + i)
+      scale.block(G.cm.s + m.bl1 + i)
+   $)
+   G.cm.s!m.cur.block := -1 // no current block
+
+   G.sc.clear(m.sd.message)
+   resultis true
+
+error1:
+   G.sc.ermess("Area covered is too large")
+   G.gr.grid.cross()  // blat it out
+   resultis false
+
+error:
+   G.key := - m.st.inputed
+   resultis false
+$)
+
+// Scale block number to new scheme
+and scale.block(bptr) be
+$( let b = !bptr
+   unless 1 <= b <= blocks return // block not yet used
+   unless dw = 0
+   $( b := (((b-1)/w) * new.w) + ((b-1) rem w) + 1 // scale it
+      if dw > 0 b := b + dw      // chunk before row not after
+   $)
+   if dn > 0 b := b + dn * new.w // chunk at bottom
+   !bptr := b
+$)
+
+and update.headers() = valof
+$(
+   manifest $( indoff = 152 $)
+
+   let buff = G.cm.s!m.buffer
+   let datoff = ?
+   let n = vec 1
+   let offset = vec 1
+   let t = vec 1
+   g.ut.set32(0, 0, t)
+
+   // Store base & top back in context
+   G.cm.s!m.blocks.w := new.w
+   G.cm.s!m.blocks.n := new.n
+   G.cm.s!m.km.base.X := baseX
+   G.cm.s!m.km.base.Y := baseY
+   G.cm.s!m.km.top.X := topX
+   G.cm.s!m.km.top.Y := topY
+
+   // Convert GRs to correct format for storing
+   baseX, baseY := baseX * 10, baseY * 10
+   topX, topY := topX * 10, topY * 10
+   if G.cm.s!m.data.grid = m.grid.is.NI |
+      G.cm.s!m.data.grid = m.grid.is.Channel
+   $( baseX := baseX | #X8000
+      topX := topX | #X8000
+   $)
+
+   if G.dh.read(G.context!m.data.handle, t, buff, indoff+6) = 0
+      resultis false
+   datoff := g.ut.unpack16(buff, indoff+4) + 
+                   g.ut.unpack16(buff, indoff+2)*(m.dh.bytes.per.frame/2)
+
+   g.ut.set32(datoff*2, 0, offset)
+   if G.dh.read(G.context!m.data.handle, offset, buff, 12) = 0
+      resultis false
+
+   g.ut.set32(baseX, baseY, t)
+   g.ut.movebytes(t, 0, buff, 4, 4)
+   g.ut.set32(topX, topY, t)
+   g.ut.movebytes(t, 0, buff, 8, 4)
+   if G.dh.write(G.context!m.data.handle, offset, buff, 12) = 0
+      resultis false
+
+   // Store blocks w & n
+   g.ut.set32(new.w, new.n, n)
+   G.gr.find.offset(1, 1, offset)
+   resultis G.dh.write(G.context!m.data.handle, offset, n, 4) > 0
+$)
+
+// Insert 'number' missing coarse index entries after pos, in store
+and insert.coarse(number, pos) be
+$( let o = G.cm.s!m.coarse.index + ((new.blocks-1) * (4/bytesperword))
+   let shift = number * (4/bytesperword)
+
+   // Insert number*2 words after position pos
+   for i = 1 to new.blocks - (number + pos)
+   $( g.ut.mov32(o-shift,o)
+      o := o - 4/bytesperword
+   $)
+
+   // Make the inserted ones missing
+   o := G.cm.s!m.coarse.index + (pos * (4/bytesperword))
+   for i = 1 to number
+   $( g.ut.set32(#X8000, 0 , o) // record missing, offset 0
+      o := o + 4/bytesperword
+   $)
+$)
+.
+

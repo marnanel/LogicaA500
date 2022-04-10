@@ -1,0 +1,81 @@
+section "cm1"
+
+/**
+         CM.B.CM1 - Initialisation Routines for Map Overlay
+         --------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+         r.map
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       24.04.87   1        SRY         Adopted for Input Editor
+
+         GLOBALS DEFINED:
+         g.cm.grid.system
+         g.cm.mapini.special
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.dhhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.cmhd"
+get ":4.UINED.h.cm2hd"
+get ":4.UINED.h.grhd"
+
+/**
+         function g.cm.grid.system (easting, northing) returns
+         the grid reference system indicated by the pattern of
+         top bits of the Domesday format easting and northing
+         parameters. The returned manifest is declared in cm3hdr.
+         It uses the utility routine g.ut.grid.region to
+         determine the region that the grid ref is in and then
+         interprets this as a grid system.
+**/
+
+let g.cm.grid.system (e, n) = valof
+$(
+   let region = g.ut.grid.region (e, n)
+   switchon region into
+   $(
+      case m.grid.is.channel:
+      case m.grid.is.NI:
+      case m.grid.invalid:
+         resultis region
+      default:
+         resultis m.grid.is.GB
+   $)
+$)
+
+/**
+         procedure mapini.special () is the initialisation
+         routine called by g.cm.mapwal when it detects a pending
+         state transition.  This may have been from Find or
+         System Startup.
+         If the grid reference in g.context is invalid then it is
+         a system startup and Map is entered at top level with
+         the level 0 map.  Otherwise the system attempts to go to
+         the map and grid references specified by Find.
+**/
+
+and g.cm.mapini.special () be
+$( let str = ?
+   g.sc.pointer (m.sd.off)
+   g.sc.clear (m.sd.display)
+   g.cm.s!m.clear.is.pending := false        // screen is clear now
+   g.cm.s!m.substate := m.mapwalk.substate
+   g.cm.s!m.grid.system := g.cm.grid.system (0, -1) // was G.context GRs
+   g.cm.s!m.map := map.L0              // reinitialise to L0
+   g.cm.s!m.frame := 0                 // init to invalid; ensures shown
+   g.cm.s!m.recptr := g.cm.findmaprec (g.cm.s!m.map)
+   g.cm.mapinfo ()
+   str := (g.context!m.discid = m.dh.south) -> "Sou", "Nor"
+   g.sc.mess ("*s*s*s*sGrid Data Entry - %sthern Side", str)
+   G.gr.dirty() // signal need to load data
+$)
+.

@@ -1,0 +1,13 @@
+co stinit
+ARM BCPL Version 2.1
+Section Stinit
+Tree size 4959
+Error near line 96: 'g.nf.revini' not declared
+Error near line 99: 'G.nf.rev.action' not declared
+Error near line 103: 'g.nf.dialini' not declared
+Error near line 105: 'G.nf.dial.action' not declared
+Error near line 108: 'g.nf.revini' not declared
+Error near line 109: 'g.nm.map.ini' not declared
+Error near line 110: 'g.nc.chart.ini' not declared
+*sp.
+

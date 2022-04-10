@@ -1,0 +1,49 @@
+/* utilities included provisionally in this file for testing */
+
+?- op(650, xfx, [~]).
+
+?- op(650,xfx,[:]).
+?- op(100,xfy,[or]).
+?- op(90,xfy,[and]).
+
+append([], L, L).
+append([H|L1], L2, [H|L3]):-
+   append(L1, L2, L3).
+
+reverse([], L, L).
+reverse([A|L1], L2, L3):-
+   reverse(L1, [A|L2], L3).
+
+plural(Singular, Plural) :-         % This has to be added to
+   append(Singular,"s",Plural).     % newhelp.utilities
+
+prefix([],_).
+prefix([H|T1],[H|T2]):-
+   prefix(T1,T2).
+
+subtract_prefix([],String,String).
+subtract_prefix([H|PrefixTail],[H|StringTail],Substring):-
+   subtract_prefix(PrefixTail,StringTail,Substring).
+
+replace_character(_,_,[],[]).
+replace_character(any,[NewChar],[_|Tail],[NewChar|NewTail]):-
+   replace_character(any,[NewChar],Tail,NewTail).
+replace_character([Char],[NewChar],[Char|Tail],[NewChar|NewTail]):-
+   replace_character([Char],[NewChar],Tail,NewTail).
+replace_character([Char],[NewChar],[H|Tail],[H|NewTail]):-
+   replace_character([Char],[NewChar],Tail,NewTail).
+
+/* used for purely testing purposes
+*/
+read_exec(N):-
+   see(test1),
+   find_entry(N,Entry),
+   seen,
+   call(Entry).
+
+find_entry(1,Entry):-
+   read(Entry).
+find_entry(N,Entry):-
+   read(_),
+   M is (N-1),
+   find_entry(M,Entry).

@@ -1,0 +1,4 @@
+.key pid/a
+. release a header to the winnie
+copy h.<pid>hdr :4.ads.hdrs.<pid>hdr ~C~VF
+copy h.<pid>hdr :4.ads.h.<pid>hd     ~C~VF

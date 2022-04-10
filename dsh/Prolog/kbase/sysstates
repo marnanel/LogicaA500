@@ -1,0 +1,66 @@
+/*FILE sysstates*/
+
+/***************
+ *  started 7.10.87 by RB
+ *
+ * defines the system states which are possible,
+ * 
+ * outside files:  uses frame info 
+ *
+ *  update history: (keep as date, name, brief description of change - document
+ *                   fully in code, most recent change first).
+ *
+ **************/
+
+
+/*******************
+ * we are interested only in positive states of ths system eg active dialogue
+ * boxes, buttons on 
+ *
+ * if negative states are required they will be described as not the positive
+ * state
+ ******************/
+
+/****
+ * system_state(Object,Status)
+ *               In     Out
+ *
+ * side effects:  none,  resatisfiable:  no
+ ***/
+
+system_state(Object,displayed) :-
+                    item_is(Object,[dialogue_box,alert_box,screen_box,menu]).
+
+system_state(Object,on) :- item_is(Object,[button]).
+
+system_state(Object,active) :- item_is(Object,[input_box]).
+system_state(Object,filled) :- item_is(Object,[input_box,output_box]).
+
+system_state(area_of_interest,specified).
+
+system_state(current_data_set,chart).
+system_state(current_data_set,map).
+
+system_state(contents_level,Number) :- integer(Number).
+
+system_state(data_mapping_system,contents).
+system_state(data_mapping_system,find).
+
+/***
+ *  item_is(Object,List)
+ *           In     In
+ *
+ * true is Object is an item in the list, may be through several ako links
+ *
+ *  side effects:  none,  resatisfiable:  no
+ *
+ *  uses frame information
+ ***/
+
+item_is(Object,[Head|_]) :- item_is_1(Object,Head).
+item_is(Object,[_|Tail]) :- item_is(Object,Tail).
+
+item_is_1(Object1,Object2) :- frame(Object1,ako,value,[Object2]).
+item_is_1(Object1,Object2) :- frame(Object1,ako,value,[Object3]),
+                              item_is_1(Object3,Object2).
+

@@ -1,0 +1,8 @@
+.key PID/A
+. make package
+*cdir <PID>
+*dir <PID>
+*cdir B
+*cdir C
+*cdir VIEW
+*dir ^

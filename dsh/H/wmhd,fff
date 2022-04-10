@@ -1,0 +1,200 @@
+// /**
+//       WMHDR - WINDOW MANAGER HEADER
+//       -----------------------------
+//
+//       Created specially for the A500 system
+//       Contains SWI definitions, etc. for the
+//       Arthur window manager interfaces.
+//      
+//       REVISION HISTORY:
+//
+//       DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+//       18.8.87   1        PAC     Initial version
+//       31.3.88   2        PAC     'system' windows 
+//       06.04.88  3        SA      Added window flag masks
+//       07.04.88  4        SA      manifset for VDU move command
+//       09.05.88  5        SA      added display list window
+//       16.05.88  6        SA      added identify user window
+// **/
+
+MANIFEST 
+$(
+
+m.wm.minv = 21 // minimum version of window manager module = 0.21
+
+// screen size
+m.wm.screen.Xmin = 0
+m.wm.screen.Ymin = 76  // account for message area
+m.wm.screen.Xmax = 1280
+m.wm.screen.Ymax = 1023
+
+// buffer sizes
+//
+m.wm.poll.buf.words   = 50/bytesperword     // only use for Poll 
+m.wm.window.buf.words = #x2000/bytesperword // 8k for general purpose use
+                                            // - size of G.wm.q
+m.wm.statics.size     = #x3100/bytesperword // - size of G.wm.s
+m.wm.sprite.size      = #xA000/bytesperword // - size of G.wm.sprite.area
+                                // N.B. G.wm.sprite.area is a M/C address
+
+m.wm.invalid.handle = -1 // value returned in G.context!m.icon, etc.
+
+// definitions of window manager's workspace
+//
+// G.wm.q is a general purpose buffer used for defining windows, etc.
+// G.wm.s contains data for indirected icons which are defined
+// within windows. The format of G.wm.s is :
+//
+// word 0 - BCPL address first free space within area
+// word 1 - BCPL address of end of free space (i.e. G.wm.s + m.wm.statics.size)
+// word 2 on - data
+m.wm.freeptr  = 0  // free space is at G.wm.s!0
+m.wm.limitptr = 1  // limit is at G.wm.s!1
+
+// Offsets in G.windows - the active window list
+m.wm.wptr = 0 // pointer to first free entry
+m.wm.sptr = 1 // pointer to system windows
+m.wm.maxwindows = 32 // maximum number of active windows possible
+m.wm.Windowsize = 32*2 // twice the number of words, to allow system windows
+
+// offsets in G.sys.windows
+m.wm.mess.window       = 0
+m.wm.ermess.window     = 1
+m.wm.options.window    = 2
+m.wm.procedure.window  = 3
+m.wm.commentary.window = 4 
+m.wm.peephole.window   = 5
+m.wm.dlist.window      = 6  //SA 09.05.88
+m.wm.idusr.window      = 7  //SA 16.05.88
+
+m.wm.sys.windows.size = 10 // leaving room for expansion
+
+// offsets into a window's data record
+//
+// window data may be set up in G.wm.q by using
+// G.wm.get.window.info(handle) or G.wm.get.window.state, 
+// and then these offsets may be used to obtain the 
+// information - e.g. min.x.coordinate := G.wm.q!m.wm.xmin
+//
+m.wm.X0 = 1 // work area is X0,Y0 to X1,Y1
+m.wm.Y0 = 2
+m.wm.X1 = 3
+m.wm.Y1 = 4
+m.wm.Xscroll = 5
+m.wm.Yscroll = 6
+m.wm.TopHandle = 7 
+m.wm.flags   = 8     // this is the last one available after
+                     // a call to get.state - use get.info for others
+//
+// colours at byte offsets
+//
+m.wm.Xmin = 11
+m.wm.Ymin = 12
+m.wm.Xmax = 13
+m.wm.Ymax = 14
+m.wm.TitleIcons = 15
+m.wm.sprite.offset = 16 // word offset to address of sprite area
+// reserved
+m.wm.TitleString = 18
+m.wm.IconCount   = 21 // number of icons in initial definition
+m.wm.IconList    = 22 // icon definitions 32 bytes each
+
+m.wm.Icon.Info.Size = 36 // bytes
+
+// N.B. Beware... the following are BYTE offsets
+// - use G.wm.q%m.wm.'whatever' to obtain the value
+
+m.wm.TitleFG = 36
+m.wm.TitleBG = 37
+m.wm.WorkFG  = 38
+m.wm.WorkBG  = 39
+m.wm.ScrollBG= 40
+m.wm.ScrollFG= 41
+m.wm.FocusBG = 42
+
+
+// swi numbers used in the window system
+m.wm.swibase = #x400C0
+
+// Use OSWimpG( swi.number, block ) for MOST of these.
+// use OSWimpS for those marked with asterisks (***)
+
+m.wm.Initialise         = m.wm.swibase + 0
+m.wm.Create.Window      = m.wm.swibase + 1 
+m.wm.Create.Icon        = m.wm.swibase + 2 
+m.wm.Delete.Window      = m.wm.swibase + 3 
+m.wm.Delete.Icon        = m.wm.swibase + 4 
+m.wm.Open.Window        = m.wm.swibase + 5 
+m.wm.Close.Window       = m.wm.swibase + 6 
+m.wm.Poll               = m.wm.swibase + 7 
+m.wm.Redraw.Window      = m.wm.swibase + 8 
+m.wm.Update.Window      = m.wm.swibase + 9 
+m.wm.Get.Rectangle      = m.wm.swibase + 10
+m.wm.Get.Window.State   = m.wm.swibase + 11
+m.wm.Get.Window.Info    = m.wm.swibase + 12
+m.wm.Set.Icon.State     = m.wm.swibase + 13
+m.wm.Get.Icon.Info      = m.wm.swibase + 14
+m.wm.Get.Pointer.Info   = m.wm.swibase + 15
+m.wm.Drag.Box           = m.wm.swibase + 16
+m.wm.Force.Redraw       = m.wm.swibase + 17 // ***
+m.wm.Set.Caret.Position = m.wm.swibase + 18 // ***
+m.wm.Get.Caret.Position = m.wm.swibase + 19
+m.wm.Create.Menu        = m.wm.swibase + 20 // ***
+m.wm.Decode.Menu        = m.wm.swibase + 21 // ***
+m.wm.Which.Icon         = m.wm.swibase + 22 // ***
+m.wm.Set.Extent         = m.wm.swibase + 23
+m.wm.Set.Pointer.Shape  = m.wm.swibase + 24 // ***
+m.wm.Open.Template      = m.wm.swibase + 25
+m.wm.Close.Template     = m.wm.swibase + 26
+m.wm.Load.Template      = m.wm.swibase + 27 // ***
+
+
+// manifests for the Poll operation
+//
+// reason codes
+//
+m.wm.Null.Reason.Code        = 0
+m.wm.Redraw.Window.Request   = 1
+m.wm.Open.Window.Request     = 2
+m.wm.Close.Window.Request    = 3
+m.wm.Pointer.Leaving.Window  = 4
+m.wm.Pointer.Entering.Window = 5
+m.wm.Mouse.Button.Change     = 6
+m.wm.User.Drag.Box           = 7
+m.wm.Key.Pressed             = 8
+m.wm.Menu.Select             = 9
+m.wm.Scroll.Request          = 10
+
+// masks - only the ones it's possible to mask are here
+//
+m.wm.Disallow.Null.Reason.Code        = 1 << 0
+m.wm.Disallow.Redraw.Window.Request   = 1 << 1
+m.wm.Disallow.Pointer.Leaving.Window  = 1 << 4
+m.wm.Disallow.Pointer.Entering.Window = 1 << 5
+m.wm.Disallow.Mouse.Button.Change     = 1 << 6
+m.wm.Disallow.Key.Pressed             = 1 << 8
+m.wm.No.Mask                          = 0
+
+// masks for window flags   SA 06.04.88
+//
+m.wm.titlebar           = 1<<0
+m.wm.moveable.window    = 1<<1
+m.wm.VScroll            = 1<<2
+m.wm.Hscroll            = 1<<3
+m.wm.auto.redraw.window = 1<<4
+m.wm.no.bounds.window   = 1<<5
+m.wm.window.open        = #X00010000
+m.wm.top.window         = 1<<17
+m.wm.NewForm            = #X80000000
+m.wm.NewForm.titlebar   = #X04000000
+m.wm.NewForm.VScroll    = #X10000000
+m.wm.NewForm.HScroll    = #X40000000
+
+// VDU commands  SA 07.04.88
+//
+m.wm.MovA = 4   // absolute move
+
+// Masks for changing icon state  SA 16.04.88
+//
+m.wm.icon.shaded = 1<<22   // bit 22 set
+$)

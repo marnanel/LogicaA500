@@ -1,0 +1,61 @@
+/*
+   Segment to show the '5th parameter' problem in ARM BCPL
+   The program was put together by extracting bits from
+   the Domesday software; hence the oddish procedure names.
+
+   The bug can be seen by removing the comment from either of
+   the Writes statements in g.cm.clear.yellow.border. The writef
+   in g.cm.box then displays the correct values.      
+
+   With the program in its current state, it crashes before
+   the procedure is called a second time.
+
+   .. this is what one sees on the screen (it's a spooled record):
+
+/r.test5
+
+
+Starting...
+
+Box: x1=0 y1=0 x2=1111 y2=39520, false
+*spool
+
+
+*/
+
+Section "test 5 parameters"
+
+GET "libhdr"
+
+let start() BE
+$(                              
+   Writes("*nStarting...*n")
+   g.cm.clear.yellow.border()   
+
+   Writes("*ncall it again...*n")
+   g.cm.clear.yellow.border()     
+
+   stop(256)
+$)
+
+and g.cm.clear.yellow.border () be
+$(  // Writes("*nabout to clear yellow border*n")
+    g.cm.box (false, 0, 0, 1111, 9999 ) 
+    // Writes("after first*n")
+$)
+                        
+//  show or clear a box in the display area 
+//
+and g.cm.box (show.it, x1, y1, x2, y2) be
+$(      
+   Writef("*nBox: x1=%n y1=%n x2=%n y2=%n, %s*n",x1,y1,x2,y2,
+                                             show.it -> "true","false" )
+   $(
+   let f = show.it -> true, false
+   if x2 >= 1280 do x2 := 1280-1 
+   if y2 >= 888  do y2 := 888-1    
+
+   // ... was some graphics code here
+
+   $) 
+$)

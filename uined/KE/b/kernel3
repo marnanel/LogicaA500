@@ -1,0 +1,55 @@
+//  UNI SOURCE  4.87
+
+/**
+         KERNEL3 - NEEDS DIRECTIVES FOR KERNEL
+         -------------------------------------
+
+         This file contains all the needs directives needed to
+         build the Kernel file to run stand alone (without the
+         BCPL ROM present in the Target Machine).
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         s.kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         14/11/85 1        JIBC        Initial version
+         23.4.87  2        PAC         ADOPTED FOR UNI SYSTEM
+**/
+SECTION "Kernel3"
+
+NEEDS"BACKMOV"
+NEEDS"CAPCH"
+NEEDS"COMPCH"
+NEEDS"COMPSTR"
+NEEDS"ENDPROG"
+NEEDS"INOUT4"
+NEEDS"ERRORMS"
+NEEDS"FILETOV"
+NEEDS"FINDARG"
+NEEDS"GLOBIN"
+NEEDS"LEVEL"
+NEEDS"MAXVEC"
+NEEDS"NEWLINE"
+NEEDS"NEWPAGE"
+NEEDS"RANDOM"
+NEEDS"RDARGS"
+NEEDS"RDITEM"
+NEEDS"READN"
+NEEDS"RUNPROG"
+NEEDS"VECTOFI"
+NEEDS"STACKSI"
+NEEDS"TESTFLA"
+NEEDS"VDU"
+NEEDS"WRITED"
+NEEDS"WRITEF2"
+NEEDS"WRITEHE"
+NEEDS"WRITEN"
+NEEDS"WRITET"
+NEEDS"WRITEU"
+NEEDS"INTERP"
+NEEDS"DIAGMSG"   //N.b. for debugging only use ENDMSG for final system
+
+

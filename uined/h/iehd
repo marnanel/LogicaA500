@@ -1,0 +1,85 @@
+// /**
+//       IEHDR - HEADER FOR TOP LEVEL
+//       ----------------------------
+//
+//       Manifest definitions for the top level operation
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       19.6.87     1       SA        Initial version
+//       22.6.87     2       SA        System manifests added
+//       15.10.87    3       MH        Updates for UNI system
+// **/
+
+MANIFEST
+$(
+m.ie.buffsize    = 100                 // G.ie.buff length (words)
+m.ie.mainY       = m.sd.linW*18        // Y-coord of file name field
+m.ie.backupY     = m.sd.linW*14        // Y-coord of backup file field
+m.ie.name.length = 40                  // Length of file name fields (chars)
+m.ie.rep.length  = 1                   // Length of F/B reply field (chars)
+m.ie.fileX       = 32*m.ie.name.length + m.sd.disXtex
+                                       // Last X for file name fields
+
+m.ie.h.bytes      = 28                 // bytes in header of file
+m.ie.type.of.byte = 1                  // byte offset in header to type byte
+m.ie.datasets     = 150                // bytes offset in grid file
+                                       // to data sets info
+
+m.ie.unknown = -1                      // nul value
+m.ie.grid    = 1                       // grid data type number
+m.ie.areal   = 3                       // areal data type number
+m.ie.chart   = 4                       // chart data type number
+
+
+// Word offsets into context data in g.ie.buff
+
+m.ie.box           = 1            // Current box or unknown
+m.ie.reply1        = 2            // buffer for reply to F/B
+m.ie.main          = 3            // buffer for main file name (40 chars)
+m.ie.backup        = 24           // buffer for backup file name (40 chars)
+m.ie.header        = 45           // buffer for file header
+m.ie.aggregated    = 55           // buffer for data set number for grid
+                                  // files - n.b.overwrites part of header
+m.ie.type          = 60           // type of data file to be edited
+m.ie.open          = 61           // flag to indicate file legitimately open
+m.ie.sys.string    = 62           // 40 character string for system
+m.ie.reply2        = 83           // buffer for reply to Y/N
+m.ie.free          = 84           // free
+
+
+// byte offsets into context data in g.ie.buff
+
+m.ie.box.byte        = m.ie.box * bytesperword
+m.ie.reply1.byte     = m.ie.reply1 * bytesperword
+m.ie.main.byte       = m.ie.main * bytesperword
+m.ie.backup.byte     = m.ie.backup * bytesperword
+m.ie.header.byte     = m.ie.header * bytesperword
+m.ie.aggregated.byte = m.ie.aggregated * bytesperword
+m.ie.type.byte       = m.ie.type * bytesperword
+m.ie.open.byte       = m.ie.open * bytesperword
+m.ie.sys.string.byte = m.ie.sys.string * bytesperword
+m.ie.reply2.byte     = m.ie.reply2 * bytesperword
+m.ie.free.byte       = m.ie.free * bytesperword
+
+
+// byte sizes of offsets
+
+m.ie.box.size        = m.ie.reply1.byte - m.ie.box.byte
+m.ie.reply1.size     = m.ie.main.byte - m.ie.reply1.byte
+m.ie.main.size       = m.ie.backup.byte - m.ie.main.byte
+m.ie.backup.size     = m.ie.header.byte - m.ie.backup.byte
+m.ie.header.size     = m.ie.aggregated.byte - m.ie.header.byte
+m.ie.aggregated.size = m.ie.type.byte - m.ie.aggregated.byte
+m.ie.type.size       = m.ie.open.byte - m.ie.type.byte
+m.ie.open.size       = m.ie.sys.string.byte - m.ie.open.byte
+m.ie.sys.string.size = m.ie.reply2.byte - m.ie.sys.string.byte
+m.ie.reply2.size     = m.ie.free.byte - m.ie.reply2.byte
+$)
+
+
+
+
+
+

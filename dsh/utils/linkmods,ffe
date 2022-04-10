@@ -1,0 +1,38 @@
+*| LINKMODS DSH Version 1 14.9.87
+*| link the system kernel modules...
+*| ... and make l.kernel   
+*SPOOL $.tmp.LINKMODS
+*time
+*dir $.DSH.BI
+c linc
+*dir $.DSH.KE
+c linc
+*dir $.DSH.UT
+c linc
+*dir $.DSH.SC
+c linc
+*dir $.DSH.DH
+c linc
+*dir $.DSH.UD
+c linc
+*dir $.DSH.VH
+c linc     
+*dir $.DSH.WM
+c linc     
+*| make the state tables
+*dir $.DSH.SI
+c linc        
+*| *dir $.DSH.HE
+*| c linc
+*| now make l.kernel - all but the KE package
+*dir $.DSH                                                       
+*remove l.kernel
+Join DH.c.kernel UD.c.kernel SC.c.kernel -to t1
+Join UT.c.kernel VH.c.kernel WM.c.kernel -to t2
+Join t1 t2 -to l.kernel
+*remove t1
+*remove t2
+*ex l
+*time
+*SPOOL
+*dir $.DSH.utils

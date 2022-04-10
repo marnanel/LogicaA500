@@ -1,0 +1,95 @@
+                   
+Section "RCPlib"
+
+GET "libhdr"
+
+STATIC $( s.s = 0 ; s.p = 0 ; s.WRCH = 0 $) // used by RunProg
+
+LET Start() BE
+$(
+   LET argv = VEC 50
+   LET i = 1
+   LET res = ?       
+
+   IF Rdargs( "str/a,,,,,,,,,", argv, 50 ) = 0 
+   THEN $( Writes("*nBad Args*n") ; stop(99) $)
+
+   Writef( "*n*nString : %s*n", argv!0 ) 
+  
+   WHILE argv!i ~= 0 DO 
+   $( argv!i := s.to.n( argv!i) 
+      Writef("Arg %n : %n*n",i,argv!i)
+      i := i + 1 
+   $)
+
+   res := Filetovec( argv!0 )
+         
+   Writef("*nRes = %n, Result2 = %n*n",Res,Result2)
+
+   Display( res, 100 )
+$)
+
+AND s.to.n( str ) = VALOF
+$(
+   LET neg, t, p = FALSE, 0, 1 
+   IF str%1 = '-' THEN $( neg := TRUE ; p := 2 $)
+   FOR i = p TO str%0 DO t := 10*t+str%i-'0' 
+   RESULTIS neg -> -t, t
+$)
+
+AND display( vect, words ) BE
+$( 
+  LET lines = words/4 + 1 
+
+  FOR i = 0 TO lines 
+  $(
+     Writef("%x8 : ",4*i)
+     FOR j = 0 TO 3 Writef( "%x8 ", vect!(4*i+j) ) 
+     FOR j = 0 TO 4*bytesperword-1 
+     $( let ch = (vect+4*i)%j
+        Wrch( 31<ch<127->ch,'.')
+     //   Wrch('*s')
+     $)
+     Wrch('*n')
+  $)
+  Wrch('*n')
+$)
+         
+And FiletoVec( filename ) = VALOF
+$(
+   Let pb        = VEC 5
+   Let dest.vec  = ? 
+   Let file.size = ?
+   Let res       = ?            
+                                   
+   res := Osfile( 5, filename, pb )
+
+   If res = 0 DO $( Result2 := 27 ; RESULTIS 0 $)  // not found
+   
+   file.size := pb!2
+   dest.vec  := GETVEC( file.size+2 ) 
+   
+   If dest.vec = 0 DO $( Result2 := 51 ; RESULTIS 0 $)  // no room
+                              
+   dest.vec!1 := file.size                       // set up size in vec!1
+   pb!1 := 0; pb!0 := (dest.vec+2)*bytesperword  // set up vector
+   Osfile( #xFF, filename, pb )                  // load it
+                                            
+   If result2 ~= 0 DO $( FREEVEC( dest.vec ) ; RESULTIS 0 $)
+
+   RESULTIS dest.vec
+$)
+
+AND move( from.vec, to.vec, words ) BE
+$( 
+   Let i = 0
+     $<debug
+        IF words < 0 DO 
+        $( Writef("*nMove : bad arg %n%c*n",words,7) 
+           Abort(999) 
+        $)
+     $>debug 
+   WHILE i < words DO $( to.vec!i := from.vec!i ; i := i+1 $)
+$)
+
+.                    

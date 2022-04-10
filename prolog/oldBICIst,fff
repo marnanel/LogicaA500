@@ -1,0 +1,7 @@
+system('key1 system(''BICI.command '').|m').
+system('key2 system(''BICI.indirect'').|m').
+system('key3 system(''BICI.').
+system('key4 '').|m').
+system('key5 halt.|m').
+['eg.hanoi'].
+hanoi(3).

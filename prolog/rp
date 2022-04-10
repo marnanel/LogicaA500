@@ -1,0 +1,5 @@
+.key file/a
+*| run prolog
+*key1 halt.|m
+Prolog
+['eg.<file>'].

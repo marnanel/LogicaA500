@@ -1,0 +1,38 @@
+
+Section "DISH.dummy"
+
+GET "LIBHDR"  
+    
+GET ":4.DSH.gh.glhd"
+GET ":4.DSH.gh.gldyhd"
+GET ":4.DSH.h.stphd"
+
+LET G.sc.mess(str) BE $( G.wm.Message(str) ; G.ut.wait(30) $)
+
+AND g.pl.planini()       BE G.sc.mess("g.pl.planini")
+AND g.ov.shutdown()      BE G.sc.mess("g.ov.shutdown")
+AND g.ov.init.top()      BE G.sc.mess("g.ov.init.top")
+
+AND g.nt.conini()        BE G.sc.mess("g.nt.conini")
+AND g.nt.contents()      BE G.sc.mess("g.nt.contents")
+AND g.nt.handle.keys()   BE G.sc.mess("g.nt.handle.keys")
+AND g.nt.goto.top()      BE G.sc.mess("g.nt.goto.top")
+AND g.nt.go.up()         BE G.sc.mess("g.nt.go.up")
+AND g.nt.display.xrefs() BE G.sc.mess("g.nt.display.xrefs")
+AND g.nt.cross.ref()     BE G.sc.mess("g.nt.cross.ref")
+AND g.nt.dy.init ()      BE G.sc.mess("g.nt.DY.init")
+AND g.nt.dy.free ()      BE G.sc.mess("g.nt.DY.free")
+
+AND g.nm.map.ini ()      BE G.sc.mess("g.nm.map.ini")
+AND g.nm.dy.init ()      BE G.sc.mess("g.nm.DY.init")
+AND g.nm.dy.free ()      BE G.sc.mess("g.nm.DY.free")
+
+AND g.he.helpini()       BE G.sc.mess("g.he.helpini")
+// g.he.dy.init
+// g.he.dy.free 
+
+AND g.na.dy.init () BE G.sc.mess("g.na.DY.init")
+AND g.na.dy.free () BE G.sc.mess("g.na.DY.free")
+
+
+.

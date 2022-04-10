@@ -1,0 +1,79 @@
+/**
+         SIDEWAYS RAM INITIALISATION
+         ---------------------------
+
+         This section contains :
+
+            G.df.init.SRAM
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.DFinitsram
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         19.03.87 1        MH          initial version
+**/
+
+SECTION "sideways ram initialisation"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.uthd"
+GET ":4.format.h.dfhd"
+
+/**
+         G.DF.INIT.SRAM
+         ---------------
+
+         Initalise sideways ram for use.
+
+         INPUTS:
+
+         none.
+
+         OUTPUTS:
+
+         none.
+
+         GLOBALS MODIFIED:
+
+         none.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         The start address of the data structure is #X0501 in sideways ram
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.init.sram []
+         ---------------
+
+            Initialise sideways ram for use
+            if error then  abort
+**/
+let G.df.init.sram() be //initialise sideways ram for use
+$( let blk=vec 5 //used for killing sideways rom images
+   //first test ram presnce - OPSYS 68 returns with bits set in x register
+   //corresponding to SR bank (b0=bank no. 4 ect.)
+   unless (opsys(68) & #xF) =#xF fall.over()
+   for i=0 to 5 do blk!i := 0
+   for i = 4 to 7 do
+   $( check.(runprog("**SRROM %n",i)) //make it rom
+      check.(runprog("**SRWRITE %x4 +10 8000 %n",blk<<1,i)) //stomp on it
+      check.(runprog("**SRDATA %n",i)) //make it ram
+      check.(runprog("**INSERT %n",i)) //make it's plugged
+   $)
+$)
+
+//if the result of the srram initialisation runprogs' is > 1000, then
+//the sideways roms are set up wrongly
+and check.(runprog.result) be if runprog.result > 1000 then fall.over()
+
+and fall.over() be
+$( G.sc.mess("Error : sideways ram wrongly configured")
+   G.ut.abort(m.ut.init.abort)
+$)
+.

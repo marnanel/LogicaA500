@@ -1,0 +1,99 @@
+// >h.BIhdr
+// /**
+//
+//    BIHDR - HEADER FOR BICI CODE
+//    ----------------------------
+//
+//    This file contains manifest definitions used by
+//    the BICI code.
+//
+//
+//    REVISION HISTORY:
+//
+//    DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+//    ?         1        PAC     initial version
+//    04.05.88  2        SA      installing WIMP
+//    09.05.88  3        SA      icon handles for option buttons
+//
+// **/
+
+manifest
+$(
+
+// statics used by BICI - these are word offsets down G.bi.s
+//
+// text buffers for windows
+m.bi.proc.buff = 0 // procedure
+m.bi.comm.buff = 2 // commentary
+m.bi.peep.buff = 4 // peephole
+m.bi.dlist.buff = 6 // display list  SA 10.05.88
+
+// Text Insertion Pointers for above text buffers  SA 04.05.88
+m.bi.proc.tip  = 1  // procedure
+m.bi.comm.tip  = 3  // commentry
+m.bi.peep.tip  = 5  // peephole
+m.bi.dlist.tip = 7  // display list
+
+// Used by mouse & key handlers called by G.bi.top.level  SA 09.05.88
+m.bi.window    = 8  // currently selected window
+m.bi.icon      = 9  //                    icon
+m.bi.key       = 10 //                    key
+
+// icon definitions for the Display List window
+m.bi.dlist.no.icons = m.bi.key + 1  // number of icons currently on the window
+m.bi.dlist.yes.icon.info =          // selectable menu icon (36 bytes)
+   m.bi.dlist.no.icons + 1
+
+// help windows currently open; used by swtich.screens routine
+m.bi.windows.stack.ptr = m.bi.dlist.yes.icon.info + 36/BYTESPERWORD
+                                                   //pointer to next available
+                                                   //location on the stack
+m.bi.windows.stack = m.bi.windows.stack.ptr + 1    //list of windows open
+
+// size of bici statics vector  G.bi.s
+m.bi.statics.size       = 200
+
+// buffer sizes in bytes
+m.bi.normal.buffer.size = 300 // the normal BICI commands cannot be > 256 bytes
+m.bi.static.buffer.size = 5*1024 // size of the main command buffer
+m.bi.text.buffer.size   = 3*1024 // size of a text buffer (3 of these)
+
+// command constants - must be non-zero
+c.command = 1; c.time = 2; c.open    = 3; c.close   = 4; 
+c.send = 5; c.endsend = 6; c.indirect= 7; c.clear   = 8; c.exit = 9;
+
+// names of dialogue boxes - can be opened, cleared or closed
+n.idusr = 10; n.stats = 11; n.mplan = 12; n.splan = 13; n.eplan = 14; 
+n.iplan = 15; n.dlist = 16; n.topic = 17; n.objct = 18; n.gloss = 19;
+
+// names used in communication sessions - the 'send' command
+m.pro = 20; m.com = 21; m.opt = 22; m.pep = 23; m.oname = 24;
+m.entry = 25; m.meang = 26; m.impcn = 27; m.dlist = 28; m.none = 29;
+
+// names of the option buttons
+o.how = 30; o.quit = 31; o.why = 32; o.exit = 33; o.summary = 34;
+o.yes = 35; o.no = 36; o.next = 37; o.help = 38; o.remediation = 39;
+
+// icon handles for the option buttons
+// n.b. handle must not be zero
+// SA 09.05.88
+i.how = 10; i.quit = 1;  i.why = 2;  i.exit = 3;     i.summary = 4;
+i.yes =  5;   i.no = 6; i.next = 7;  i.help = 8; i.remediation = 9;
+i.peephole = 13;
+
+m.file.type = #xFFF       // plain ascii text file for bicibuff
+m.osfile.save.file = #x0A // save file with current time stamp
+
+m.osword.read.clock = #x0E
+m.osword.BCD.value  = 1
+
+m.fkey.base = 140
+
+// flags for G.bi.switch.screens
+m.bi.entry.to.domesday = TRUE
+m.bi.entry.to.help     = FALSE
+
+// icon handles for dlist dummy icons
+m.bi.dlist.yes.icon = 0
+
+$)

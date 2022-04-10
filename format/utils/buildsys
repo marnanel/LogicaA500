@@ -1,0 +1,21 @@
+*spool :0.format.scratch.build
+// Build User Data Input Editor and Formatter
+*time
+*dir :0.format.UT
+$.ex make
+*time
+*dir :0.format.DH
+$.ex make
+*time
+*dir :0.format.DF
+$.ex make
+*time
+*dir :0.format.AG
+$.ex make
+*time
+*dir :0.format
+$.ex linkUD format
+*time
+$.ex linkUD aggregate
+*time
+*spool

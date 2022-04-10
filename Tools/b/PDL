@@ -1,0 +1,132 @@
+get "libhdr"
+
+/** this is the start of a piece of PDL...
+
+   note that if a word in the PDL exceeds the buffer size it is disposed of
+   without warning.  Currently this is 30 chars.
+
+   ...and this is the end of it.
+**/
+
+let start () be
+$( let in.handle, out.handle = ?,?
+   let old.in.stream, old.out.stream = ?,?
+   let console.dev = "/C"
+   let arg = vec 50
+
+   old.in.stream := input ()           // save current context
+   old.out.stream := output ()
+
+   writes ("*NPDL filer v3 23.12.85 DNH*N")
+
+   if not rdargs ("FROM/A, TO", arg, 50) then
+      stop (11)
+
+   in.handle := findinput (arg!0)      // set up streams:
+   selectinput (in.handle)             // input file
+
+   if arg!1 then                          // use specified output, default is
+   $( out.handle := findoutput (arg!1)    // old stream if none specified
+      selectoutput (out.handle)
+   $)
+
+   get.pdl ()
+
+   endread ()                          // close file
+   selectinput (old.in.stream)         // reassign stream for return
+
+   if arg!1 then
+   $( endwrite ()
+      selectoutput (old.out.stream)
+   $)
+
+   stop (0)
+$)
+
+
+/**  more pdl.....but not very much, in header banner style
+// view doesn't like line feeds so use wrbin to send only the CR to the
+      // output stream.
+// and back to left margin.
+**/
+
+and get.pdl () be
+$( let item.vec = vec 15
+   let item.type = ?
+   let start.pdl.delim, end.pdl.delim = "/****", "****/"
+
+      // write a View Page Eject command
+   wrbin (#X80); wrch ('P'); wrch ('E'); wrbin (#X0d)
+
+      // hunt for start of PDL delimiter
+   $( item.type := rditem (item.vec, 15)
+WRitef("Rditem type = %n",item.type)
+      switchon item.type into
+      $( case -3: break
+         case  1: if compstring (item.vec, start.pdl.delim) = 0 then
+                     if not write.pdl (end.pdl.delim) then
+                        break             // eof
+                  endcase
+      $)
+   $) repeat
+
+   wrbin (#X0d)
+$)
+
+/** /** /**** indented, rather wierd pdl!! **g **\ /**  **/
+
+/* Returns true if end of PDL region detected, false if EOF.  Assumes that */
+/* the pdl start delimiter has been found at the left margin.  Only works  */
+/* correctly on syntactically correct text: ie. no nested comments.        */
+/* We also have to extract PDL with // type comment delimiters in front,   */
+/* since we can't have '/**' in header files that go through the 'compact' */
+/* program, so replace these with spaces when they occur immediately after */
+/* a newline.                                                              */
+
+and write.pdl (end.pdl.delim) = valof
+$( let item.vec = vec 15
+   let ch, item.type = ?, ?
+   let newline = true
+
+   writes ("*S*S*S")
+   $( ch := rdch ()
+      switchon ch into
+      $( case endstreamch:                   // eof; get out, informing of eof
+            resultis false
+
+         case '**':                          // see if it's an end delimiter
+            unrdch ()
+            rditem (item.vec, 15)
+            if compstring (item.vec, end.pdl.delim) = 0 then
+            $( wrbin (#X0d); wrbin (#X0d)
+               resultis true
+            $)
+
+            writes (item.vec)                // it wasn't a delimiter
+            endcase
+
+         case '/':
+            ch := rdch ()
+            test (ch = '/') & newline then
+               writes ("*S*S")               // replace with spaces
+            else
+            $( unrdch ()
+               wrch ('/')
+            $)
+
+            newline := false
+            endcase
+
+         case '*N':                          // write CR and set newline
+            wrbin (#X0d)
+            newline := true
+            endcase
+
+         default:                            // write ch and unset newline
+            wrch (ch)
+            newline := false
+      $)
+   $) repeat
+$)
+.
+

@@ -1,0 +1,86 @@
+//
+// VDU Primitive - should work as per RCP spec
+//                      
+// fixed up 6.5.87 PAC - "seems to work"
+                                              
+Section "VDU"
+  
+Get "Libhdr"
+
+LET Start() BE
+$(
+   LET argv = VEC 50
+   LET i = 1
+  
+   IF Rdargs( "str/a,,,,,,,,,", argv, 50 ) = 0 
+   THEN $( Writes("*nBad Args*n") ; stop(99) $)
+
+   Writef( "*n*nString : %s*n", argv!0 ) 
+  
+   WHILE argv!i ~= 0 DO 
+   $( argv!i := s.to.n( argv!i) 
+      Writef("Arg %n : %n*n",i,argv!i)
+      i := i + 1 
+   $)
+
+   VDU( argv!0,argv!1,argv!2,argv!3,argv!4,argv!5,argv!6,argv!7,argv!8 )
+
+   Writef("*nResult2 = %n*n", Result2)
+$)
+
+AND s.to.n( str ) = VALOF
+$(
+   LET neg, t, p = FALSE, 0, 1 
+   IF str%1 = '-' THEN $( neg := TRUE ; p := 2 $)
+   FOR i = p TO str%0 DO t := 10*t+str%i-'0' 
+   RESULTIS neg -> -t, t
+$)
+
+AND VDU( str,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10 ) BE
+$(
+   LET t,p,len = @p1,1, str%0
+  
+   result2 := 0
+
+   WHILE p <= str%0 DO
+   $(
+      LET ch, sum, neg = 0,0,FALSE
+l:    ch := str%p 
+
+      IF p > len BREAK
+
+      UNLESS ('0'<=ch<='9') SWITCHON ch INTO
+      $( DEFAULT:  result2 := -1; BREAK // abort here ??? 
+         CASE '*S':
+         CASE '*T':
+         CASE '*N': p := p + 1 ; GOTO l
+         CASE '-' : neg := TRUE
+         CASE '+' : $( p := p + 1 ; ch := str%p $)  // next char
+         IF p > len BREAK
+         ENDCASE
+
+         CASE '%' : 
+         $( LET arg = t!0      
+            p := p + 2             // point p at next char after ',' or ';'
+            Send.( arg, str, p-1 )
+            t := t + StackFrameDirection  // increment arg pointer
+            GOTO l 
+         $) ENDCASE 
+      $)
+      WHILE '0'<=ch<='9' DO
+      $( sum := 10*sum+ch-'0' ; p := p + 1 ; ch := str%p $)
+      IF neg THEN sum := -sum
+      Send.( sum, str, p )
+      p := p + 1
+   $)    
+
+$) 
+
+AND Send.( arg, s, p ) BE
+$(                                   
+// Writef("Sending %n (%x4) as %s*n",arg,arg, s%p=';'->"word","byte")
+
+   OsWrch( arg & #xFF ) // do low byte
+   IF (s%p = ';') & (p < s%0)
+   THEN OsWrch( (arg >> 8) & #xFF) // do high byte (16 bits)
+$)   

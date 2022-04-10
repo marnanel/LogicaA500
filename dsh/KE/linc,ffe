@@ -1,0 +1,4 @@
+*|  link KE kernel
+*dir c                    
+Join init root general sram dummy -to kernel
+*back

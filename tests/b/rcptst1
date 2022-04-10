@@ -1,0 +1,71 @@
+                   
+Section "RCPtst1"
+
+GET "libhdr"
+
+STATIC $( s.s = 0 ; s.p = 0 ; s.WRCH = 0 $) // used by RunProg
+
+LET Start() BE
+$(
+   LET argv = VEC 50
+   LET i = 1
+   LET res = ?       
+
+   IF Rdargs( "str/a,,,,,,,,,", argv, 50 ) = 0 
+   THEN $( Writes("*nBad Args*n") ; stop(99) $)
+
+   Writef( "*n*nString : %s*n", argv!0 ) 
+  
+   WHILE argv!i ~= 0 DO 
+   $( argv!i := s.to.n( argv!i) 
+      Writef("Arg %n : %n*n",i,argv!i)
+      i := i + 1 
+   $)
+
+   res := RUNPROG( argv!0, argv!1, argv!2, argv!3, argv!4 )
+         
+   Writef("*nRes = %n, Result2 = %n*n",Res,Result2)
+
+   UNLESS Res DO Writes( TKRerr( argv, 50 ))
+$)
+
+AND s.to.n( str ) = VALOF
+$(
+   LET neg, t, p = FALSE, 0, 1 
+   IF str%1 = '-' THEN $( neg := TRUE ; p := 2 $)
+   FOR i = p TO str%0 DO t := 10*t+str%i-'0' 
+   RESULTIS neg -> -t, t
+$)
+
+AND display( vect, words ) BE
+$( 
+  LET lines = words/4 + 1 
+
+  FOR i = 0 TO lines 
+  $(
+     Writef("%x8 : ",4*i)
+     FOR j = 0 TO 3 Writef( "%x8 ", vect!(4*i+j) ) 
+     FOR j = 0 TO 4*bytesperword-1 
+     $( let ch = (vect+4*i)%j
+        Wrch( 31<ch<127->ch,'.')
+     //   Wrch('*s')
+     $)
+     Wrch('*n')
+  $)
+  Wrch('*n')
+$)
+
+/*
+AND move( from.vec, to.vec, words ) BE
+$( 
+   Let i = 0
+     $<debug
+        IF words < 0 DO 
+        $( Writef("*nMove : bad arg %n%c*n",words,7) 
+           Abort(999) 
+        $)
+     $>debug 
+   WHILE i < words DO $( to.vec!i := from.vec!i ; i := i+1 $)
+$)
+*/
+.                    

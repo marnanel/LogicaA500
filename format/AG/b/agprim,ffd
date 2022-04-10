@@ -1,0 +1,173 @@
+/**
+         DATA FORMATTER - IO PRIMITIVES
+         ------------------------------
+
+         This section contains :
+
+            G.ag.wrch
+            G.ag.word
+            G.ag.double.word
+            G.ag.initw
+            G.ag.endw
+            G.ag.pointer
+            G.ag.write
+            G.ag.read
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         l.AGprim
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       31.03.87   1        SRY         Initial version
+        1.12.87   2        MH          Updated for unified version
+**/
+
+section "AGprim"
+
+get "libhdr"
+get ":4.format.gh.glhd"
+get ":4.format.h.uthd"
+get ":4.format.h.dhhd"
+get ":4.format.h.dhphd"
+get ":4.format.h.dfhd"
+
+static $( w = ?         // byte pointer in writebuff
+          size = ?      // Size of data buffers
+          bytes = ?     // Bytes in above
+          writebuff = ? // Read buffer
+          werr = ?      // error in write
+          pointer = ?   // Byte pointer in file
+       $)
+
+manifest $( m.osfind.open.update.op = #XC0
+            m.osgbpb.pb.newptr.op = 1
+         $)
+
+/**
+G.ag.initw
+
+Initialise write buffer and open file. This routine must be
+called before any write IO with this subsystem.
+**/
+
+let G.ag.initw(wstring) be
+$( w := 0
+   AGopen(wstring) // Open write file
+   if G.ut.stream = 0
+   $( G.df!m.df.err := true
+      return
+   $)
+   werr := false
+   G.df!m.df.err := false
+   test maxvec() >= #x1FFE then
+      size := #x1FFE - 20
+   else
+      size := (maxvec() & #x1FFE) - 20 // <= 4th 16bit positive
+   writebuff := getvec(size)
+   pointer := getvec(1)
+   bytes := size * bytesperword
+$)
+
+/**
+G.ag.endw
+
+This routine must be called after all write IO has been finished. Flush buffer,
+close file and free buffers.
+**/
+
+and G.ag.endw() be // tidy up read and write
+$( flush()
+   G.dh.close(G.ut.stream)
+   freevec(writebuff)
+   freevec(pointer)
+$)
+
+/**
+G.ag.double.word
+
+Output four bytes at a 32-bit number pointer
+**/
+
+and G.ag.double.word(ptr) be // output a 4-byte value
+$( G.ag.word(G.ut.unpack16(ptr, 0))
+   G.ag.word(G.ut.unpack16(ptr, 2))
+$)
+
+/**
+G.ag.word
+
+Output 2 bytes
+**/
+
+and G.ag.word(v) be // output a 2-byte value
+$( G.ag.wrch(v & #XFF)
+   G.ag.wrch((v >> 8) & #xFF)
+$)
+
+/**
+G.ag.wrch
+
+Output a byte
+**/
+
+and G.ag.wrch(v) be
+$( if G.df!m.df.dummy | werr return
+   writebuff%w := v
+   w := w + 1
+   if w >= bytes - 1 flush()
+$)
+
+/**
+flush
+
+Write out part of dataset processed so far. Reset buffer pointer.
+**/
+
+and flush() BE
+$( let t = vec 1
+   if (w = 0) | werr return
+   werr := G.ag.write(writebuff, w) = 0
+   G.ut.set32(w, 0, t)
+   G.ut.add32(t, pointer)
+   w := 0
+$)
+
+and G.ag.write(buffer, no.bytes) = valof
+$( let wcb = vec 6
+   wcb!0 := G.ut.stream
+   wcb!1 := buffer * bytesperword   // byte pointer
+   wcb!2 := no.bytes
+   G.ut.mov32(pointer, wcb+3)
+   osgbpb(m.osgbpb.pb.newptr.op, wcb)
+   UNLESS (wcb!1 - (buffer*bytesperword)) = no.bytes then 
+   $( let string = vec 39/bytesperword
+      G.ut.get.ermess(string, 39)
+      G.df.ermess(string)
+      no.bytes := 0
+   $)
+   resultis no.bytes
+$)
+
+and G.ag.pointer(p) be
+$( flush() // just in case
+   G.ut.mov32(p, pointer)
+$)
+
+and AGopen(filename) be
+$( G.ut.stream := osfind(m.osfind.open.update.op, filename)
+   if G.ut.stream = 0 do    // bad handle: out of range
+   $( let string = vec 39/bytesperword
+      G.ut.get.ermess(string, 39)
+      g.df.ermess(string)
+      G.ut.stream := 0
+   $)
+$)
+
+and G.ag.length(l) be G.dh.length(G.ut.stream, l)
+
+and G.ag.read(p, buffer, no.b) = G.dh.read(G.ut.stream, p, buffer, no.b)
+.
+
+

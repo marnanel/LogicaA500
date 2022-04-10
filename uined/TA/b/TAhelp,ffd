@@ -1,0 +1,92 @@
+section "Tabular Help"
+
+/**
+         CM.B.HE - Help text for Tabular User data
+         --------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       11.06.87   1        SRY         Initial version
+       17.08.87   2        SA          Text added
+        9.09.87   3        SRY         Kick pointer up on exit
+
+         GLOBALS DEFINED:
+
+         G.help
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.sihd"
+
+static $( save.cur=? $)
+
+/**
+   This routine either draws the help page or restores the previous state
+   of the screen according to the setting of the first menu bar entry.
+**/
+
+let G.help() be
+$( let t = G.sc.pointer(m.sd.off)
+   test G.menubar!m.box1 = m.wExit
+   then $( G.sc.mode(1)  // exit from help
+           G.menubar!m.box1 := m.sd.act
+           G.redraw := true
+           G.sc.rescur(save.cur)
+           if G.screen = m.sd.menu
+              G.sc.moveptr( G.xpoint, G.sc.dtob(m.sd.display,4) )
+           freevec(save.cur)
+        $)
+   else $( save.cur := getvec(3)
+           G.sc.savcur(save.cur)
+           G.sc.mode(129)
+           G.sc.selcol(m.sd.blue)
+           G.sc.movea(m.sd.message, 0, 0)
+           G.sc.rect(m.sd.plot, m.sd.mesW-1, m.sd.mesH-1)
+           G.sc.movea(m.sd.message, m.sd.propXtex, m.sd.mesYtex)
+           G.sc.selcol(m.sd.yellow)
+           G.sc.oprop("Help with Tabular Data Entry")
+           G.sc.clear(m.sd.display)
+           G.sc.selcol(m.sd.cyan)
+
+           oline( 2, "Details about the data set can be entered on")
+           oline( 3, "the initial screen.  For a full description of")
+           oline( 4, "all the fields see the User Guide.")
+
+           oline( 6, "When Labels is selected new variables and")
+           oline( 7, "categories can be added and existing labels")
+           oline( 8, "edited.  Data can be entered and saved only")
+           oline( 9, "when each variable has at least 2 categories.")
+           oline(10, "To enter categories for a variable select the")
+           oline(11, "variable for editing and then select Categories")
+           oline(12, "from the menu bar.  The CHANGE key can be used")
+           oline(13, "to insert or delete variables or categories.")
+
+           oline(15, "When Data is selected a variable can be chosen")
+           oline(16, "for data entry by pressing CHANGE.  The full")
+           oline(17, "list of categories for the selected variable")
+           oline(18, "will be displayed and numbers can be entered")
+           oline(19, "on the right of the screen.  The categories for")
+           oline(20, "the other variables can be cycled by pressing")
+           oline(21, "CHANGE.")
+
+           G.menubar!m.box1 := m.wExit
+           for i = m.box2 to m.box6 G.menubar!i := m.wBlank
+           G.sc.menu(G.menubar)
+        $)
+   G.sc.pointer(t)
+$)
+
+and oline(line.no, text) be
+$( G.sc.movea(m.sd.display, 0, m.sd.disH-(line.no-1)*m.sd.linW)
+   G.sc.oprop(text)
+$)
+.

@@ -1,0 +1,276 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.redrawdv
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.05.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         21.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TAdata1"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.REDRAWDV
+         -------------
+
+         This routine draws the list of variable labels and there selected
+         categories.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.redrawdv[]
+         -------------
+
+         clear display area
+         END IF
+         FOR i = base label to max label
+            FOR j = 1 TO 52 DO
+               IF var.tag = i THEN
+                  draw label
+                  BREAK
+               END IF
+            END FOR
+         END FOR
+
+**/
+
+
+let G.ta.redrawdv() be
+$(
+   let x, y = m.ta.xdstart, m.ta.ydstart
+   let n = ?    //label number
+   let l = ?    //address of label
+   let t.l = ?      //temporary location for label length
+
+   G.sc.pointer(m.sd.off)
+   d.sq()   //draw variable box
+   n := G.ta.area%m.ta.base.l
+   for i = 1 to G.ta.area%m.ta.no.l do
+   $(
+         l := G.ta.getlabel(n,m.ta.INACTIVE) //get variable label
+         t.l := l%0
+         G.sc.movea(m.sd.display,x,y)
+         G.ta.redrawdc(m.ta.INACTIVE,n,m.sd.cyan)
+         G.sc.movea(m.sd.display,x+m.sd.charwidth,y-m.sd.linw)
+         unless G.ta.area%m.ta.cur.var = i + ((G.ta.area%m.ta.pg - 1) * m.ta.dlines) then
+            G.ta.redrawdc(G.ta.area%(m.ta.cat.table + n - 1),n,m.sd.blue)
+      y := y - (m.sd.linw * 2)
+      n := n + 1 //next label number
+   $)
+   if G.ta.area%m.ta.mp > 1 then
+   $(
+      G.sc.movea(m.sd.display,m.ta.xdstart,m.ta.ydstart-(12*m.sd.linw)-8)
+      test G.ta.area%m.ta.op = m.ta.more then
+         G.sc.selcol(m.sd.yellow)
+      else
+         G.sc.selcol(m.sd.cyan)
+      G.sc.ofstr("More...")
+   $)
+   unless G.ta.area%m.ta.cur.var = m.ta.INACTIVE G.ta.d.cats()
+   G.sc.pointer(m.sd.on)
+$)
+
+
+
+/**
+         G.TA.REDRAWDC
+         -------------
+
+         This routine draws the list of category labels for the selected
+         variable.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.redrawdc[cat.no,var.no,col]
+         ----------------------------
+
+         G.sc.selcol(col)
+         get category label
+         write label out
+
+**/
+
+
+and G.ta.redrawdc(c,v,col) be
+$(
+   let l = ?    //address of label
+   let t.l = ?      //temporary location for label length
+
+   unless v = m.ta.INACTIVE | c = 0 then
+   $(
+      G.sc.selcol(col)
+      l := G.ta.getlabel(v,c)
+      t.l := l%0
+      test c = m.ta.INACTIVE
+         unless t.l <= 10 l%0 := 10         //only display 1st 9 chars of label
+      else
+         unless t.l <= 9 l%0 := 9         //only display 1st 8 chars of label
+      G.sc.oprop(l)
+      l%0 := t.l  //restore label length
+   $)
+$)
+
+
+
+and G.ta.getlabel(v,c) = VALOF
+$(
+   let l = G.ta.area + (m.ta.labels / bytesperword)
+
+   for i = 1 to 52 do
+   $(
+      if l%0 = v & l%1 = c BREAK
+      l := l + (m.ta.l.width / bytesperword)
+   $)
+   resultis l+1
+$)
+
+and d.sq() be
+$(
+   if G.ta.area%m.ta.1st.time = m.ta.true then
+   $(
+      G.sc.clear(m.sd.display)
+      G.sc.selcol(m.sd.blue)
+      G.sc.movea(m.sd.display,m.ta.bxd0,m.ta.by0)
+      G.sc.liner(m.sd.plot,0,m.ta.bh)
+      G.sc.liner(m.sd.plot,m.ta.bw,0)
+      G.sc.liner(m.sd.plot,0,-m.ta.bh)
+      G.sc.liner(m.sd.plot,-m.ta.bw,0)
+      G.ta.area%m.ta.1st.time := m.ta.false
+   $)
+   clear(m.ta.bxd0+4,m.ta.by0+m.ta.bh-8,m.ta.bw-8,-(m.sd.linw*12))
+$)
+
+/**
+         G.TA.D.CATS
+         -----------
+
+         This routine displays the list of categories from the selected
+         variable along with the data values
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.d.cats[]
+         -------------
+
+         IF 2 pages of categories THEN
+          display "More.." box
+         END IF
+         FOR i = 1 to number of categories in current page DO
+            display category and data cell
+            get next category
+         END FOR
+
+**/
+
+
+and G.ta.d.cats() be
+$(
+   let y = m.ta.ystart
+   let n = G.ta.area%m.ta.base.lc
+   let l = ?
+   let t.l = ?
+   let data.area = G.ta.area + (m.ta.data.area / bytesperword)
+
+   G.sc.pointer(m.sd.off)
+   G.sc.movea(m.sd.display,0,0)
+   clear(0,0,m.ta.bxd0-4,m.sd.dish-4)
+   G.ta.area%m.ta.do := m.ta.true
+   if G.ta.area%(m.ta.var.table + G.ta.area%m.ta.cur.var - 1) > m.ta.lines then
+   $(
+      G.sc.movea(m.sd.display,m.ta.bx0+500,m.ta.byn)
+      G.sc.selcol(m.sd.cyan)
+      G.sc.rect(m.sd.plot,m.ta.bw,m.ta.bhn)
+      G.sc.movea(m.sd.display,m.ta.bx0+500+m.sd.charwidth,m.ta.byn+m.ta.newy)
+      G.sc.selcol(m.sd.blue)
+      G.sc.ofstr("More...")
+   $)
+   for i = 1 to G.ta.area%m.ta.no.lc do
+   $(
+      l := G.ta.getlabel(G.ta.area%m.ta.cur.var,n)
+      G.sc.movea(m.sd.display,0,y)
+      t.l := l%0
+      if l%0 > 16 l%0 := 16
+      G.sc.selcol(m.sd.cyan)
+      G.sc.ofstr("%s",l)
+      l%0 := t.l
+      G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1) := n
+      G.ta.hidc(m.sd.blue)
+      y := y - m.sd.linw
+      n := n + 1
+   $)
+   G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1) := m.ta.INACTIVE
+   G.ta.area%m.ta.op := m.ta.INACTIVE
+   G.sc.pointer(m.sd.on)
+$)
+
+and clear(x,y,width,depth) be
+$( G.sc.selcol(m.sd.yellow)
+   G.sc.movea(m.sd.display,x,y)
+   G.sc.rect(m.sd.clear,width,depth)
+$)
+.

@@ -1,0 +1,13 @@
+*key0**dir &.r|m/-adfs-kernel|m
+*fx138,0,128
+*initstore
+*|
+*| install VFS
+*RMLoad $.Modules.JonSCSI
+*RMLoad $.Modules.VideoCom
+*RMLoad $.Modules.VFSA500
+*RMLoad $.Library.FPE
+*Vfs
+*Mount 0
+*|
+*adfs

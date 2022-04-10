@@ -1,0 +1,572 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.highlight
+            G.ta.hi
+            G.ta.highc
+            G.ta.hic
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+**/
+
+SECTION "TApage"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.HIGHLIGHT
+         --------------
+
+         This routine highlights the variable label which has the pointer
+         over it.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.highlight[]
+         ----------------
+
+         IF pointer not on box THEN
+            IF v.or.c = variable THEN
+               sel.var = inactive
+            END IF
+            sel.cat = inactive
+         END IF
+         IF old box needs dehighlighting THEN
+            dehighlight old box
+         END IF
+         IF ok to highlight box THEN
+            highlight box
+         END IF
+**/
+
+let G.ta.highlight() be
+$(
+   let x, y = ?, ?
+   let v = m.ta.INACTIVE
+   let c = m.ta.INACTIVE
+   let op = m.ta.INACTIVE
+   let l = 0
+
+   if (m.ta.xstart <= G.xpoint <= m.ta.xend) & G.screen = m.sd.display then
+   $( x:=m.ta.xstart
+      y:=m.ta.ystart
+      for i = 1 to g.ta.area%m.ta.no.l do
+      $( if y >= G.ypoint >= y-m.sd.linw then
+         $( l:=i
+            BREAK
+         $)
+         y:=y-m.sd.linw //test next label
+      $)
+   $)
+   if (m.ta.bx0 <= G.xpoint <= m.ta.bx0 + m.ta.bw) &
+        (m.ta.byn <= G.ypoint <= m.ta.byn + m.ta.bhn) &
+        G.screen = m.sd.display then
+      unless g.ta.area%m.ta.no.labels >= G.ta.max.labels() |
+             g.ta.area%m.ta.base.l + g.ta.area%m.ta.no.l -1 >= m.ta.v.max then
+            op:=m.ta.new
+   if (m.ta.bx0+500 <= G.xpoint <= m.ta.bx0+500 + m.ta.bw) &
+        (m.ta.byn <= G.ypoint <= m.ta.byn + m.ta.bhn) &
+        G.screen = m.sd.display then
+      if g.ta.area%m.ta.mp > 1 op:=m.ta.more
+   if l > 0 then
+      test g.ta.area%m.ta.v.or.c = m.ta.v then
+         v:=g.ta.area%m.ta.base.l + l-1
+      else
+      $( c:=g.ta.area%m.ta.base.l + l-1
+         v:=g.ta.area%m.ta.sel.var
+      $)
+   unless op = g.ta.area%m.ta.op g.ta.area%m.ta.op:=op
+   unless v = g.ta.area%m.ta.sel.var & c = g.ta.area%m.ta.sel.cat then
+   $( // G.sc.pointer(m.sd.off)
+      G.ta.hi(m.sd.cyan,m.ta.d.both)
+      g.ta.area%m.ta.sel.var:=v
+      g.ta.area%m.ta.sel.cat:=c
+      G.ta.hi(m.sd.yellow,m.ta.d.both)
+//      G.sc.pointer(m.sd.on)
+   $)
+$)
+/**
+         G.TA.HI
+         -------
+
+         This routine prints the variable label in the selected colour.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.hi[colour]
+         ---------------
+
+         print flag = false
+         IF variable has been selected THEN
+            get variable label string
+            set print flag true
+            calculate screen position of variable
+         END IF
+         IF print flag = true THEN
+            move to start position of variable
+            clear previous output
+            G.sc.selcol(colour)
+            print string
+**/
+
+and G.ta.hi(c, d) be
+$( let l, l.pos = ?, ?
+   let y = m.ta.ystart + m.sd.linw
+   let p = false
+   let t.l = ?   //temp label length
+   let add.flag = ? //additive flag
+
+   if g.ta.area%m.ta.v.or.c = m.ta.v & g.ta.area%m.ta.sel.var ~= m.ta.INACTIVE &
+        g.ta.area%m.ta.no.vars > 0 then
+   $( l:=getlabel(g.ta.area%m.ta.sel.var)
+      if l%0 > m.ta.str.l -2 l%0 := m.ta.str.l - 2
+      p:=true
+      test g.ta.area%m.ta.pg = 2 then
+         l.pos:=g.ta.area%m.ta.sel.var-m.ta.lines
+      else
+         l.pos:=g.ta.area%m.ta.sel.var
+   $)
+   if p then
+   $( y:= y-(m.sd.linw * l.pos)
+      G.sc.selcol(c)
+      unless d = m.ta.d.var then
+      $(
+         G.sc.movea(m.sd.display,0,y)
+         add.flag := g.ta.area%(m.ta.add.table + g.ta.area%m.ta.sel.var - 1) = m.ta.true ->
+                'A', 'N'
+         G.sc.ofstr("%c",add.flag)
+      $)
+      unless d = m.ta.d.add then
+      $(
+         G.sc.movea(m.sd.display,2*m.sd.charwidth,y)
+         G.sc.ofstr("%s",l)
+      $)
+      if g.ta.area%m.ta.base.l + g.ta.area%m.ta.no.l-1 >= m.ta.v.max |
+         g.ta.area%m.ta.no.labels >= G.ta.max.labels() then
+      $( G.sc.movea(m.sd.display,m.ta.bx0,m.ta.byn)
+         G.sc.selcol(m.sd.black)
+         G.sc.rect(m.sd.plot,m.ta.bw,m.ta.bhn)
+      $)
+   $)
+$)
+
+/**
+         G.TA.HIGHC
+         ----------
+
+         This routine highlights a category label or category abbreviation
+         which has the pointer over it.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.highc[]
+         ----------------
+
+         IF pointer not on box THEN
+            sel.cat = inactive
+         END IF
+         IF old box needs dehighlighting THEN
+            dehighlight old box
+         END IF
+
+         IF ok to highlight box THEN
+            highlight box
+         END IF
+**/
+
+and G.ta.highc() be
+$(
+   let x, y = ?, ?
+   let c = m.ta.INACTIVE
+   let op = m.ta.INACTIVE
+   let abbr = 0
+   let l = 0
+   let oldx = g.ta.area + (m.ta.xco / bytesperword)
+   let oldy = g.ta.area + (m.ta.yco / bytesperword)
+
+            //category abbreviation area
+   test (m.sd.disx0 <= G.xpoint <= m.sd.disx0 + m.sd.charwidth) &
+        G.screen = m.sd.display then
+   $( x:=m.sd.disx0
+      y:=m.ta.ystart
+      for i = 1 to g.ta.area%m.ta.no.l do
+      $( if y >= G.ypoint >= y-m.sd.linw then
+         $( abbr:=i
+            BREAK
+         $)
+         y:=y-m.sd.linw //test next label
+      $)
+   $)        //category label area
+   else if (m.sd.disx0+(2*m.sd.charwidth)-4 <= G.xpoint
+           <= m.sd.disx0+(40*m.sd.charwidth)) &
+           G.screen = m.sd.display then
+   $( x:=m.sd.disx0 + (2*m.sd.charwidth)
+      y:=m.ta.ystart
+      for i = 1 to g.ta.area%m.ta.no.l do
+      $(
+         if y >= G.ypoint >= y-m.sd.linw then
+         $(
+            l:=i
+            BREAK
+         $)
+         y:=y-m.sd.linw //test next label
+      $)
+   $)           //new label area
+   if (m.ta.bx0 <= G.xpoint <= m.ta.bx0 + m.ta.bw) &
+        (m.ta.byn <= G.ypoint <= m.ta.byn + m.ta.bhn) &
+        G.screen = m.sd.display then
+      unless g.ta.area%m.ta.no.labels >= G.ta.max.labels() |
+             g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var - 1) >= m.ta.v.max then
+            op:=m.ta.new
+   if (m.ta.bx0+500 <= G.xpoint <= m.ta.bx0+500 + m.ta.bw) &
+        (m.ta.byn <= G.ypoint <= m.ta.byn + m.ta.bhn) &
+        G.screen = m.sd.display then
+      if g.ta.area%m.ta.mp > 1 op:=m.ta.more
+   if l > 0 then
+         c:=g.ta.area%m.ta.base.l + l-1
+   abbr := (abbr > 0) -> g.ta.area%m.ta.base.l + abbr - 1, m.ta.INACTIVE
+   unless (g.ta.area%m.ta.no.labels >= G.ta.max.labels() |
+          g.ta.area%m.ta.base.l + g.ta.area%m.ta.no.l -1 >= m.ta.v.max) &
+          op ~= m.ta.more then
+           unless op = g.ta.area%m.ta.op g.ta.area%m.ta.op:=op
+   test c = g.ta.area%m.ta.sel.cat then
+      unless !oldx = G.xpoint & !oldy = G.ypoint then
+         if g.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE & g.ta.area%m.ta.l.st = m.ta.INACTIVE then
+            G.ta.hic(m.sd.cyan,true)
+   else
+   $(
+//      G.sc.pointer(m.sd.off)
+      G.ta.hic(m.sd.blue,true)
+      g.ta.area%m.ta.sel.cat:=c
+      G.ta.hic(m.sd.cyan,true)
+//      G.sc.pointer(m.sd.on)
+      g.ta.area%m.ta.do:=m.ta.true
+   $)
+   test abbr = g.ta.area%m.ta.c.l then
+      unless !oldx = G.xpoint & !oldy = G.ypoint then
+         if g.ta.area%m.ta.c.l ~= m.ta.INACTIVE & 
+               g.ta.area%m.ta.l.st = m.ta.INACTIVE then
+            G.ta.hic(m.sd.cyan,false)
+   else
+   $(
+//      G.sc.pointer(m.sd.off)
+      G.ta.hic(m.sd.blue,false)
+      g.ta.area%m.ta.c.l:=abbr
+      G.ta.hic(m.sd.cyan,false)
+//      G.sc.pointer(m.sd.on)
+      g.ta.area%m.ta.do:=m.ta.true
+   $)
+   if g.ta.area%m.ta.c.l = m.ta.INACTIVE & g.ta.area%m.ta.sel.cat = m.ta.INACTIVE then
+      if g.ta.area%m.ta.l.st = m.ta.edit g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+   !oldx := G.xpoint
+   !oldy := G.ypoint
+$)
+
+/**
+         G.TA.HIC
+         --------
+
+         This routine draws a box for the category label or category
+         abbreviation which has the pointer over it.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.hic[colour,label]
+         ----------------
+
+         print flag = false
+        IF category box to draw THEN
+          IF category selected THEN
+             get category label
+             set print flag true
+             calculate screen position of category
+          END IF
+          IF print flag = true THEN
+             IF colour = cyan THEN
+                draw cyan rectangle
+                print category in rectangle
+                set 1st time true
+                G.ta.edit()
+             ELSE
+                draw blue rectangle
+                print category in rectangle
+              END IF
+          END IF
+       ELSE
+          IF abbreviation selected THEN
+             get abbreviation value
+             set print flag true
+             calculate screen position of category
+          END IF
+          IF print flag = true THEN
+             IF colour = cyan THEN
+                draw cyan rectangle
+                print abbreviation in rectangle
+                set 1st time true
+                G.ta.edit()
+             ELSE
+                draw blue rectangle
+                print abbreviation in rectangle
+              END IF
+          END IF
+**/
+
+
+and G.ta.hic(c,label) be
+$(
+   let l, l.pos = ?, ?
+   let y = m.ta.ystart + m.sd.linw
+   let p = false
+   let t.l = ?   //temp label length
+   let in.str = g.ta.area + (m.ta.temp.label / bytesperword)
+
+   test label then
+   $(
+      if g.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE then
+      $(
+         l:=getlabel(g.ta.area%m.ta.sel.cat)
+         p:=true
+         l.pos := (g.ta.area%m.ta.pg = 2) ->
+            g.ta.area%m.ta.sel.cat-m.ta.lines, g.ta.area%m.ta.sel.cat
+      $)
+      if p then
+      $(
+         y:= y-(m.sd.linw * l.pos)
+         test c = m.sd.cyan then
+         $(
+         G.sc.movea(m.sd.display,(2*m.sd.charwidth)-4,y)
+         G.sc.selcol(c)
+         G.sc.rect(m.sd.plot,((m.ta.str.l-2)*m.sd.charwidth)+4,-(m.sd.linw-4))
+         G.sc.movea(m.sd.display,2*m.sd.charwidth,y)
+         G.sc.selcol(m.sd.blue)
+         G.sc.movea(m.sd.display,(2*m.sd.charwidth)-4,y-4)
+         t.l:=l%0
+         if t.l > m.ta.str.l-2 l%0:=m.ta.str.l-2
+         G.sc.ofstr("%s",l)
+         for i = 0 to 40 in.str%i:=l%i
+         g.ta.area%m.ta.do:=m.ta.true
+         g.ta.area%m.ta.1st.time:=m.ta.true
+         G.ta.edit()
+         $)
+         else
+         $(
+         if g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var-1) >= m.ta.c.max |
+            g.ta.area%m.ta.no.labels >= G.ta.max.labels() then
+         $(
+            G.sc.movea(m.sd.display,m.ta.bx0,m.ta.byn)
+            G.sc.selcol(m.sd.black)
+            G.sc.rect(m.sd.plot,m.ta.bw,m.ta.bhn)
+         $)
+         if g.ta.area%m.ta.do=m.ta.true then
+         $(
+            G.sc.movea(m.sd.display,(2*m.sd.charwidth)-4,y)
+            G.sc.selcol(m.sd.black)
+            G.sc.rect(m.sd.plot,((m.ta.str.l-2)*m.sd.charwidth)+4,-(m.sd.linw-4))
+            G.sc.movea(m.sd.display,(2*m.sd.charwidth)-4,y)
+            G.sc.selcol(c)
+            G.sc.rect(m.sd.plot,((m.ta.str.l-2)*m.sd.charwidth)+4,-(m.sd.linw-8))
+            G.sc.selcol(m.sd.cyan)
+            G.sc.movea(m.sd.display,2*m.sd.charwidth-4,y-4)
+            t.l:=l%0
+            if t.l > m.ta.str.l-2 l%0:=m.ta.str.l-2
+            G.sc.ofstr("%s",l)
+         $)
+         $)
+      $)
+   $)
+   else
+   $(
+      if g.ta.area%m.ta.c.l ~= m.ta.INACTIVE then
+      $(
+         l:=getlabel(g.ta.area%m.ta.c.l)
+         p:=true
+         l.pos := (g.ta.area%m.ta.pg = 2) ->
+            g.ta.area%m.ta.c.l-m.ta.lines, g.ta.area%m.ta.c.l
+      $)
+      if p then
+      $(
+         y:= y-(m.sd.linw * l.pos)
+         test c = m.sd.cyan then
+         $(
+         G.sc.movea(m.sd.display,m.sd.disx0,y)
+         G.sc.selcol(c)
+         G.sc.rect(m.sd.plot,m.sd.charwidth,-(m.sd.linw-4))
+         G.sc.movea(m.sd.display,m.sd.disx0,y)
+         G.sc.selcol(m.sd.blue)
+         G.sc.movea(m.sd.display,m.sd.disx0,y-4)
+         G.sc.ofstr("%c",l%41)
+         in.str%0:=1
+         in.str%1:=l%41  //copy abbreviation
+         g.ta.area%m.ta.do:=m.ta.true
+         g.ta.area%m.ta.1st.time:=m.ta.true
+         G.ta.edit()
+         $)
+         else
+         $(
+         if g.ta.area%m.ta.do = m.ta.true then
+         $( G.sc.movea(m.sd.display,m.sd.disx0,y)
+            G.sc.selcol(m.sd.black)
+            G.sc.rect(m.sd.plot,m.sd.charwidth,-(m.sd.linw-4))
+            G.sc.movea(m.sd.display,m.sd.disx0,y)
+            G.sc.selcol(c)
+            G.sc.rect(m.sd.plot,m.sd.charwidth,-(m.sd.linw-8))
+            G.sc.selcol(m.sd.cyan)
+            G.sc.movea(m.sd.display,m.sd.disx0,y-4)
+            G.sc.ofstr("%c",l%41)
+         $)
+         $)
+         if g.ta.area%m.ta.base.l + g.ta.area%m.ta.no.l-1 >= m.ta.c.max |
+            g.ta.area%m.ta.no.labels >= G.ta.max.labels() then
+         $(
+            G.sc.movea(m.sd.display,m.ta.bx0,m.ta.byn)
+            G.sc.selcol(m.sd.black)
+            G.sc.rect(m.sd.plot,m.ta.bw,m.ta.bhn)
+         $)
+      $)
+   $)
+$)
+
+/**
+         G.TA.REDRAWV
+         ------------
+
+         This routine draws the list of variable labels.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.redrawv[]
+         -------------
+
+         clear display area
+         current variable = inactive
+         current category = inactive
+         END IF
+         FOR i = base label to max label
+            FOR j = 1 TO 52 DO
+               IF var.tag = i THEN
+                  draw label
+                  BREAK
+               END IF
+            END FOR
+         END FOR
+
+**/
+
+and getlabel(n) = VALOF
+$(
+   let l = G.ta.area + (m.ta.labels / bytesperword)
+
+   for i = 1 to 52 do
+   $(
+      test G.ta.area%m.ta.v.or.c = m.ta.v then
+         if l%0 = n & l%1 = m.ta.free BREAK
+      else
+         if l%0 = g.ta.area%m.ta.sel.var & l%1 = n BREAK
+      l:=l + (m.ta.l.width / bytesperword)
+   $)
+   resultis l+1
+$)
+.
+
+
+
+
+
+
+
+

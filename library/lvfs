@@ -1,0 +1,4 @@
+*| install VFS
+*RMLoad $.Modules.JonSCSI
+*RMLoad $.Modules.VideoCom
+*RMLoad $.Modules.VFSA500

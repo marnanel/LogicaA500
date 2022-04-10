@@ -1,0 +1,319 @@
+section "seldisc"
+
+/**
+         DH.B.SELDISC - Select Disc (Turnover) Function
+         ----------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         l.seldisc  (a library to link with)
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       21.04.87   1        SA          Adopted for Input Editor
+        5.05.87   2        SRY         Added m.dh.comm
+       23.07.87   3        SA          Added m.dh.natUK/profUK
+       28.08.87   4        SRY         Removed above
+        3.09.87   5        SRY         Back!
+
+         g.dh.select.disc
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.h.dhhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+
+$<DEBUG
+static $( count = 0 $)
+$>DEBUG
+
+let disable.switches () be
+$(
+   $<debug
+   debugmess ("Disable switches")
+   $>debug
+   g.vh.video (m.vh.micro.only)
+//   g.vh.video (m.vh.video.off)    // default so not necessary. wastes time
+//   g.vh.audio (m.vh.no.channel)   //   ditto
+
+   g.vh.send.fcode ("I0")       // disable front panel buttons
+   g.vh.send.fcode ("J0")       // disable remote control
+   g.vh.send.fcode ("$0")       // disable replay switch
+
+   $<DEBUG
+      // DOES JUST THE REVERSE, FOR TESTING PURPOSES  **************
+   g.vh.send.fcode ("I1")       // ENABLE front panel buttons
+   g.vh.send.fcode ("J1")       // ENABLE remote control
+   g.vh.send.fcode ("$1")       // ENABLE replay switch
+   $>DEBUG
+$)
+
+
+$<debug
+            // looks at CMOS RAM byte 34
+and messages.allowed() = (callbyte (#Xfff4, #Xa1, 34) >> 8) = 0
+
+and debugmess (str, p1, p2, p3) be
+   if messages.allowed() g.sc.mess (str, p1, p2, p3)
+
+      // show the result of a 'g.vh.call.oscli'
+and show.result (rc) be
+$( let str = "OK "
+   if messages.allowed ()
+   $( if rc ~= 0 do str := "FAILED %N "
+      g.sc.movea (m.sd.message, 25 * m.sd.charwidth, m.sd.mesYtex)
+      g.sc.ofstr (str, rc)
+   $)
+$)
+
+// show the reply from a 'poll'
+and show.reply (reply, rc) be
+$(
+   let j = 0
+   let str = vec 1
+   if messages.allowed () do
+   $( str%0 := 1
+      g.sc.movea (m.sd.message, 25 * m.sd.charwidth, m.sd.mesYtex)
+      g.sc.ofstr ("*"")
+      $( if reply%j = '*C' break
+         str%1 := reply%j
+         g.sc.ofstr (str)
+         j := j+1
+      $) repeat
+      g.sc.ofstr ("*" rc=%N %N", rc, count)
+      count := count+1
+   $)
+$)
+$>debug
+
+and prompt.user.for (requested.side) be
+$( let body1 = "Please insert "
+   let body2 = " disc"
+   let community = "Community"
+   let national = "National"
+   // let profUK = "Profile UK"
+   g.sc.mess ("")
+   g.sc.movea (m.sd.message, m.sd.mesXtex, m.sd.mesYtex)
+   g.sc.selcol (m.sd.blue)
+   g.sc.oprop (body1)
+   switchon requested.side into
+   $( case m.dh.south : g.sc.oprop (community)
+                        g.sc.oprop (" South")
+                        ENDCASE
+      case m.dh.north : g.sc.oprop (community)
+                        g.sc.oprop (" North")
+                        ENDCASE
+      case m.dh.comm  : g.sc.oprop (community)
+                        ENDCASE
+      // case m.dh.profUK: g.sc.oprop (profUK)
+      //                   ENDCASE
+      case m.dh.natUK : g.sc.oprop (national)
+                        g.sc.oprop (" A")
+                        // g.sc.oprop (profUK)
+                        ENDCASE
+      case m.dh.natA  : g.sc.oprop (national)
+                        g.sc.oprop (" A")
+                        ENDCASE
+      case m.dh.natB  : g.sc.oprop (national)
+                        g.sc.oprop (" B")
+                        ENDCASE
+   $)
+   g.sc.beep ()
+   g.sc.oprop (body2)
+$)
+
+
+/**
+         G.DH.SELECT.DISC - Load a different video disc
+         ----------------------------------------------
+
+         Allows changing of discs under software control without
+         enabling of the front panel.  The old disc is ejected
+         and the requested one prompted for.  The routine does
+         not return unless the eject fails (in which case the
+         disc side remains the same) or the requested disc
+         side has been inserted and initialised.
+
+         INPUTS:
+
+         One parameter: requested side:- a manifest from dhhdr
+         such as m.dh.south.
+
+         One global: g.context!m.discid is used as the
+         authoritative statement of which disc is initially in
+         the drive.
+
+         OUTPUTS:
+
+         returns  true: => disc has been turned to the requested
+                           side
+                 false: => eject of disc has failed; the disc
+                           side is the initial side
+
+         GLOBALS MODIFIED:
+
+         g.context!m.discid is updated to the discid of the disc
+         in the player when the call returns.
+         Note that ALL open files on VFS are closed if the eject
+         was allowed but no files are closed if the eject was
+         disallowed by VFS.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         There is nothing that the software can do if the
+         eject was disallowed.  All callers must be able to
+         recover from this.  The global discid remains unchanged
+         in this case.
+
+         If a wrong disc is detected it is re-ejected and the
+         prompt is repeated.
+
+         g.dh.discid () is used to get the actual disc id.  It
+         uses fcode "?U" to obtain the User Code.  This should
+         be unique to a certain disc type but due to lack of
+         any control by Philips this cannot be guaranteed.  It
+         is unlikely to be a problem, though, since we CAN tell
+         all the Domesday discs apart.
+
+         g.dh.select.disc prompts with one of the following
+         messages at least once during the process:
+            "Please insert Community South disc"
+            "Please insert Community North disc"
+            "Please insert National A disc"
+            "Please insert National B disc"
+
+         On return player status is always:
+         Display area, menu bar unchanged
+         Message area cleared
+         Video mode 'm.vh.micro.only'
+         Video status 'm.vh.video.off'
+         Audio status 'm.vh.no.channel'
+         If the NatB CLV disc has been selected then the disc is
+         'Paused' to avoid run-on.  This mutes video.
+
+
+         PROGRAM DESIGN LANGUAGE:
+
+**/
+
+and g.dh.select.disc (requested.side) = valof   // true => turned over
+$(                                              // false => no change
+   let initial.side = g.context!m.discid
+   let discid = ?                               // manifest from dhhdr
+   let rc = ?
+   let reply = vec m.vh.poll.buf.words
+
+   g.sc.mess ("Ejecting disc...")      // don't repeat message
+   $(                                  // since might have been empty
+      rc := g.vh.call.oscli ("EJECT*C")
+      $<debug
+      show.result (rc)                          // VFS result code
+      $>debug
+      unless rc = 0 do                          // non-zero => not allowed
+      $(
+         g.sc.clear (m.sd.message)
+         g.sc.ermess ("Eject not allowed")
+         discid := initial.side                 // still logged on so OK
+         break                                  // break to get out of loop
+      $)
+
+      disable.switches ()                    // reenable micro output
+      g.dh.close (0)                         // close all open files on VFS
+
+      $(
+         $<debug
+         debugmess ("Waiting for lid Open...")
+         $>debug
+         rc := g.vh.poll (m.vh.read.reply, reply) // read reply from the eject
+         $<debug
+         show.reply (reply, rc)
+         $>debug
+      $) repeatuntil rc = m.vh.lid.open
+
+      prompt.user.for (requested.side)
+      $<debug
+      debugmess ("Stop Unit...")
+      $>debug
+      rc := g.vh.call.oscli ("BYE*C")   // stop unit: official way to log off
+      $<debug
+      show.result (rc)
+      $>debug
+      disable.switches ()     // necessary since 'stop unit' enables all
+
+      $(                      // old disc logged off; now try to reload
+         $( g.ut.wait (50)        // (give it time to actually eject)
+            $<debug
+            debugmess ("Waiting for drawer closed...")
+            $>debug
+            rc := g.vh.poll (m.vh.player.status.poll, reply)
+            $<debug
+            show.reply (reply, rc)
+            $>debug
+         $) repeatwhile rc = m.vh.lid.open
+
+         $<debug
+         debugmess ("Trying to load disc...")
+         $>debug
+         g.vh.send.fcode (",1")
+
+         $( rc := g.vh.poll (m.vh.read.reply, reply)
+            $<debug
+            show.reply (reply, rc)
+            $>debug
+         $) repeatwhile reply%0 = '*C' // CR => not ready with reply code
+      $) repeatuntil reply%0 = 'S'     // loaded OK
+
+      g.sc.mess ("Initialising disc...")  // real message !
+      $<debug
+      debugmess ("Start Unit...")
+      $>debug
+      rc := g.vh.call.oscli ("RESET*C")   // send start unit;
+      $<debug
+      show.result (rc)
+      $>debug
+
+      // g.dh.discid uses user code to determine disc id.  It will succeed
+      // first time here since the 'start unit' reply ensures that the disc
+      // is up to speed
+
+      discid := g.dh.discid ()            // non.domesday => duff,
+                                          // else a manifest
+      test ok(discid, requested.side) then
+      $(
+         // test discid = m.dh.natB then     // special handling for CLV
+         // $(
+         //    g.ut.wait (100)               // wait a sec - show copyright mess.
+         //    disable.switches ()
+         //    g.vh.send.fcode ("/")         // pause disc
+         // $)
+         // else                             // mount a CAV disc
+         $(
+            $<debug
+            debugmess ("Mount...")
+            $>debug
+            rc := g.vh.call.oscli ("MOUNT 0*C")
+            $<debug
+            show.result (rc)
+            $>debug
+            disable.switches ()        // need disabling after reset/mount
+            unless rc = 0 do           // (shouldn't fail; user code OK)
+            $( g.sc.mess ("Cannot initialise disc")
+               g.sc.beep ()
+               discid := m.dh.not.domesday   // duff disc; try again
+            $)
+         $)
+      $)
+      else
+      $(
+         g.sc.mess ("Wrong disc side")
+         g.sc.beep ()                     // beep, then eject straight away
+      $)
+   $) repeatuntil ok(discid, requested.side)
+
+   g.context!m.discid := discid
+   g.sc.clear (m.sd.message)
+   resultis ok(discid, requested.side)     // true if turned over
+$)                     

@@ -1,0 +1,210 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.page
+            G.ta.update.pages
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         21.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TApage1"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.PAGE
+         ---------
+
+         This routine pages a previous/next page of labels
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.page[]
+         ----------------
+
+         IF v.or.c = variables THEN
+            IF 1st page THEN
+               base = 1
+               IF no.variables <= 20 THEN
+                  max.no = no.variables
+               ELSE
+                  max.no = 20
+               END IF
+               page = 2nd page
+            ELSE
+               base = 21
+               max.no = no.variables-20
+            END IF
+            page = 1st page
+            sel.var = inactive
+            sel.cat = inactive
+         ELSE
+            IF 1st page THEN
+               base = 1
+               IF no.categories <= 20 THEN
+                  max.no = no.categories
+               ELSE
+                  max.no = 20
+               END IF
+               page = 2nd page
+            ELSE
+               base = 21
+               max.no = no.categories-20
+            END IF
+            page =  1st page
+            sel.cat = inactive
+         END IF
+**/
+
+let G.ta.page() be
+$(
+   let no.l = ?
+
+   test G.ta.area%m.ta.v.or.c = m.ta.v then
+      no.l:=G.ta.area%m.ta.no.vars
+   else
+      no.l:=G.ta.area%(m.ta.var.table + G.ta.area%m.ta.sel.var-1)
+   test G.ta.area%m.ta.pg = 1 then
+   $( G.ta.area%m.ta.pg:=2
+      G.ta.area%m.ta.base.l:=m.ta.lines + 1
+      G.ta.area%m.ta.no.l:=no.l-m.ta.lines
+   $)
+   else
+   $( G.ta.area%m.ta.pg:=1
+      G.ta.area%m.ta.base.l:=1
+      G.ta.area%m.ta.no.l:=m.ta.lines
+   $)
+   test G.ta.area%m.ta.v.or.c = m.ta.v then
+      G.ta.redrawv(true,m.ta.all)
+   else
+      G.ta.redrawc(true)
+$)
+
+
+/**
+         G.TA.UPDATE.PAGES
+         -----------------
+
+         This routine updates the page turning information whenever
+         a label is added or deleted from the label list.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.update.pages[]
+         -------------------
+
+         IF v.or.c = variables THEN
+            labels.to.display = no.variables
+         ELSE
+            labels.to.display = no.categories for currently selected variable
+         END IF
+
+         IF labels.to.display = 0 then
+            base.label = 0
+         ELSE IF labels.to.display > 20 THEN
+            IF no.pages = 1 THEN
+               no.pages = 2
+               no.lines = max.no.lines
+            ELSE
+               no.lines = labels.to.display-max.no.lines
+            END IF
+         ELSE
+            IF no.pages = 2 THEN
+               no.pages = 1
+            END IF
+            no.lines = labels.to.display
+            page = 1
+         END IF
+**/
+
+
+and G.ta.update.pages() be
+$(
+   let l.d = ?
+   let sel = ?
+
+   test G.ta.area%m.ta.v.or.c = m.ta.v then
+   $(
+      l.d:=G.ta.area%m.ta.no.vars
+      sel:=G.ta.area%m.ta.sel.var
+   $)
+   else
+   $(
+      l.d:=G.ta.area%(m.ta.var.table+(G.ta.area%m.ta.sel.var)-1)
+      sel:=G.ta.area%m.ta.sel.cat =
+         m.ta.INACTIVE -> G.ta.area%m.ta.c.l, G.ta.area%m.ta.sel.cat
+   $)
+
+   test l.d = 0
+   then $( G.ta.area%m.ta.base.l:=0
+           G.ta.area%m.ta.no.l:=0
+           G.ta.area%m.ta.mp:=1
+           G.ta.area%m.ta.pg:=1
+        $)
+   else test l.d > m.ta.lines
+        then $( G.ta.area%m.ta.mp:=2
+                test sel <= m.ta.lines
+                then $( G.ta.area%m.ta.no.l:=m.ta.lines
+                        G.ta.area%m.ta.pg:=1
+                        G.ta.area%m.ta.base.l:=1
+                     $)
+                else $( G.ta.area%m.ta.base.l:=m.ta.lines + 1
+                        G.ta.area%m.ta.no.l:=l.d-m.ta.lines
+                        G.ta.area%m.ta.pg:=2
+                     $)
+             $)
+        else $( if G.ta.area%m.ta.mp = 2 G.ta.area%m.ta.mp:=1
+                G.ta.area%m.ta.no.l:=l.d
+                G.ta.area%m.ta.pg:=1
+                G.ta.area%m.ta.base.l:=1
+             $)
+$)
+.

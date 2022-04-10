@@ -1,0 +1,72 @@
+compare GazNames1 GazNames2
+
+after GazNames1 line   55 : 
+add GazNames2 line   56 :             1      Grampian
+add GazNames2 line   57 :             2      Central
+
+after GazNames1 line   56 :           3      Border
+add GazNames2 line   59 :             4      Scottish TV
+
+after GazNames1 line   58 :           6      Thames/LWT
+add GazNames2 line   62 :             7      Granada
+add GazNames2 line   63 :             8      Anglia
+add GazNames2 line   64 :             9      South West TV
+add GazNames2 line   65 :            10      TVS
+add GazNames2 line   66 :            11      Tyne Tees
+
+after GazNames1 line   65 : 
+add GazNames2 line   74 :             1      Grampian
+
+after GazNames1 line   66 :           2      Central
+add GazNames2 line   76 :             3      Border
+
+after GazNames1 line   67 :           4      Scottish TV
+add GazNames2 line   78 :             5      Channel
+add GazNames2 line   79 :             6      Thames/LWT
+add GazNames2 line   80 :             7      Granada
+add GazNames2 line   81 :             8      Anglia
+
+after GazNames1 line   68 :           9      South West TV
+add GazNames2 line   83 :            10      TVS
+
+after GazNames1 line   69 :          11      Tyne Tees
+add GazNames2 line   85 :            12      Ulster
+add GazNames2 line   86 :            13      Harlech (Cymru)
+add GazNames2 line   87 :            14      Yorkshire
+add GazNames2 line   88 :            15      Harlech (West of England)
+
+after GazNames1 line   73 :           1      Grampian
+add GazNames2 line   93 :             2      Central
+add GazNames2 line   94 :             3      Border
+add GazNames2 line   95 :             4      Scottish TV
+add GazNames2 line   96 :             5      Channel
+add GazNames2 line   97 :             6      Thames/LWT
+
+after GazNames1 line   75 :           8      Anglia
+add GazNames2 line  100 :             9      South West TV
+
+after GazNames1 line   76 :          10      TVS
+add GazNames2 line  102 :            11      Tyne Tees
+add GazNames2 line  103 :            12      Ulster
+add GazNames2 line  104 :            13      Harlech (Cymru)
+add GazNames2 line  105 :            14      Yorkshire
+add GazNames2 line  106 :            15      Harlech (West of England)
+
+after GazNames1 line 2897 :         633      Paisley South
+add GazNames2 line 2928 :           634      Belfast East
+add GazNames2 line 2929 :           635      Belfast North
+add GazNames2 line 2930 :           636      Belfast South
+add GazNames2 line 2931 :           637      Belfast West
+add GazNames2 line 2932 :           638      East Antrim
+add GazNames2 line 2933 :           639      East Londonderry
+add GazNames2 line 2934 :           640      Fermanagh and South Tyrone
+add GazNames2 line 2935 :           641      Foyle
+add GazNames2 line 2936 :           642      Lagan Valley
+add GazNames2 line 2937 :           643      Mid Ulster
+add GazNames2 line 2938 :           644      Newry and Armagh
+add GazNames2 line 2939 :           645      North Antrim
+add GazNames2 line 2940 :           646      North Down
+add GazNames2 line 2941 :           647      Strangford
+add GazNames2 line 2942 :           648      South Antrim
+add GazNames2 line 2943 :           649      South Down
+add GazNames2 line 2944 :           650      Upper Bann

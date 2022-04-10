@@ -1,0 +1,56 @@
+
+/**************************************************
+*                 SS2 / if_module                 *
+*                 ***************                 *
+*                                                 *
+* Program Id     :  WIMP knowledge base           *
+* Author         :  Safa Alai                     *
+* Installation   :  Logica CES Ltd.               *
+* Project Name   :  DISH                          *
+* Language       :  PrologX                       *
+* Date Completed :  04 / 11 / 87                  *
+* Function       :  defines rules for preparing   *
+*                   WIMP for output from aui.     *
+* Entry Predicate:  target_window_stack           *
+* Called by      :  prepare_window                *
+* Entry Predicate:  prepare_area                  *
+* Called by      :  prepare_WIMP                  *
+* Modules called :  _                             *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*               Revision History                  *
+* Revised by   : S Ala'i                          *
+* Description  : debugging dish                   *
+* 17/03/88   R1: added exit button.               *
+**************************************************/
+
+/* target_window_stack(+Area, +CurrentStack, -TargetStack) */
+
+target_window_stack(".DLIST", CurrStack, TargetStack):-
+   \+reverse(CurrStack, [], [".DLIST"|_])->
+      append(CurrStack, [".DLIST"], TargetStack)
+   ;  TargetStack=CurrStack.
+target_window_stack(".PRO", _, [".SPLAN"]).
+target_window_stack(".COM", _, [".SPLAN"]).
+target_window_stack(".OPT", _, [".SPLAN"]).
+target_window_stack(".IDUSR", _, [".IDUSR"]).
+target_window_stack(".EXIT", CurrStack, CurrStack).    %R1
+
+/* prepare_area(+Area, +Match) */
+
+prepare_area(".PRO", push_proc(_)):-
+   send_message(".CLEAR.PRO"), 
+   send_message(".CLEAR.COM").
+prepare_area(".COM",Summary):-
+   functor(Summary,summary,_),
+   send_message(".CLEAR.COM").
+prepare_area(".DLIST",_):-
+   send_message(".CLEAR.DLIST").
+prepare_area(".EXIT",_):-                              %R1
+   send_message(".EXIT").
+prepare_area(_, _).                    %Catch all

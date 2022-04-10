@@ -1,0 +1,14 @@
+*| compile the UTilities package
+co utils1
+c1 utils2
+c1 utils3
+c1 utils4
+c1 calc32b
+c1 write
+c1 print
+c1 grid1
+c1 grid2
+c1 errtext
+c1 bookmark
+c1 helplnk
+c1 FPlib

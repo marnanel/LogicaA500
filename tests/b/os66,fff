@@ -1,0 +1,159 @@
+//
+// OSWORD 66 test program
+//                      
+// 6.5.87 PAC 
+                                              
+Section "Osword 66"
+  
+Get "Libhdr"
+                    
+MANIFEST 
+$( 
+size = #x100/4 // 65472/BYTESPERWORD   // sideways RAM size
+mask = #xFF    // mask for low byte
+page = 4*10
+
+// for SRAM commands
+m.ut.from.SRAM = #x40
+m.ut.to.SRAM   = #xC0
+$)
+
+
+LET Start() BE
+$(
+   LET bs = GETVEC( size )      
+          // 12345678               
+   LET cs = "SRDATA X*c"
+   
+   // initialise SRAM  
+
+   FOR i = 4 TO 7  
+   $( cs%8 := i + '0'
+      UNLESS OScli( cs ) DO Writef("%s : %n*n",TKRErr( bs, 100 ),i )
+   $)
+
+   Writef("*nBuffer is at %x8 (w) %x8 (b)*n",bs,bs*BYTESPERWORD)
+
+   Fillwords( bs, size, (#xFCFC | #xFCFC<<16 ) )
+         
+   Display( bs, page )
+
+   Writef("*nMoving to SRAM, addr = %x8, size %x4 %n bytes*n*n",
+                   bs<<2, size*BYTESPERWORD,size*BYTESPERWORD ) 
+
+   G.ut.srmove ( m.ut.to.sram, bs<<2, size*BYTESPERWORD, #xC000, bs<<18) 
+   Fillwords( bs, size, 0 )
+   Display( bs, page )
+ 
+                          
+   Writef("*nMoving from SRAM, addr = %x8, size %x4 %n bytes*n*n",
+                   bs<<2, size*BYTESPERWORD,size*BYTESPERWORD ) 
+
+   G.ut.srmove ( m.ut.from.sram, bs<<2, size*BYTESPERWORD, #xC000, bs<<18)    
+   Display( bs, page )   
+
+   Writef("%s *n",TKRErr( bs, 100 ) ) 
+
+   FREEVEC( bs )
+$)   
+
+AND display( vect, words ) BE
+$( 
+  LET lines = words/4 + 1 
+
+  FOR i = 0 TO lines 
+  $(
+     Writef("%x8 : ",4*i)
+     FOR j = 0 TO 3 Writef( "%x8 ", vect!(4*i+j) ) 
+     Wrch('*n')
+  $)
+  Wrch('*n')
+$)
+
+/*
+
+AND G.ut.srmove (control, SR.address, size, start.addr, hi.order) BE
+$( 
+   let pb = vec 10/BYTESPERWORD
+   let ev = vec 20
+
+   pb%0 := control   // b7 clear = READ, b7 set = WRITE
+                     // b6 set = PSEUDO address
+   pb%1 := start.addr & mask         // I/O or 2nd P RAM lo byte
+   pb%2 := (start.addr >> 8) & mask  // I/O or 2nd P RAM hi byte
+   pb%3 := hi.order & mask           // lo byte of hi order addr
+   pb%4 := (hi.order >> 8) & mask    // hi byte of hi order addr
+   pb%5 := size & mask               // lo byte of area size
+   pb%6 := (size >> 8) & mask        // hi byte of area size
+   pb%7 := #x00                      // rom id ( not used )
+   pb%8 := SR.address & mask
+   pb%9 := (SR.address >> 8) & mask
+
+   Osword( 66, pb )
+
+ //  Writef("Error: %s *n",TKRErr( ev, 40 ) ) 
+
+$) 
+                              
+*/
+
+AND G.ut.srmove( control, main, size, SRstart, hi.order) BE 
+$(
+   LET str = ?      // main   size sram addr
+          // 123456789012345678901234567
+   LET c1 = "SRWRITE 00000000 +0000 0000*c*n"
+   LET c2 = "SRREAD  00000000 +0000 0000*c*n"     
+   
+   str := (control = m.ut.to.SRAM -> c1,c2)
+  
+   to.hex( str, main, 16 )
+   to.hex( str, size, 22 )
+   to.hex( str, Srstart, 27 )
+
+   Writef("*nString : %s*n", str )
+   
+   Oscli( str )
+
+$)
+
+AND to.hex( s, v, o ) BE
+$( 
+   LET c = ?
+            
+   Writef("to hex called : %x8*n",v)
+
+   $(
+      c := v & #xF 
+
+      s%o := (0 <= c <= 9) -> c + '0', c + 'A' - 10
+
+      v := v>>4 ; o := o - 1         
+
+   $) REPEATUNTIL v = 0
+$)
+
+
+
+
+
+/*
+    5Size = &FFFF-4*16
+   10DIM A Size
+   20FOR I%=0 TO Size
+   30A?I% = &FC : NEXT
+   40PROCdisp( A, 40 )
+   50OSCLI "SRWRITE "+STR$~(A)+" +"+STR$~(Size)+" 0000"
+   60FOR I%=0 TO Size
+   70A?I% = 0 : NEXT
+   80PROCdisp( A, 40 )
+   90OSCLI "SRREAD  "+STR$~(A)+" +"+STR$~(Size)+" 0000"
+  100PROCdisp( A, 40 )
+  110END
+  120DEF PROCdisp( AD, sz )
+  130FOR J%=0 TO sz-1
+  150IF J% MOD 4 = 0 THEN PRINT'~J%;" : ";
+  155PRINT~AD!J%;
+  160NEXT
+  165PRINT
+  170ENDPROC
+*/

@@ -1,0 +1,1342 @@
+
+MCLib      R               00008000 00008000 00001500  00005000
+
+*memoryi 8000 +1500
+
+ 8000 :  B       &00008040
+ 8004 : BCPL :  
+ 8008 : <... :  
+ 800C : SysLib 22 Feb 88 13:37:16
+  
+
+ 8034 :  .Initial 
+
+ 8040 :  LDR     rb,[PC,#-12]
+ 8044 :  SUB     R1,PC,#&48                     ;="H"
+ 8048 :  MOV     R5,#&96                        ;=150
+ 804C :  LDR     R4,[R1,#0]
+ 8050 :  MOV     R6,R1
+ 8054 :  LDMIA   R1,{R2,R3}
+ 8058 :  CMP     R2,R4
+ 805C :  BNE     &000080C4
+ 8060 :  ADD     R1,R3,R1
+ 8064 :  LDMIA   R1!,{R2,R3}
+ 8068 :  CMP     R3,#0
+ 806C :  BNE     &00008064
+ 8070 :  CMP     R2,R5
+ 8074 :  MOVGE   R5,R2
+ 8078 :  LDR     R3,[R1,#0]
+ 807C :  LDR     R2,[PC,#1720]
+ 8080 :  CMP     R2,R3
+ 8084 :  BNE     &00008050
+ 8088 :  LDR     R2,[PC,#1712]
+ 808C :  ADD     R1,R1,#4
+ 8090 :  CMP     rb,#0
+ 8094 :  BNE     &000080B4
+ 8098 :  LDMIA   R1!,{R3}
+ 809C :  CMP     R3,R2
+ 80A0 :  LDRNE   R0,[R3,R6]
+ 80A4 :  ADDNE   R0,R0,R6
+ 80A8 :  STRNE   R0,[R3,R6]
+ 80AC :  BNE     &00008098
+ 80B0 :  B       &00008050
+ 80B4 :  LDMIA   R1!,{R3}
+ 80B8 :  CMP     R3,R2
+ 80BC :  BNE     &000080B4
+ 80C0 :  B       &00008050
+ 80C4 :  ADD     rg,R1,#&40                     ;="@"
+ 80C8 :  ADD     rp,rg,R5,LSL #2
+ 80CC :  ADD     rp,rp,#4
+ 80D0 :  STR     R5,[rg,#0]
+ 80D4 :  MOV     R6,#&AE000000
+ 80D8 :  ADD     R6,R6,#&00950000
+ 80DC :  ADD     R6,R6,R5,LSL #2
+ 80E0 :  STR     R6,[rg,R5,LSL #2]
+ 80E4 :  SUBS    R5,R5,#1
+ 80E8 :  BNE     &000080D4
+ 80EC :  SUB     R1,PC,#&F0                     ;=240
+ 80F0 :  LDMIA   R1,{R2,R3}
+ 80F4 :  CMP     R2,R4
+ 80F8 :  BNE     &00008134
+ 80FC :  ADD     R1,R3,R1
+ 8100 :  LDMIA   R1!,{R2,R3}
+ 8104 :  CMP     R3,#0
+ 8108 :  STRNE   R3,[rg,R2,LSL #2]
+ 810C :  BNE     &00008100
+ 8110 :  LDR     R3,[R1,#0]
+ 8114 :  LDR     R2,[PC,#1568]
+ 8118 :  CMP     R2,R3
+ 811C :  BNE     &000080F0
+ 8120 :  LDR     R2,[PC,#1560]
+ 8124 :  LDMIA   R1!,{R3}
+ 8128 :  CMP     R3,R2
+ 812C :  BNE     &00008124
+ 8130 :  B       &000080F0
+ 8134 :  LDR     rl,[PC,#-272]
+ 8138 :  SWI     OS_GetEnv
+ 813C :  STR     R1,[rg,#592]
+ 8140 :  MOV     R0,rp,LSR #2
+ 8144 :  STR     R0,[rg,#228]
+ 8148 :  MOV     R2,#&1000                      ;=4096
+ 814C :  RSB     R2,R2,#0
+ 8150 :  STR     R2,[rp],#0
+ 8154 :  SUB     R3,rp,R2,LSL #2
+ 8158 :  ADD     rp,rp,#4
+ 815C :  MOV     R0,rp,LSR #2
+ 8160 :  STR     R0,[rg,#160]
+ 8164 :  MOV     R0,#0
+ 8168 :  MVN     R2,#0
+ 816C :  MOV     R4,R3,LSR #2
+ 8170 :  SUB     R4,R4,#1
+ 8174 :  STMIA   rp,{R0,R2,R4}
+ 8178 :  MVN     R2,#0
+ 817C :  STR     R2,[rp,#20]
+ 8180 :  ADD     rp,rp,#&18                   ;=24
+ 8184 :  MOV     rts,rp
+ 8188 :  SUB     R2,R1,#8
+ 818C :  SUB     R1,R2,R3
+ 8190 :  MOV     R1,R1,LSR #2
+ 8194 :  MOV     R0,R3,LSR #2
+ 8198 :  STR     R0,[rl,#356]
+ 819C :  STR     R1,[R3],#0
+ 81A0 :  MOV     R4,#0
+ 81A4 :  STR     R4,[R3,R1,LSL #2]
+ 81A8 :  MOV     R2,R2,LSR #2
+ 81AC :  STR     R2,[R3,#4]
+ 81B0 :  STR     R4,[rg,#68]
+ 81B4 :  STR     R4,[rg,#584]
+ 81B8 :  MOV     R1,#1
+ 81BC :  MOV     R0,#0
+ 81C0 :  SWI     OS_Byte
+ 81C4 :  MOV     R1,R1,LSL #24
+ 81C8 :  ADD     R1,R1,#&41                     ;="A"
+ 81CC :  STR     R1,[rg,#8]
+ 81D0 :  MOV     R0,#0
+ 81D4 :  MOV     R1,#0
+ 81D8 :  MOV     R2,#0
+ 81DC :  MVN     R3,#1
+ 81E0 :  MOV     R4,#0
+ 81E4 :  MOV     R5,#0
+ 81E8 :  MOV     R6,#0
+ 81EC :  MOV     R7,#0
+ 81F0 :  SWI     OS_SetEnv
+ 81F4 :  MOV     rb,#0
+ 81F8 :  ADD     R0,rl,#&A0                    ;=160
+ 81FC :  STMIA   R0,{R4-R7}
+ 8200 :  ADD     R0,rl,#&C8                    ;=200
+ 8204 :  STMIA   R0,{R4-R7}
+ 8208 :  LDR     R0,[rg,#252]
+ 820C :  MOV     R1,#&AE00
+ 8210 :  ADD     R1,R1,#&95                     ;=149
+ 8214 :  CMP     R1,R0,LSR #16
+ 8218 :  BEQ     &00008250
+ 821C :  MOV     R0,R4,LSR #24
+ 8220 :  CMP     R0,#0
+ 8224 :  BEQ     &00008250
+ 8228 :  ADD     R4,PC,#&0354                   ;=852
+ 822C :  ADD     R5,PC,#&035C                   ;=860
+ 8230 :  ADD     R6,PC,#&0364                   ;=868
+ 8234 :  ADD     R7,PC,#&036C                   ;=876
+ 8238 :  ADD     R0,rl,#&C8                    ;=200
+ 823C :  STMIA   R0,{R4-R7}
+ 8240 :  MOV     R0,#0
+ 8244 :  MOV     R1,#0
+ 8248 :  SWI     OS_SetEnv
+ 824C :  MOV     rb,#1
+ 8250 :  STR     rb,[rl,#216]
+ 8254 :  MVN     R0,#1
+ 8258 :  STR     R0,[rl,#220]
+ 825C :  ADD     R0,rl,#8
+ 8260 :  ADD     R1,PC,#&0264                   ;=612
+ 8264 :  SWI     OS_CallBack
+ 8268 :  ADD     R2,rl,#&B0                    ;=176
+ 826C :  STMIA   R2,{R0,R1}
+ 8270 :  MOV     R0,#0
+ 8274 :  STR     R0,[rl,#80]
+ 8278 :  ADD     R0,PC,#&FC                     ;=252
+ 827C :  ADD     R1,rl,#&48                    ;="H"
+ 8280 :  ADD     R2,PC,#&0178                   ;=376
+ 8284 :  ADD     R3,PC,#&01B4                   ;=436
+ 8288 :  SWI     OS_Control
+ 828C :  ADD     R4,rl,#&B8                    ;=184
+ 8290 :  STMIA   R4,{R0-R3}
+ 8294 :  MOV     R0,#9
+ 8298 :  MOV     R1,#0
+ 829C :  MVN     R2,#0
+ 82A0 :  SWI     OS_ChangeEnvironment
+ 82A4 :  SUB     R0,PC,#&02A8                   ;=680
+ 82A8 :  MOV     R0,R0,LSR #2
+ 82AC :  STR     R0,[rg,#568]
+ 82B0 :  LDR     R7,[PC,#180]
+ 82B4 :  ADD     R7,R7,#&40000000
+ 82B8 :  LDR     rb,[rg,#444]
+ 82BC :  BL      &00008738
+ 82C0 :  SWI     OS_GetEnv
+ 82C4 :  LDR     R2,[rg,#68]
+ 82C8 :  MOV     R2,R2,LSL #2
+ 82CC :  MOV     R4,R2
+ 82D0 :  ADD     R2,R2,#3
+ 82D4 :  LDRB    R5,[R0],#1
+ 82D8 :  STRB    R5,[R2],#1
+ 82DC :  CMP     R5,#0
+ 82E0 :  BNE     &000082D4
+ 82E4 :  MOV     R5,#&0A                        ;=10
+ 82E8 :  STRB    R5,[R2,#-1]
+ 82EC :  ADD     R1,R4,#3
+ 82F0 :  LDRB    R5,[R1],#1
+ 82F4 :  CMP     R5,#&20                        ;=" "
+ 82F8 :  CMPNE   R5,#&0A                        ;=10
+ 82FC :  BNE     &000082F0
+ 8300 :  CMP     R5,#&0A                        ;=10
+ 8304 :  SUBEQ   R1,R1,#1
+ 8308 :  SUB     R2,R2,R1
+ 830C :  STRB    R2,[R4,#2]
+ 8310 :  SUB     R1,R1,R4
+ 8314 :  SUB     R1,R1,#3
+ 8318 :  STRB    R1,[R4,#1]
+ 831C :  LDR     rb,[rg,#4]
+ 8320 :  BL      &00008738
+ 8324 :  MOV     rts,rp
+ 8328 :  LDR     rb,[rg,#572]
+ 832C :  BL      &00008738
+ 8330 :  LDR     rl,[PC,#-780]
+ 8334 :  ADD     R0,rl,#&A0                    ;=160
+ 8338 :  LDMIA   R0,{R4-R7}
+ 833C :  MOV     R0,#0
+ 8340 :  MOV     R1,#0
+ 8344 :  MOV     R2,#0
+ 8348 :  MVN     R3,#1
+ 834C :  SWI     OS_SetEnv
+ 8350 :  ADD     R0,rl,#&B0                    ;=176
+ 8354 :  LDMIA   R0,{R0,R1}
+ 8358 :  SWI     OS_CallBack
+ 835C :  ADD     R0,rl,#&B8                    ;=184
+ 8360 :  LDMIA   R0,{R0-R3}
+ 8364 :  SWI     OS_Control
+ 8368 :  SWI     OS_Exit
+ 836C :  ANDEQ   R0,R0,R0,ASR #14
+
+ 8374 : .ErrHand
+
+ 837C :  SWI     OS_EnterOS
+ 8380 :  STMDB   R13!,{R0}
+ 8384 :  LDR     R14,[PC,#-864]
+ 8388 :  LDR     R0,[R14,#76]
+ 838C :  TST     R0,#&80000000
+ 8390 :  LDREQ   R14,[R14,#72]
+ 8394 :  RSBEQ   R0,R0,#0
+ 8398 :  ADDEQ   R13,R13,#4
+ 839C :  ORREQS  PC,rb,#&10000000
+ 83A0 :  LDR     R0,[R14,#216]
+ 83A4 :  CMP     R0,#0
+ 83A8 :  BNE     &000083E4
+ 83AC :  LDMIA   R13!,{R0}
+ 83B0 :  STMDB   R13,{R0-R2}
+ 83B4 :  LDR     R0,[R14,#188]
+ 83B8 :  LDR     R1,[R14,#72]
+ 83BC :  STR     R1,[R0],#4
+ 83C0 :  LDR     R1,[R14,#76]
+ 83C4 :  STR     R1,[R0],#4
+ 83C8 :  ADD     R2,R14,#&50                    ;="P"
+ 83CC :  LDRB    R1,[R2],#1
+ 83D0 :  STRB    R1,[R0],#1
+ 83D4 :  CMP     R1,#0
+ 83D8 :  BNE     &000083CC
+ 83DC :  LDMIA   R13!,{R0-R2}
+ 83E0 :  LDR     PC,[R14,#184]
+ 83E4 :  ADD     R0,R14,#8
+ 83E8 :  STMIB   R0,{R1-R14}^
+ 83EC :  LDMIA   R13!,{R0}
+ 83F0 :  STR     R0,[R14,#8]
+ 83F4 :  LDR     R1,[R14,#76]
+ 83F8 :  LDR     R2,[R14,#72]
+ 83FC :  B       &000085C8
+ 8400 :  TST     rts,#&40                       ;="@"
+ 8404 :  MOVEQ   PC,R14
+ 8408 :  STMDB   R13!,{R0-R2,R14}
+ 840C :  CMP     rl,#0
+ 8410 :  MOVEQ   R0,#&7E                        ;="~"
+ 8414 :  SWIEQ   OS_Byte
+ 8418 :  MVN     R0,#0
+ 841C :  MOV     R1,rts
+ 8420 :  BL      &00008440
+ 8424 :  LDMIA   R13!,{R0-R2,R14}
+ 8428 :  CMP     rl,#0
+ 842C :  MOVNE   rl,#1
+ 8430 :  MOV     PC,R14
+
+ 8438 : .EvHandl 
+
+ 8440 :  LDR     rts,[PC,#-1052]
+ 8444 :  ADD     rts,rts,#&DC                   ;=220
+ 8448 :  STMDB   R13!,{R1}
+ 844C :  LDR     R1,[rts],#12
+ 8450 :  CMP     R1,R0
+ 8454 :  CMNNE   R1,#2
+ 8458 :  BNE     &0000844C
+ 845C :  CMN     R1,#2
+ 8460 :  LDMIA   R13!,{R1}
+ 8464 :  LDREQ   rts,[PC,#-1088]
+ 8468 :  LDREQ   PC,[rts,#196]
+ 846C :  LDR     PC,[rts,#-8]
+ 8470 :  LDR     rts,[rts,#-4]
+ 8474 :  MOV     R0,R0,LSL #16
+ 8478 :  ORR     R0,R0,R1,LSL #8
+ 847C :  ORR     R0,R0,R2
+ 8480 :  ORR     R0,R0,#&80000000
+ 8484 :  STR     R0,[rts],#0
+ 8488 :  MOV     PC,R14
+ 848C :  LDR     rts,[rts,#-4]
+ 8490 :  MOV     R0,R0,LSL #16
+ 8494 :  ORR     R0,R0,R1,LSL #8
+ 8498 :  ORR     R0,R0,R2
+ 849C :  LDMIA   rts!,{R1,R2,rl}
+ 84A0 :  STR     R0,[rl,R1,LSL #2]
+ 84A4 :  ADD     R1,R1,#1
+ 84A8 :  CMP     R1,rl
+ 84AC :  MOVEQ   R1,#0
+ 84B0 :  CMP     R1,R2
+ 84B4 :  STRNE   R1,[rts,#-12]
+ 84B8 :  MOV     rl,#0
+ 84BC :  MOV     PC,R14
+
+ 84C4 : .CBHandl
+
+ 84CC :  LDR     rl,[PC,#-1192]
+ 84D0 :  LDR     R14,[rl,#68]
+ 84D4 :  TST     R14,#3
+ 84D8 :  BEQ     &000084F0
+ 84DC :  MOV     R1,R14
+ 84E0 :  SWI     OS_SetCallBack
+ 84E4 :  MOV     R14,R1
+ 84E8 :  LDMIA   R0,{R0-rl}
+ 84EC :  MOVS    PC,R14
+ 84F0 :  TEQP    PC,#0
+ 84F4 :  MOV     R0,#&7E                        ;="~"
+ 84F8 :  SWI     OS_Byte
+ 84FC :  ADD     R0,rl,#8
+ 8500 :  LDMIA   R0,{R0-PC}^
+
+ 8508 : .SetEven
+
+ 8510 :  LDR     rb,[PC,#-1260]
+ 8514 :  ADD     R5,rb,#&DC                     ;=220
+ 8518 :  LDR     R0,[R5],#12
+ 851C :  CMP     R0,R1
+ 8520 :  CMNNE   R0,#2
+ 8524 :  BNE     &00008518
+ 8528 :  CMP     R3,#0
+ 852C :  BEQ     &00008564
+ 8530 :  ADD     R4,rb,#&0164                   ;=356
+ 8534 :  CMP     R5,R4
+ 8538 :  MVNGT   R1,#0
+ 853C :  MOVGTS  PC,R14
+ 8540 :  MOV     R4,R2,LSL #2
+ 8544 :  CMP     R3,#1
+ 8548 :  SUBEQ   R2,PC,#&E0                     ;=224
+ 854C :  CMP     R3,#3
+ 8550 :  SUBEQ   R2,PC,#&CC                     ;=204
+ 8554 :  STMDB   R5,{R1,R2,R4}
+ 8558 :  CMN     R0,#2
+ 855C :  STREQ   R0,[R5],#0
+ 8560 :  MOVS    PC,R14
+ 8564 :  CMN     R0,#2
+ 8568 :  MOVEQS  PC,R14
+ 856C :  LDMIA   R5,{R1-R3}
+ 8570 :  STMDB   R5,{R1-R3}
+ 8574 :  ADD     R4,R4,#&0C                     ;=12
+ 8578 :  CMN     R1,#2
+ 857C :  BNE     &0000856C
+ 8580 :  MOVS    PC,R14
+ 8584 :  STMDB   R13!,{R14}
+ 8588 :  MOV     R14,#&80000000
+ 858C :  B       &000085B4
+ 8590 :  STMDB   R13!,{R14}
+ 8594 :  MOV     R14,#&80000001
+ 8598 :  B       &000085B4
+ 859C :  STMDB   R13!,{R14}
+ 85A0 :  MOV     R14,#&80000002
+ 85A4 :  B       &000085B4
+ 85A8 :  STMDB   R13!,{R14}
+ 85AC :  MOV     R14,#&80000003
+ 85B0 :  B       &000085B4
+ 85B4 :  STMDB   R13!,{R14}
+ 85B8 :  LDR     R14,[PC,#-1428]
+ 85BC :  ADD     R14,R14,#8
+ 85C0 :  STMIA   R14,{R0-R14}^
+ 85C4 :  LDMIA   R13!,{R1,R2}
+ 85C8 :  TSTP    PC,#0
+ 85CC :  LDR     R7,[PC,#-616]
+ 85D0 :  ADD     R7,R7,#&40000000
+ 85D4 :  ADD     rts,rp,#&C8                   ;=200
+ 85D8 :  LDR     rb,[rg,#252]
+ 85DC :  MOV     R14,R2
+ 85E0 :  MOV     PC,rb
+
+ 85E8 : .Stop
+
+ 85F0 :  STR     R1,[rg,#156]
+ 85F4 :  LDR     R3,[rg,#160]
+ 85F8 :  MOV     R3,R3,LSL #2
+ 85FC :  LDR     R2,[R3,#4]
+ 8600 :  ADD     rp,R3,#&18                    ;=24
+ 8604 :  CMN     R2,#1
+ 8608 :  BEQ     &00008324
+ 860C :  B       &0000903C
+
+ 8614 : .OSCLI
+
+ 861C :  STMIA   rts!,{R14}
+ 8620 :  MOV     R1,R1,LSL #2
+ 8624 :  MOV     R2,#0
+ 8628 :  BL      &00008A04
+ 862C :  MOV     R0,R1
+ 8630 :  LDR     R4,[PC,#240]
+ 8634 :  SUBS    R5,PC,R4
+ 8638 :  BEQ     &00008710
+ 863C :  STMIA   rts!,{R0-R3,R6,R7,rg}
+ 8640 :  ADD     R0,PC,#&5C                     ;="\"
+ 8644 :  ADD     R1,R5,#&8000
+ 8648 :  MOV     R2,#0
+ 864C :  MVN     R3,#1
+ 8650 :  LDR     R14,[PC,#-1580]
+ 8654 :  ADD     R4,R14,#&A0                    ;=160
+ 8658 :  LDMIA   R4,{R4-R7}
+ 865C :  SWI     OS_SetEnv
+ 8660 :  ADD     R5,R14,#&0168                  ;=360
+ 8664 :  STMIA   R5!,{R0-R3}
+ 8668 :  LDMDB   rts!,{R6,R7,rg}
+ 866C :  ADD     R0,R14,#&B0                    ;=176
+ 8670 :  LDMIA   R0,{R0,R1}
+ 8674 :  SWI     OS_CallBack
+ 8678 :  MOV     R1,#0
+ 867C :  ADD     R0,PC,#&9C                     ;=156
+ 8680 :  LDR     R2,[R14,#192]
+ 8684 :  MOV     R3,#0
+ 8688 :  SWI     OS_Control
+ 868C :  LDMDB   rts!,{R0-R3}
+ 8690 :  STMIA   R5!,{R1-R13}
+ 8694 :  SWI     OS_CLI
+ 8698 :  MVNVC   R0,#0
+ 869C :  MOVVS   R0,#0
+ 86A0 :  B       &000086A8
+ 86A4 :  MVN     R0,#0
+ 86A8 :  TSTP    PC,#0
+ 86AC :  LDR     R14,[PC,#-1672]
+ 86B0 :  STR     R0,[R14,#428]
+ 86B4 :  ADD     R5,R14,#&0178                  ;=376
+ 86B8 :  LDMIA   R5,{R1-R13}
+ 86BC :  STMIA   rts!,{R1-R3,R6,R7}
+ 86C0 :  ADD     R5,R14,#&0168                  ;=360
+ 86C4 :  LDMIA   R5!,{R0-R3}
+ 86C8 :  ADD     R4,R14,#&C8                    ;=200
+ 86CC :  LDMIA   R4,{R4-R7}
+ 86D0 :  SWI     OS_SetEnv
+ 86D4 :  ADD     R0,R14,#8
+ 86D8 :  SUB     R1,PC,#&0214                   ;=532
+ 86DC :  SWI     OS_CallBack
+ 86E0 :  SUB     R0,PC,#&036C                   ;=876
+ 86E4 :  ADD     R1,R14,#&48                    ;="H"
+ 86E8 :  SUB     R2,PC,#&02F0                   ;=752
+ 86EC :  SUB     R3,PC,#&02B4                   ;=692
+ 86F0 :  SWI     OS_Control
+ 86F4 :  MOV     R0,#9
+ 86F8 :  MOV     R1,#0
+ 86FC :  MVN     R2,#0
+ 8700 :  SWI     OS_ChangeEnvironment
+ 8704 :  LDMDB   rts!,{R1-R3,R6,R7}
+ 8708 :  LDR     R0,[R14,#428]
+ 870C :  B       &000089DC
+ 8710 :  SWI     OS_CLI
+ 8714 :  MVNVC   R0,#0
+ 8718 :  MOVVS   R0,#0
+ 871C :  B       &000089DC
+ 8720 :  MOV     R0,#0
+ 8724 :  B       &000086A8
+ 8728 :  ANDEQ   rb,R0,rl,LSR R6
+
+ 8730 : .Call
+
+ 8738 :  MOV     PC,rb
+ 873C :  EORNES  R5,R4,#&07800000
+ 8740 :  STRHIB  R4,[R5,-R1,LSR #6]!
+ 8744 :  B       &00008324
+ 8748 :  STMDB   rg,{R4,R14}
+ 874C :  MOV     R4,#0
+ 8750 :  MOVS    R14,R2
+ 8754 :  RSBMI   R14,R14,#0
+ 8758 :  MOVS    R14,R14,LSR #1
+ 875C :  ADDCS   R4,R4,R1
+ 8760 :  MOV     R1,R1,LSL #1
+ 8764 :  BNE     &00008758
+ 8768 :  MOV     R1,R4
+ 876C :  TEQ     R2,#0
+ 8770 :  RSBMI   R1,R1,#0
+ 8774 :  LDMDB   rg,{R4,PC}^
+ 8778 :  STMDB   rg,{R3-R5,R14}
+ 877C :  MOVS    R14,R1
+ 8780 :  RSBMI   R14,R14,#0
+ 8784 :  MOVS    R3,R2
+ 8788 :  BEQ     &0000881C
+ 878C :  RSBMI   R3,R3,#0
+ 8790 :  MOV     R4,#0
+ 8794 :  MOV     R5,#1
+ 8798 :  CMP     R3,#&80000000
+ 879C :  CMPCC   R3,R14
+ 87A0 :  MOVCC   R3,R3,LSL #1
+ 87A4 :  MOVCC   R5,R5,LSL #1
+ 87A8 :  BCC     &00008798
+ 87AC :  CMP     R3,R14
+ 87B0 :  ADDLS   R4,R4,R5
+ 87B4 :  SUBLS   R14,R14,R3
+ 87B8 :  MOVS    R5,R5,LSR #1
+ 87BC :  MOVNE   R3,R3,LSR #1
+ 87C0 :  BNE     &000087AC
+ 87C4 :  TEQ     R1,R2
+ 87C8 :  RSBMI   R4,R4,#0
+ 87CC :  CMP     R1,#0
+ 87D0 :  MOV     R2,R14
+ 87D4 :  RSBLT   R2,R2,#0
+ 87D8 :  MOV     R1,R4
+ 87DC :  LDMDB   rg,{R3-R5,PC}^
+ 87E0 :  MOVNV   R0,R0
+ 87E4 :  STMIA   rts!,{rb,rp,rl,R14}
+ 87E8 :  SUB     rp,rts,#&10                   ;=16
+ 87EC :  LDR     rl,[rb,#-4]
+ 87F0 :  LDR     R0,[rb,#4]
+ 87F4 :  ADD     R0,R0,#1
+ 87F8 :  STR     R0,[rb,#4]
+ 87FC :  ADD     PC,rb,#8
+ 8800 :  ADD     R14,R14,#4
+ 8804 :  STMDB   rg,{R0,R14}
+ 8808 :  BIC     R14,R14,#&FC000000
+ 880C :  LDR     R0,[R5,#0]
+ 8810 :  ADD     R0,R0,#1
+ 8814 :  STR     R0,[R5,#0]
+ 8818 :  LDMDB   rg,{R0,PC}^
+ 881C :  ADD     R1,PC,#0
+ 8820 :  B       &0000916C
+ 8824 :  Undefined instruction
+ 8828 :  SWIVS   User
+ 882C :  STMVCDB R2!,{R1-R3,R5,R6,R13}^
+ 8830 :  RSBVC   R7,R5,#&00020000
+ 8834 :  ANDEQ   R0,R0,PC,ROR #20
+
+ 883C : .TKRErr
+
+ 8844 :  MOV     R3,R1,LSL #2
+ 8848 :  LDR     rb,[PC,#-2084]
+ 884C :  ADD     R4,rb,#&50                     ;="P"
+ 8850 :  MOV     R5,#0
+ 8854 :  LDRB    rb,[R4],#1
+ 8858 :  CMP     rb,#0
+ 885C :  BEQ     &00008870
+ 8860 :  ADD     R5,R5,#1
+ 8864 :  STRB    rb,[R3,R5]
+ 8868 :  CMP     R5,R2
+ 886C :  BLT     &00008854
+ 8870 :  STRB    R5,[R3],#0
+ 8874 :  MOVS    PC,R14
+
+ 887C : .SWI
+
+ 8884 :  ADD     R4,PC,#&24                     ;="$"
+ 8888 :  SUB     R4,R4,rts
+ 888C :  SUB     R4,R4,#&0C                     ;=12
+ 8890 :  MOV     R4,R4,LSR #2
+ 8894 :  BIC     R4,R4,#&FF000000
+ 8898 :  ADD     R4,R4,#&EA000000
+ 889C :  ADD     R1,R1,#&EF000000
+ 88A0 :  STMIA   rts!,{R1,R4}
+ 88A4 :  STMIA   rts!,{R6,R7,rg,rp}
+ 88A8 :  STMIA   rts!,{R3}
+ 88AC :  LDMIA   R2,{R0-rg}
+ 88B0 :  SUB     PC,rts,#8
+ 88B4 :  LDMDB   rts!,{rp}
+ 88B8 :  STMIA   rp,{R0-rg}
+ 88BC :  LDMDB   rts!,{R6,R7,rg,rp}
+ 88C0 :  SUB     rts,rts,#8
+ 88C4 :  MOVVC   R1,#0
+ 88C8 :  MOVS    PC,R14
+
+ 88D0 : .OSByte2
+
+ 88D8 :  MOV     R0,R1
+ 88DC :  MOV     R1,R2
+ 88E0 :  MOV     R2,R3
+ 88E4 :  SWI     OS_Byte
+ 88E8 :  MOVVS   R1,R0
+ 88EC :  MOVVSS  PC,R14
+ 88F0 :  AND     R1,R1,#&FF                     ;=255
+ 88F4 :  ORR     R1,R1,R2,LSL #8
+ 88F8 :  BIC     R1,R1,#&00FF0000
+ 88FC :  ORRCS   R1,R1,#&00800000
+ 8900 :  BIC     R1,R1,#&FF000000
+ 8904 :  MOVS    PC,R14
+
+ 890C : .OSByte
+
+ 8914 :  MOV     R0,R1
+ 8918 :  MOV     R1,R2
+ 891C :  MOV     R2,R3
+ 8920 :  SWI     OS_Byte
+ 8924 :  STR     R2,[rg,#52]
+ 8928 :  MOV     R1,R1
+ 892C :  MOVS    PC,R14
+
+ 8934 : .OSWord
+
+ 893C :  ANDS    R0,R1,#&FF                     ;=255
+ 8940 :  MOV     R1,R2,LSL #2
+ 8944 :  BEQ     &00008958
+ 8948 :  SWI     OS_Word
+ 894C :  STR     R0,[rg,#52]
+ 8950 :  MOV     R1,R2
+ 8954 :  MOVS    PC,R14
+ 8958 :  LDR     R0,[R1,#0]
+ 895C :  MOV     R4,R0
+ 8960 :  LDRB    R3,[R1,#6]
+ 8964 :  LDRB    R2,[R1,#5]
+ 8968 :  LDRB    R1,[R1,#4]
+ 896C :  SWI     OS_ReadLine
+ 8970 :  MOV     R2,#0
+ 8974 :  MVNCS   R2,R2
+ 8978 :  STR     R2,[rg,#52]
+ 897C :  MOVS    PC,R14
+
+ 8984 : .OSArgs
+
+ 898C :  MOV     R0,R1
+ 8990 :  MOV     R1,R2
+ 8994 :  MOV     R2,R3
+ 8998 :  SWI     OS_Args
+ 899C :  MOV     R1,R0
+ 89A0 :  STR     R2,[rg,#52]
+ 89A4 :  MOVS    PC,R14
+
+ 89AC : .OSFind
+
+ 89B4 :  STMIA   rts!,{R14}
+ 89B8 :  MOVS    R0,R1
+ 89BC :  MOV     R1,R2
+ 89C0 :  MOV     R2,#0
+ 89C4 :  BEQ     &000089D0
+ 89C8 :  MOV     R1,R1,LSL #2
+ 89CC :  BL      &00008A04
+ 89D0 :  SWI     OS_Find
+ 89D4 :  STR     R0,[rg,#52]
+ 89D8 :  MOVVS   R0,#0
+ 89DC :  CMP     R2,#0
+ 89E0 :  MOVEQ   R1,R0
+ 89E4 :  LDMEQDB rts!,{PC}^
+ 89E8 :  LDRB    R4,[R3,#-1]
+ 89EC :  STRB    R4,[R3],#-1
+ 89F0 :  CMP     R3,R1
+ 89F4 :  BGT     &000089E8
+ 89F8 :  STRB    R2,[R3],#0
+ 89FC :  MOV     R1,R0
+ 8A00 :  LDMDB   rts!,{PC}^
+ 8A04 :  LDRB    R2,[R1,#0]
+ 8A08 :  AND     R3,R2,#3
+ 8A0C :  CMP     R3,#3
+ 8A10 :  BEQ     &00008A28
+ 8A14 :  MOV     R3,#&0D                        ;=13
+ 8A18 :  ADD     R1,R1,#1
+ 8A1C :  STRB    R3,[R1,R2]
+ 8A20 :  MOV     R2,#0
+ 8A24 :  MOV     PC,R14
+ 8A28 :  MOV     R3,R1
+ 8A2C :  ADD     R5,R1,R2
+ 8A30 :  LDRB    R4,[R3,#1]
+ 8A34 :  STRB    R4,[R3],#1
+ 8A38 :  CMP     R3,R5
+ 8A3C :  BLT     &00008A30
+ 8A40 :  MOV     R5,#&0D                        ;=13
+ 8A44 :  STRB    R5,[R3],#0
+ 8A48 :  MOV     PC,R14
+
+ 8A50 : .OSFile
+
+ 8A58 :  STMIA   rts!,{R14}
+ 8A5C :  MOV     R0,R1
+ 8A60 :  MOV     R1,R2,LSL #2
+ 8A64 :  MOV     rb,R3
+ 8A68 :  MOV     R2,#0
+ 8A6C :  BL      &00008A04
+ 8A70 :  MOV     rb,rb,LSL #2
+ 8A74 :  STMIA   rts!,{R2,R3,rb}
+ 8A78 :  LDMIA   rb,{R2-R5}
+ 8A7C :  SWI     OS_File
+ 8A80 :  LDMDB   rts!,{rb}
+ 8A84 :  STMIA   rb,{R2-R5}
+ 8A88 :  MOV     R2,#0
+ 8A8C :  MVNVS   R2,#0
+ 8A90 :  STR     R2,[rg,#52]
+ 8A94 :  LDMDB   rts!,{R2,R3}
+ 8A98 :  B       &000089DC
+
+ 8AA0 : .OSGBPB
+
+ 8AA8 :  STMIA   rts!,{R14}
+ 8AAC :  MOV     R0,R1
+ 8AB0 :  MOV     R1,R2
+ 8AB4 :  MOV     rb,R3,LSL #2
+ 8AB8 :  LDMIA   rb,{R2-R4}
+ 8ABC :  SWI     OS_GBPB
+ 8AC0 :  STMIA   rb,{R2-R4}
+ 8AC4 :  STR     R1,[rg,#52]
+ 8AC8 :  MOV     R1,#0
+ 8ACC :  MOVCS   R1,#1
+ 8AD0 :  MVNVS   R1,#0
+ 8AD4 :  LDMDB   rts!,{PC}^
+
+ 8ADC : .OSWrch
+
+ 8AE4 :  MOV     R0,R1
+ 8AE8 :  SWI     OS_WriteC
+ 8AEC :  MOV     R1,R0
+ 8AF0 :  MOVS    PC,R14
+
+ 8AF8 : .OSRdCh
+
+ 8B00 :  SWI     OS_ReadC
+ 8B04 :  MOV     R1,R0
+ 8B08 :  MOV     R2,#0
+ 8B0C :  MVNCS   R2,R2
+ 8B10 :  STR     R2,[rg,#52]
+ 8B14 :  MOVS    PC,R14
+
+ 8B1C : .OSBPut
+
+ 8B24 :  MOV     R0,R1
+ 8B28 :  MOV     R1,R2
+ 8B2C :  SWI     OS_BPut
+ 8B30 :  MOV     R1,#0
+ 8B34 :  MOVVS   R1,R0
+ 8B38 :  MOVS    PC,R14
+
+ 8B40 : .OSBGet
+
+ 8B48 :  SWI     OS_BGet
+ 8B4C :  MOV     R1,R0
+ 8B50 :  MOVCCS  PC,R14
+ 8B54 :  MOV     R1,#&FF                        ;=255
+ 8B58 :  MOV     R1,R1,LSL #1
+ 8B5C :  MOVS    PC,R14
+
+ 8B64 : .ReadBytes
+
+ 8B6C :  STMIA   rts!,{rb,rp,rl,R14}
+ 8B70 :  SUB     rp,rts,#&10                   ;=16
+ 8B74 :  STMIA   rts!,{R3}
+ 8B78 :  CMP     R3,#0
+ 8B7C :  BLE     &00008BB0
+ 8B80 :  ADD     R2,R2,R1,LSL #2
+ 8B84 :  STMIA   rts!,{R2,R3}
+ 8B88 :  LDR     rb,[rg,#176]
+ 8B8C :  MOV     R14,PC
+ 8B90 :  MOV     PC,rb
+ 8B94 :  LDMDB   rts!,{R2,R3}
+ 8B98 :  MOV     R5,R1,LSR #1
+ 8B9C :  CMP     R5,#&FF                        ;=255
+ 8BA0 :  BEQ     &00008BBC
+ 8BA4 :  STRB    R1,[R2],#1
+ 8BA8 :  SUBS    R3,R3,#1
+ 8BAC :  BGT     &00008B84
+ 8BB0 :  LDMDB   rts!,{R1}
+ 8BB4 :  MOV     rts,rp
+ 8BB8 :  LDMIB   rts,{rp,rl,PC}^
+ 8BBC :  LDMDB   rts!,{R1}
+ 8BC0 :  SUB     R1,R1,R3
+ 8BC4 :  MOV     rts,rp
+ 8BC8 :  LDMIB   rts,{rp,rl,PC}^
+
+ 8BD0 : .WriteBytes
+
+ 8BD8 :  STMIA   rts!,{rb,rp,rl,R14}
+ 8BDC :  SUB     rp,rts,#&10                   ;=16
+ 8BE0 :  CMP     R3,#0
+ 8BE4 :  BLE     &00008C0C
+ 8BE8 :  ADD     R2,R2,R1,LSL #2
+ 8BEC :  LDRB    R1,[R2],#1
+ 8BF0 :  STMIA   rts!,{R2,R3}
+ 8BF4 :  LDR     rb,[rg,#180]
+ 8BF8 :  MOV     R14,PC
+ 8BFC :  MOV     PC,rb
+ 8C00 :  LDMDB   rts!,{R2,R3}
+ 8C04 :  SUBS    R3,R3,#1
+ 8C08 :  BGT     &00008BEC
+ 8C0C :  MOV     rts,rp
+ 8C10 :  LDMIB   rts,{rp,rl,PC}^
+
+ 8C18 : .MulDiv
+
+ 8C20 :  STMIA   rts!,{rb,rp,rl,R14}
+ 8C24 :  SUB     rp,rts,#&10                   ;=16
+ 8C28 :  STMIA   rts!,{R1-R3}
+ 8C2C :  MOV     R3,#0
+ 8C30 :  MOV     R4,#0
+ 8C34 :  MOV     R0,#0
+ 8C38 :  CMP     R2,#0
+ 8C3C :  RSBLT   R2,R2,#0
+ 8C40 :  MOV     rb,R2
+ 8C44 :  CMP     R1,#0
+ 8C48 :  RSBLT   R1,R1,#0
+ 8C4C :  MOVS    R2,R2,LSR #1
+ 8C50 :  BCC     &00008C5C
+ 8C54 :  ADDS    R4,R4,R1
+ 8C58 :  ADC     R3,R3,R0
+ 8C5C :  MOVS    R1,R1,LSL #1
+ 8C60 :  ADC     R0,R0,R0
+ 8C64 :  CMP     R2,#0
+ 8C68 :  BNE     &00008C4C
+ 8C6C :  LDMDB   rts,{R2}
+ 8C70 :  CMP     R2,#0
+ 8C74 :  BEQ     &0000881C
+ 8C78 :  RSBLT   R2,R2,#0
+ 8C7C :  MOV     rb,R2
+ 8C80 :  MOV     R0,#0
+ 8C84 :  MOV     R1,#0
+ 8C88 :  MOV     R5,#0
+ 8C8C :  MOV     R14,#1
+ 8C90 :  CMP     R1,#&80000000
+ 8C94 :  BCS     &00008CB8
+ 8C98 :  CMP     R1,R3
+ 8C9C :  CMPEQ   R2,R4
+ 8CA0 :  BCS     &00008CB8
+ 8CA4 :  MOVS    R2,R2,LSL #1
+ 8CA8 :  MOV     R1,R1,LSL #1
+ 8CAC :  ADC     R1,R1,#0
+ 8CB0 :  ADD     R5,R5,#1
+ 8CB4 :  B       &00008C90
+ 8CB8 :  CMP     R1,R3
+ 8CBC :  CMPEQ   R2,R4
+ 8CC0 :  BHI     &00008CD4
+ 8CC4 :  CMP     R5,#&1F                        ;=31
+ 8CC8 :  ADDLE   R0,R0,R14,LSL R5
+ 8CCC :  SUBS    R4,R4,R2
+ 8CD0 :  SBC     R3,R3,R1
+ 8CD4 :  MOVS    R1,R1,ASR #1
+ 8CD8 :  MOV     R2,R2,RRX
+ 8CDC :  SUBS    R5,R5,#1
+ 8CE0 :  BGE     &00008CB8
+ 8CE4 :  LDMDB   rts!,{R1-R3}
+ 8CE8 :  EOR     R2,R2,R1
+ 8CEC :  MOV     R1,R0
+ 8CF0 :  TEQ     R2,R3
+ 8CF4 :  RSBMI   R1,R1,#0
+ 8CF8 :  CMP     R2,#0
+ 8CFC :  RSBLT   R4,R4,#0
+ 8D00 :  STR     R4,[rg,#52]
+ 8D04 :  LDMDB   rts!,{rb,rp,rl,PC}^
+
+ 8D0C : .GetVec
+
+ 8D14 :  ADD     R1,R1,#2
+ 8D18 :  CMP     R1,#1
+ 8D1C :  BLE     &00008DA4
+ 8D20 :  LDR     R0,[PC,#-3324]
+ 8D24 :  ADD     R0,R0,#&0160                   ;=352
+ 8D28 :  LDR     R3,[R0,#4]
+ 8D2C :  MOV     rb,R3,LSL #2
+ 8D30 :  LDMIA   rb,{R4,R5}
+ 8D34 :  CMP     R4,#0
+ 8D38 :  BEQ     &00008DA4
+ 8D3C :  MOV     R2,R3
+ 8D40 :  ADD     R3,R4,R3
+ 8D44 :  MOV     rb,R3,LSL #2
+ 8D48 :  LDMIA   rb,{R4,rb}
+ 8D4C :  CMP     R4,#0
+ 8D50 :  MOVGT   R5,rb
+ 8D54 :  BGT     &00008D40
+ 8D58 :  SUB     R4,R3,R2
+ 8D5C :  CMP     R4,R1
+ 8D60 :  MOV     rb,R2,LSL #2
+ 8D64 :  STMLTIA rb,{R4,R5}
+ 8D68 :  MOVLT   R0,rb
+ 8D6C :  MOVLT   R3,R5
+ 8D70 :  BLT     &00008D2C
+ 8D74 :  SUB     R4,R4,R1
+ 8D78 :  CMP     R4,#1
+ 8D7C :  ADDGT   R3,R2,R1
+ 8D80 :  STRGT   R3,[R0,#4]
+ 8D84 :  MOVGT   R3,R3,LSL #2
+ 8D88 :  STMGTIA R3,{R4,R5}
+ 8D8C :  STRLE   R5,[R0,#4]
+ 8D90 :  ADDLE   R1,R1,R4
+ 8D94 :  RSB     R1,R1,#0
+ 8D98 :  STR     R1,[rb],#0
+ 8D9C :  ADD     R1,R2,#1
+ 8DA0 :  MOVS    PC,R14
+ 8DA4 :  MOV     R1,#0
+ 8DA8 :  MOVS    PC,R14
+
+ 8DB0 : .FreeVec
+
+ 8DB8 :  CMP     R1,#0
+ 8DBC :  MOVLES  PC,R14
+ 8DC0 :  TST     R1,#&FF000000
+ 8DC4 :  BNE     &00008E00
+ 8DC8 :  SUB     R1,R1,#1
+ 8DCC :  MOV     R2,R1,LSL #2
+ 8DD0 :  LDR     R3,[R2],#0
+ 8DD4 :  RSBS    R3,R3,#0
+ 8DD8 :  BLE     &00008E00
+ 8DDC :  LDR     R0,[PC,#-3512]
+ 8DE0 :  ADD     R0,R0,#&0160                   ;=352
+ 8DE4 :  LDR     R4,[R0,#4]
+ 8DE8 :  CMP     R1,R4
+ 8DEC :  MOVGT   R0,R4,LSL #2
+ 8DF0 :  BGT     &00008DE4
+ 8DF4 :  STR     R1,[R0,#4]
+ 8DF8 :  STMIA   R2,{R3,R4}
+ 8DFC :  MOVS    PC,R14
+ 8E00 :  ADD     R1,PC,#0
+ 8E04 :  B       &0000916C
+ 8E08 : .Fre    LDRVSB  R4,[R2,#-1549]!
+ 8E0C : eVec    CMNVS   R5,#&06500000
+ 8E10 :  err    RSBVCS  R6,R2,#&08000000
+ 8E14 :  ANDEQ   R7,R0,PC,ROR #4
+
+ 8E1C : .Level
+
+ 8E24 :  MOV     R1,rp
+ 8E28 :  MOVS    PC,R14
+
+ 8E30 : .LongJump
+
+ 8E38 :  CMP     rp,R1
+ 8E3C :  MOVEQ   PC,R2
+ 8E40 :  MOV     R4,rp
+ 8E44 :  LDR     R5,[R4,#4]
+ 8E48 :  CMP     R5,R4
+ 8E4C :  BEQ     &00008E6C
+ 8E50 :  CMP     R5,R1
+ 8E54 :  MOVNE   R4,R5
+ 8E58 :  BNE     &00008E44
+ 8E5C :  LDR     rl,[R4,#8]
+ 8E60 :  MOV     rts,R4
+ 8E64 :  MOV     rp,R1
+ 8E68 :  MOV     PC,R2
+ 8E6C :  MOV     R3,R1
+ 8E70 :  ADD     R1,PC,#0
+ 8E74 :  B       &0000916C
+
+ 8E78 : 3Des    CMNVC   R5,#&33000000
+ 8E7C : tina    CMNVS   R14,R4,ROR rg
+ 8E80 : tion    MRCVS   9,6,R6,C15,C4,3
+ 8E84 :  fra    CMNVS   R2,R0,LSR #12
+ 8E88 : me %    STRCS   R6,[R0,#-1389]!
+ 8E8C : n fo    SWIVS   XUser
+ 8E90 : r Lo    SWIVS   User
+ 8E94 : ngJu    STRVCB  R6,[rp,#-1902]
+ 8E98 : mp n    CDPVS   0,2,C7,C0,C13,3
+ 8E9C : ot i    STMVSDB R0!,{R0-R3,R5,R6,rp,rl-R14}
+ 8EA0 : n th    LDMVSDA R4!,{R1-R3,R5,R6,R13}^
+ 8EA4 : e st    LDRVCBT R2,[R3],#-101
+ 8EA8 : ack.    BEQ     &01AE1C34
+
+ 8EB0 : .AptoVec
+
+ 8EB8 :  STMIA   rts!,{rb,rp,rl,R14}
+ 8EBC :  SUB     rp,rts,#&10                   ;=16
+ 8EC0 :  MOV     rb,R1
+ 8EC4 :  MOV     R1,rts,LSR #2
+ 8EC8 :  ADD     rts,rts,R2,LSL #2
+ 8ECC :  ADD     rts,rts,#4
+ 8ED0 :  BL      &00008738
+ 8ED4 :  MOV     rts,rp
+ 8ED8 :  LDMIA   rp,{rb,rp,rl,PC}^
+
+ 8EE0 : .GetByte
+
+ 8EE8 :  LDRB    R1,[R2,R1,LSL #2]
+ 8EEC :  MOVS    PC,R14
+
+ 8EF4 : .PutByte
+
+ 8EFC :  STRB    R3,[R2,R1,LSL #2]
+ 8F00 :  MOVS    PC,R14
+
+ 8F08 : .GBytes
+
+ 8F10 :  MOV     R0,R1
+ 8F14 :  MOV     R1,#0
+ 8F18 :  LDRB    R3,[R0],#1
+ 8F1C :  ADD     R1,R3,R1,LSL #8
+ 8F20 :  SUBS    R2,R2,#1
+ 8F24 :  BGT     &00008F18
+ 8F28 :  MOVS    PC,R14
+
+ 8F30 : .PBytes
+
+ 8F38 :  ADD     R1,R1,R2
+ 8F3C :  STRB    R3,[R1,#-1]!
+ 8F40 :  MOV     R3,R3,LSR #8
+ 8F44 :  SUBS    R2,R2,#1
+ 8F48 :  BGT     &00008F3C
+ 8F4C :  MOVS    PC,R14
+
+ 8F54 : .MoveWords
+
+ 8F5C :  MOV     R4,R4,LSL #2
+ 8F60 :  MOV     R3,R3,LSL #2
+ 8F64 :  LDR     R0,[R3],R1,LSL #2
+ 8F68 :  STR     R0,[R4],R1,LSL #2
+ 8F6C :  SUBS    R2,R2,#1
+ 8F70 :  BGT     &00008F64
+ 8F74 :  MOVS    PC,R14
+
+ 8F7C : .FillWords
+
+ 8F84 :  MOV     R1,R1,LSL #2
+ 8F88 :  STR     R3,[R1],#4
+ 8F8C :  SUBS    R2,R2,#1
+ 8F90 :  BGT     &00008F88
+ 8F94 :  MOVS    PC,R14
+
+ 8F9C : .CoWait
+
+ 8FA4 :  STMIA   rts!,{rb,rp,rl,R14}
+ 8FA8 :  SUB     rp,rts,#&10                   ;=16
+ 8FAC :  STMIA   rts!,{R1}
+ 8FB0 :  LDR     R2,[rg,#160]
+ 8FB4 :  MOV     R2,R2,LSL #2
+ 8FB8 :  LDR     R3,[R2,#4]
+ 8FBC :  CMN     R3,#1
+ 8FC0 :  BEQ     &00009168
+ 8FC4 :  STR     R3,[rg,#160]
+ 8FC8 :  MOV     R4,#0
+ 8FCC :  STR     R4,[R2,#4]
+ 8FD0 :  STR     rp,[R2,#16]
+ 8FD4 :  MOV     R3,R3,LSL #2
+ 8FD8 :  LDR     rts,[R3,#16]
+ 8FDC :  LDMIB   rts,{rp,rl,PC}^
+
+ 8FE4 : .CreateCo
+
+ 8FEC :  STMIA   rts!,{rb,rp,rl,R14}
+ 8FF0 :  SUB     rp,rts,#&10                   ;=16
+ 8FF4 :  STMIA   rts!,{R1,R2}
+ 8FF8 :  MOV     R1,R2
+ 8FFC :  LDR     rb,[rg,#216]
+ 9000 :  BL      &00008738
+ 9004 :  CMP     R1,#0
+ 9008 :  BEQ     &00009168
+ 900C :  LDMDB   rts!,{R4,R14}
+ 9010 :  ADD     R14,R1,R14
+ 9014 :  MOV     R2,R1,LSL #2
+ 9018 :  LDR     rb,[rg,#160]
+ 901C :  MOV     R3,rb,LSL #2
+ 9020 :  LDR     R5,[R3,#0]
+ 9024 :  STR     R1,[R3,#0]
+ 9028 :  STMIA   R2,{R5,rb,R14}
+ 902C :  STR     R4,[R2,#20]
+ 9030 :  STR     rp,[R3,#16]
+ 9034 :  STR     R1,[rg,#160]
+ 9038 :  ADD     rp,R2,#&18                    ;=24
+ 903C :  MOV     rts,rp
+ 9040 :  LDR     rb,[rg,#208]
+ 9044 :  BL      &00008738
+ 9048 :  LDR     rb,[rp,#-4]
+ 904C :  BL      &00008738
+ 9050 :  B       &0000903C
+
+ 9058 : .DeleteCo
+
+ 9060 :  STMIA   rts!,{rb,rp,rl,R14}
+ 9064 :  SUB     rp,rts,#&10                   ;=16
+ 9068 :  STMIA   rts!,{R1}
+ 906C :  MOV     R2,R1,LSL #2
+ 9070 :  LDR     R3,[R2,#4]
+ 9074 :  CMP     R3,#0
+ 9078 :  BNE     &00009168
+ 907C :  LDR     R3,[rg,#160]
+ 9080 :  MOV     R4,R3,LSL #2
+ 9084 :  LDR     R4,[R4,#4]
+ 9088 :  CMN     R4,#1
+ 908C :  BNE     &00009080
+ 9090 :  MOV     R0,#0
+ 9094 :  MOV     R4,R3
+ 9098 :  LDR     R3,[R0,R3,LSL #2]
+ 909C :  CMP     R3,#0
+ 90A0 :  BEQ     &00009168
+ 90A4 :  CMP     R1,R3
+ 90A8 :  BNE     &00009094
+ 90AC :  LDR     R2,[R0,R1,LSL #2]
+ 90B0 :  STR     R2,[R0,R4,LSL #2]
+ 90B4 :  LDR     rb,[rg,#220]
+ 90B8 :  BL      &00008738
+ 90BC :  MOV     rts,rp
+ 90C0 :  LDMIB   rts,{rp,rl,PC}^
+
+ 90C8 : .CallCo
+
+ 90D0 :  STMIA   rts!,{rb,rp,rl,R14}
+ 90D4 :  SUB     rp,rts,#&10                   ;=16
+ 90D8 :  STMIA   rts!,{R1,R2}
+ 90DC :  MOV     R3,R1,LSL #2
+ 90E0 :  LDR     R4,[R3,#4]
+ 90E4 :  CMP     R4,#0
+ 90E8 :  BNE     &00009168
+ 90EC :  LDR     rb,[rg,#160]
+ 90F0 :  STR     rb,[R3,#4]
+ 90F4 :  MOV     rb,rb,LSL #2
+ 90F8 :  STR     R1,[rg,#160]
+ 90FC :  STR     rp,[rb,#16]
+ 9100 :  LDR     rts,[R3,#16]
+ 9104 :  MOV     R1,R2
+ 9108 :  LDMIB   rts,{rp,rl,PC}^
+
+ 9110 : .ResumeCo
+
+ 9118 :  STMIA   rts!,{rb,rp,rl,R14}
+ 911C :  SUB     rp,rts,#&10                   ;=16
+ 9120 :  STMIA   rts!,{R1,R2}
+ 9124 :  LDR     rb,[rg,#160]
+ 9128 :  CMP     rb,R1
+ 912C :  BEQ     &0000915C
+ 9130 :  MOV     R3,R1,LSL #2
+ 9134 :  LDR     R4,[R3,#4]
+ 9138 :  BNE     &00009168
+ 913C :  MOV     rb,rb,LSL #2
+ 9140 :  LDR     R4,[rb,#4]
+ 9144 :  CMN     R4,#1
+ 9148 :  BEQ     &00009168
+ 914C :  STR     R4,[R3,#4]
+ 9150 :  MOV     R4,#0
+ 9154 :  STR     R4,[rb,#4]
+ 9158 :  B       &000090F8
+ 915C :  MOV     R1,R2
+ 9160 :  MOV     rts,rp
+ 9164 :  LDMIB   rts,{rp,rl,PC}^
+ 9168 :  ADD     R1,PC,#&0C                     ;=12
+ 916C :  MOV     R1,R1,LSR #2
+ 9170 :  LDR     rb,[rg,#380]
+ 9174 :  BL      &00008738
+ 9178 :  B       &00008324
+ 917C : .Cor    RSBVC   R4,PC,#&40000000
+ 9180 : outi    LDMVSDB R4!,{R0-R3,R5,R6,rb,rp,rl-R14}^
+ 9184 : ne e    STRVS   R6,[R0,#-1390]!
+ 9188 : rror    RSBVC   R7,PC,#&20000007
+ 918C : ....    ANDEQ   R0,R0,rp
+ 9190 : VERN    MCRMI   5,4,R4,C2,C6,2
+ 9194 :  ANDEQ   R0,R0,R5,LSL #2
+ 9198 :  ANDEQ   R0,R0,R0
+ 919C :  ANDEQ   R0,R0,R0
+ 91A0 :  ANDEQ   R0,R0,R0
+ 91A4 :  ANDEQ   R0,R0,R0
+ 91A8 :  ANDEQ   R0,R0,R0
+ 91AC :  ANDEQ   R0,R0,R0
+ 91B0 :  ANDEQ   R0,R0,R0
+ 91B4 :  ANDEQ   R0,R0,R0
+ 91B8 :  ANDEQ   R0,R0,R0
+ 91BC :  ANDEQ   R0,R0,R0
+ 91C0 :  ANDEQ   R0,R0,R0
+ 91C4 :  ANDEQ   R0,R0,R0
+ 91C8 :  ANDEQ   R0,R0,R0
+ 91CC :  ANDEQ   R0,R0,R0
+ 91D0 :  ANDEQ   R0,R0,R0
+ 91D4 :  ANDEQ   R0,R0,R0
+ 91D8 :  ANDEQ   R0,R0,R0
+ 91DC :  ANDEQ   R0,R0,R0
+ 91E0 :  ANDEQ   R0,R0,R0
+ 91E4 :  ANDEQ   R0,R0,R0
+ 91E8 :  ANDEQ   R0,R0,R0
+ 91EC :  ANDEQ   R0,R0,R0
+ 91F0 :  ANDEQ   R0,R0,R0
+ 91F4 :  ANDEQ   R0,R0,R0
+ 91F8 :  ANDEQ   R0,R0,R0
+ 91FC :  ANDEQ   R0,R0,R0
+ 9200 :  ANDEQ   R0,R0,R0
+ 9204 :  ANDEQ   R0,R0,R0
+ 9208 :  ANDEQ   R0,R0,R0
+ 920C :  ANDEQ   R0,R0,R0
+ 9210 :  ANDEQ   R0,R0,R0
+ 9214 :  ANDEQ   R0,R0,R0
+ 9218 :  ANDEQ   R0,R0,R0
+ 921C :  ANDEQ   R0,R0,R0
+ 9220 :  ANDEQ   R0,R0,R0
+ 9224 :  ANDEQ   R0,R0,R0
+ 9228 :  ANDEQ   R0,R0,R0
+ 922C :  ANDEQ   R0,R0,R0
+ 9230 :  ANDEQ   R0,R0,R0
+ 9234 :  ANDEQ   R0,R0,R0
+ 9238 :  ANDEQ   R0,R0,R0
+ 923C :  ANDEQ   R0,R0,R0
+ 9240 :  ANDEQ   R0,R0,R0
+ 9244 :  ANDEQ   R0,R0,R0
+ 9248 :  ANDEQ   R0,R0,R0
+ 924C :  ANDEQ   R0,R0,R0
+ 9250 :  ANDEQ   R0,R0,R0
+ 9254 :  ANDEQ   R0,R0,R0
+ 9258 :  ANDEQ   R0,R0,R0
+ 925C :  ANDEQ   R0,R0,R0
+ 9260 :  ANDEQ   R0,R0,R0
+ 9264 :  ANDEQ   R0,R0,R0
+ 9268 :  ANDEQ   R0,R0,R0
+ 926C :  ANDEQ   R0,R0,R0
+ 9270 :  ANDEQ   R0,R0,R0
+ 9274 :  ANDEQ   R0,R0,R0
+ 9278 :  ANDEQ   R0,R0,R0
+ 927C :  ANDEQ   R0,R0,R0
+ 9280 :  ANDEQ   R0,R0,R0
+ 9284 :  ANDEQ   R0,R0,R0
+ 9288 :  ANDEQ   R0,R0,R0
+ 928C :  ANDEQ   R0,R0,R0
+ 9290 :  ANDEQ   R0,R0,R0
+ 9294 :  ANDEQ   R0,R0,R0
+ 9298 :  ANDEQ   R0,R0,R0
+ 929C :  ANDEQ   R0,R0,R0
+ 92A0 :  ANDEQ   R0,R0,R0
+ 92A4 :  ANDEQ   R0,R0,R0
+ 92A8 :  ANDEQ   R0,R0,R0
+ 92AC :  ANDEQ   R0,R0,R0
+ 92B0 :  ANDEQ   R0,R0,R0
+ 92B4 :  ANDEQ   R0,R0,R0
+ 92B8 :  ANDEQ   R0,R0,R0
+ 92BC :  ANDEQ   R0,R0,R0
+ 92C0 :  ANDEQ   R0,R0,R0
+ 92C4 :  ANDEQ   R0,R0,R0
+ 92C8 :  ANDEQ   R0,R0,R0
+ 92CC :  ANDEQ   R0,R0,R0
+ 92D0 :  ANDEQ   R0,R0,R0
+ 92D4 :  ANDEQ   R0,R0,R0
+ 92D8 :  ANDEQ   R0,R0,R0
+ 92DC :  ANDEQ   R0,R0,R0
+ 92E0 :  ANDEQ   R0,R0,R0
+ 92E4 :  ANDEQ   R0,R0,R0
+ 92E8 :  ANDEQ   R0,R0,R0
+ 92EC :  ANDEQ   R0,R0,R0
+ 92F4 :  ANDEQ   R0,R0,R0
+ 92F8 :  ANDEQ   R0,R0,R0
+ 92FC :  ANDEQ   R0,R0,R0
+ 9300 :  ANDEQ   R0,R0,R0
+ 9304 :  ANDEQ   R0,R0,R0
+ 9308 :  ANDEQ   R0,R0,R0
+ 930C :  ANDEQ   R0,R0,R0
+ 9310 :  ANDEQ   R0,R0,R0
+ 9314 :  ANDEQ   R0,R0,R0
+ 9318 :  ANDEQ   R0,R0,R0
+ 931C :  ANDEQ   R0,R0,R0
+ 9320 :  ANDEQ   R0,R0,R0
+ 9324 :  ANDEQ   R0,R0,R0
+ 9328 :  ANDEQ   R0,R0,R0
+ 932C :  ANDEQ   R0,R0,R0
+ 9330 :  ANDEQ   R0,R0,R0
+ 9334 :  ANDEQ   R0,R0,R0
+ 9338 :  ANDEQ   R0,R0,R0
+ 933C :  ANDEQ   R0,R0,R0
+ 9340 :  ANDEQ   R0,R0,R0,ROR R0
+ 9344 :  ANDEQ   R0,R0,rl,LSL #10
+ 9348 :  ANDEQ   R0,R0,R3,LSR #0
+ 934C :  ANDEQ   R0,R0,rl,ROR #11
+ 9350 :  ANDEQ   R0,R0,R5,RRX
+ 9354 :  ANDEQ   R0,R0,rb,LSL R6
+ 9358 :  ANDEQ   R0,R0,rp,RRX
+ 935C :  ANDEQ   R0,R0,R0,ASR #16
+ 9360 :  ANDEQ   R0,R0,R14,ASR R0
+ 9364 :  ANDEQ   R0,R0,R0,LSL #17
+ 9368 :  ANDEQ   R0,R0,R13,ASR R0
+ 936C :  MULEQ   R0,R4,R0
+ 9370 :  ANDEQ   R0,R0,rb,RRX
+ 9374 :  ANDEQ   R0,R0,R0,LSL rg
+ 9378 :  ANDEQ   R0,R0,rg,RRX
+ 937C :  ANDEQ   R0,R0,rb,LSR rg
+ 9380 :  ANDEQ   R0,R0,R0,RRX
+ 9384 :  ANDEQ   R0,R0,rb,LSL #19
+ 9388 :  ANDEQ   R0,R0,R3,RRX
+ 938C :  MULEQ   R0,R0,R0
+ 9390 :  ANDEQ   R0,R0,R4,RRX
+ 9394 :  ANDEQ   R0,R0,R4,ASR rp
+ 9398 :  ANDEQ   R0,R0,rts,RRX
+ 939C :  ANDEQ   R0,R0,R4,LSR #21
+ 93A0 :  ANDEQ   R0,R0,R6,RRX
+ 93A4 :  ANDEQ   R0,R0,R0,ROR #21
+ 93A8 :  ANDEQ   R0,R0,R7,RRX
+ 93AC :  MULEQ   R0,rl,R0
+ 93B0 :  ANDEQ   R0,R0,R2,RRX
+ 93B4 :  ANDEQ   R0,R0,R0,LSR #22
+ 93B8 :  ANDEQ   R0,R0,R1,RRX
+ 93BC :  ANDEQ   R0,R0,R4,ASR #22
+ 93C0 :  ANDEQ   R0,R0,R2,ASR #0
+ 93C4 :  ANDEQ   R0,R0,rb,ROR #22
+ 93C8 :  ANDEQ   R0,R0,R3,ASR #0
+ 93CC :  MULEQ   R0,R4,R0
+ 93D0 :  ANDEQ   R0,R0,R0,LSL R0
+ 93D4 :  ANDEQ   R0,R0,rl,LSL rl
+ 93D8 :  ANDEQ   R0,R0,R6,LSR R0
+ 93DC :  ANDEQ   R0,R0,R0,LSL R13
+ 93E0 :  ANDEQ   R0,R0,R7,LSR R0
+ 93E4 :  MULEQ   R0,R4,R0
+ 93E8 :  ANDEQ   R0,R0,rg,LSR #0
+ 93EC :  ANDEQ   R0,R0,R0,LSR #28
+ 93F0 :  ANDEQ   R0,R0,rp,LSR #0
+ 93F4 :  ANDEQ   R0,R0,R4,LSR R14
+ 93F8 :  ANDEQ   R0,R0,rts,LSR #0
+ 93FC :  MULEQ   R0,R4,R0
+ 9400 :  ANDEQ   R0,R0,PC
+ 9404 :  ANDEQ   R0,R0,R4,ROR #29
+ 9408 :  ANDEQ   R0,R0,R14
+ 940C :  MULEQ   R0,rb,R0
+ 9410 :  ANDEQ   R0,R0,R5,LSR #0
+ 9414 :  ANDEQ   R0,R0,rl,LSL #30
+ 9418 :  ANDEQ   R0,R0,R6,LSR #0
+ 941C :  ANDEQ   R0,R0,R4,LSR PC
+ 9420 :  ANDEQ   R0,R0,rl,LSL #1
+ 9424 :  ANDEQ   R0,R0,rb,ASR PC
+ 9428 :  ANDEQ   R0,R0,R13,LSL #1
+ 942C :  ANDEQ   R0,R0,R0,LSL #31
+ 9430 :  ANDEQ   R0,R0,R4,LSR R0
+ 9434 :  ANDEQ   R0,R0,R0,LSR #31
+ 9438 :  ANDEQ   R0,R0,R0,LSR R0
+ 943C :  ANDEQ   R0,R0,rb,ROR #31
+ 9440 :  ANDEQ   R0,R0,R1,LSR R0
+ 9444 :  ANDEQ   R1,R0,rl,ASR R0
+ 9448 :  ANDEQ   R0,R0,R2,LSR R0
+ 944C :  ANDEQ   R1,R0,rl,ASR #1
+ 9450 :  ANDEQ   R0,R0,R3,LSR R0
+ 9454 :  ANDEQ   R1,R0,R4,LSL R1
+ 9458 :  MULEQ   R0,R6,R0
+ 945C :  ANDEQ   R0,R0,R0
+ 9460 :  EORNES  R5,R4,#&07800000
+ 9464 :  ANDEQ   R0,R0,rb,LSR #0
+ 9468 :  ANDEQ   R0,R0,rb,LSR R0
+ 946C :  ANDEQ   R0,R0,rb,ROR #6
+ 9470 :  ANDEQ   R1,R0,R0,ASR #6
+ 9474 :  ANDEQ   R1,R0,rb,ASR #6
+ 9478 :  ANDEQ   R1,R0,R0,ASR R3
+ 947C :  ANDEQ   R1,R0,rb,ASR R3
+ 9480 :  ANDEQ   R1,R0,R0,ROR #6
+ 9484 :  ANDEQ   R1,R0,rb,ROR #6
+ 9488 :  ANDEQ   R1,R0,R0,ROR R3
+ 948C :  ANDEQ   R1,R0,rb,ROR R3
+ 9490 :  ANDEQ   R1,R0,R0,LSL #7
+ 9494 :  ANDEQ   R1,R0,rb,LSL #7
+ 9498 :  MULEQ   R0,R0,R0
+ 949C :  MULEQ   R0,rb,R0
+ 94A0 :  ANDEQ   R1,R0,R0,LSR #7
+ 94A4 :  ANDEQ   R1,R0,rb,LSR #7
+ 94A8 :  MULEQ   R0,R0,R0
+ 94AC :  MULEQ   R0,rb,R0
+ 94B0 :  ANDEQ   R1,R0,R0,ASR #7
+ 94B4 :  ANDEQ   R1,R0,rb,ASR #7
+ 94B8 :  MULEQ   R0,R0,R0
+ 94BC :  MULEQ   R0,rb,R0
+ 94C0 :  ANDEQ   R1,R0,R0,ROR #7
+ 94C4 :  ANDEQ   R1,R0,rb,ROR #7
+ 94C8 :  MULEQ   R0,R0,R0
+ 94CC :  MULEQ   R0,rb,R0
+ 94D0 :  ANDEQ   R1,R0,R0,LSL #8
+ 94D4 :  ANDEQ   R1,R0,rb,LSL #8
+ 94D8 :  ANDEQ   R1,R0,R0,LSL R4
+ 94DC :  ANDEQ   R1,R0,rb,LSL R4
+ 94E0 :  ANDEQ   R1,R0,R0,LSR #8
+ 94E4 :  ANDEQ   R1,R0,rb,LSR #8
+ 94E8 :  ANDEQ   R1,R0,R0,LSR R4
+ 94EC :  ANDEQ   R1,R0,rb,LSR R4
+ 94F0 :  ANDEQ   R1,R0,R0,ASR #8
+ 94F4 :  ANDEQ   R1,R0,rb,ASR #8
+ 94F8 :  ANDEQ   R1,R0,R0,ASR R4
+ 94FC :  STRHIB  R4,[R5,-R1,LSR #6]!
+*spool

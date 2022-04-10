@@ -1,0 +1,17 @@
+// /**
+//       vh.h.vhpdhr - Private Manifests for Video Handler
+//       -------------------------------------------------
+//
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       22.4.87     1       SA        Adapted for Input Editor
+// **/
+
+manifest
+$(
+// for all routines, we need oscli
+m.vh.oscli = #xFFF7
+$)
+

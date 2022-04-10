@@ -1,0 +1,33 @@
+/*
+ *  Adapted from pkbbugs to test the text output for all 'If' primitives.
+ *  SA 18.03.88
+*/
+
+run_check:- telling(Old),
+            tell(pkb_conds),
+            forall(pkb(Proc,Generic,Steps),
+                  (check_steps(Proc,Generic,Steps))),
+            told,
+            tell(Old).
+
+check_steps(_,_,[]):- !.
+check_steps(Proc,Generic,[Step|Steps]):-
+   check_step(Proc,Generic,Step,Steps,NewSteps),
+   check_steps(Proc,Generic,NewSteps).
+
+check_step(_,_,some_of(List),Steps,NewSteps):-
+   append(List,Steps,NewSteps).
+
+check_step(_,_,one_of(List),Steps,NewSteps):-
+   append(List,Steps,NewSteps).
+
+check_step(_,_,If,Steps,NewSteps):-
+   functor(If,if,5),
+   arg(3,If,ThenSteps),
+   arg(5,If,ElseSteps),
+   append(ElseSteps,Steps,L1),
+   append(ThenSteps,L1,NewSteps),
+   nl,writeln(If),
+   nl,new_output(If,".PRO",no_env).
+
+check_step(Procedure,Generic,Step,Steps,Steps).

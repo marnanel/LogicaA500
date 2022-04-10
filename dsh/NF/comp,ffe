@@ -1,0 +1,9 @@
+*| compile all national find source
+co main
+c1 titles
+c1 dialogue
+c1 find1
+c1 find2
+c1 find3
+c1 find5
+c1 find7

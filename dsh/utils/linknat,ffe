@@ -1,0 +1,20 @@
+*| LINKNAT DSH Version 1.0 14.9.87
+*| link the national disc overlays
+*|          
+*spool $.tmp.linkNAT    
+*time
+*| *dir $.DSH.NA    
+*| c linc
+*dir $.DSH.NC         
+c linc
+*dir $.DSH.NF         
+c linc
+*| *dir $.DSH.NM         
+*| c linc
+*| *dir $.DSH.NN         
+*| c linc
+*| *dir $.DSH.NT         
+*| c linc
+*time
+*spool
+*dir $.DSH.utils   

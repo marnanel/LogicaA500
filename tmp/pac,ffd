@@ -1,0 +1,8 @@
+*memoryi 8000 + 2000
+Bad command
+*memoryi 8000 +2000     
+Bad command
+*memoryi
+Bad command
+*spool
+

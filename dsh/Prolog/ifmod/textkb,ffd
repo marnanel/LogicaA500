@@ -1,0 +1,486 @@
+/**************************************************
+*                SS2 / if_module                  *
+*                ***************                  *
+*                                                 *
+* Program Id     :  Text knowledge base           *
+* Author         :  Safa Alai                     *
+* Installation   :  Logica CES Ltd.               *
+* Project Name   :  DISH                          *
+* Language       :  PrologX                       *
+* Date Completed :  08 / 11 / 87                  *
+* Function       :  Defines formats to be used to *
+*                   output to the user            *
+* Entry Predicate:  f1                            *
+* Called by      :  format                        *
+* Modules called :  _                             *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*                Revision History                 *
+* Revised by   : S Ala'i                          *
+* Description  : testing & debugging with pkbs    *
+* 09/03/88   R1: Special library case for colon   *
+*                operator.                        *
+* 16/03/88   R2: Added '?' to end of 'If' text.   *
+* 18/03/88   R3: Sentence starts with Capital     *
+*                letter.                          *
+* 17/03/88   R4: modified & fixed bug for         *
+*                state_question(type3,system_...  *
+* 18/03/88   R5: remove underscore from display   *
+*            R6: clauses needed for summary       *
+* 22/03/88   R7: changes to display list          *
+**************************************************/
+
+/* no text format: any item with no text is defined with an empty set as the
+   left_hand argument. 
+*/
+f1(how_intro,[]).
+f1(conclusion(null_conclusion), []).
+f1(error,[]).
+
+/* functor and argument
+*/
+f1(functor(Struct),FmFunctStruct):-
+   functor(Struct,Atom,_),
+   name(Atom,String),
+   append(String,"|",L1),
+   append(".|",L1,FmFunctStruct).
+
+f1(argument(Struct),FmArgStruct):-
+   arg(1,Struct,Atom),
+   name(Atom,String),
+   append(String,"|",L1),
+   append(".|",L1,FmArgStruct).
+
+/* Special cases for dealing with ':' operator    %R1
+*/
+f1(library(Method:Object),FmText):-
+   name(Method,MethStr),
+   name(Object,ObjStr),
+   replace_character("_"," ",MethStr,NewMethStr),
+   replace_character("_"," ",ObjStr,NewObjStr),
+   append(NewObjStr,"|",L1),
+   append(" ",L1,L2),
+   append(NewMethStr,L2,L3),
+   append(".|",L3,FmText).
+
+f1(basic_method(Method:Object),FmText):-
+   name(Method,MethStr),
+   name(Object,ObjStr),
+   replace_character("_"," ",MethStr,NewMethStr),
+   replace_character("_"," ",ObjStr,NewObjStr),
+   append(NewObjStr,"|",L1),
+   append(" ",L1,L2),
+   append(NewMethStr,L2,L3),
+   append(".|",L3,FmText).
+
+/* Catchall for basic_method, generic, library, push_proc, conclusion.
+*/
+f1(generic(Atom),FmText):-
+   f1(functor(Atom),FmText).
+f1(library(Atom),FmText):-
+   f1(functor(Atom),FmText1),
+   replace_character("_"," ",FmText1,FmText).      %R5
+f1(basic_method(Atom),FmText):-
+   f1(functor(Atom),FmText1),
+   replace_character("_"," ",FmText1,FmText).      %R5
+f1(push_proc(Atom),FmText):-
+   f1(functor(Atom),FmText).
+
+/* peephole
+*/
+f1(peephole(save_um,Name),FmPeephole):-
+   f1(functor(Name),FmName),
+   append(".|Saving user model for:|.NL",FmName,FmPeephole).
+f1(peephole(weakness,_),".|Finding out which procedures need remediation|").
+f1(peephole(found,Key),FmPeephole):-
+   f1(argument(Key),FmKey),
+   append(".|Found user model entry for:|.NL",FmKey,FmPeephole).
+f1(peephole(update_grade,Key),FmPeephole):-
+   f1(argument(Key),FmKey),
+   append(".|Updating entry for:|.NL",FmKey,FmPeephole).
+f1(peephole(reduce_level(Level),Key),FmPeephole):-
+   f1(argument(Key),FmKey),
+   f1(functor(Level),FmLevel),
+   append(FmLevel,".NL.| or less|",L1),
+   append(".NL.|to:|.NL",L1,L2),
+   append(FmKey,L2,L3),
+   append(".|Reducing skill level for procedure:|.NL",L3,FmPeephole).
+f1(peephole(last_seen,Key),FmPeephole):-
+   f1(argument(Key),FmKey),
+   append(FmKey,".NL.|was last seen|",L1),
+   append(".|Finding out when procedure:|.NL",L1,FmPeephole).
+
+/* Last seen
+*/
+f1(seen_last(basic_method(_),last_seen(empty,never_seen)),
+    ".|You have never seen this basic method before|").
+f1(seen_last(_,last_seen(empty,never_seen)),
+    ".|You have never seen this procedure before|").
+f1(seen_last(basic_method(_),last_seen(_,When)),FmLastSeen):-
+   fm2(When,FmTime),
+   append(".|The last time you saw this basic method was|.NL",
+          FmTime,FmLastSeen).
+f1(seen_last(_,last_seen(_,When)),FmLastSeen):-
+   fm2(When,FmTime),
+   append(".|The last time you saw this procedure was|.NL",
+          FmTime,FmLastSeen).
+
+fm2(last_year,".|last year|").
+fm2(last_month,".|last month|").
+fm2(yesterday,".|yesterday|").
+fm2(just_now,".|just now|").
+fm2(ago(hour,1),".|one hour ago|").
+fm2(ago(TimeType,Amount),FmTime):-
+   name(TimeType,AscTimeType),
+   plural(AscTimeType,PluralTime),
+   itos(Amount,Amount1),
+   append(PluralTime," ago|",L1),
+   append(" ",L1,L2),
+   append(Amount1,L2,L3),
+   append(".|",L3,FmTime).
+
+itos(1,"one").
+itos(2,"two").
+itos(3,"three").
+itos(4,"four").
+itos(5,"five").
+itos(6,"six").
+itos(7,"seven").
+itos(8,"eight").
+itos(9,"nine").
+itos(Integer, String) :-
+   name(Integer,String).
+
+/* Display list
+*/
+f1([],[]).
+f1([Head|Tail],FmList):-
+   f1(Head,FmHead),
+   f1(Tail,FmTail),
+   append(FmHead,".ON",L1),          %R7
+   append(L1,".NL",L2),              %R7
+   append(L2,FmTail,FmList).         %R7
+
+/* updating options
+*/
+f1(options([],[]),[]).
+f1(options([],[Head|Tail]),[46,45|FmOptions]):-
+   f1(options([],Tail),FmTailOptions),
+   name(Head,FmHeadOption),
+   append(FmHeadOption,FmTailOptions,FmOptions).
+f1(options([Head|Tail],Off),[46,43|FmOptions]):-
+   f1(options(Tail,Off),FmTailOptions),
+   name(Head,FmHeadOption),
+   append(FmHeadOption,FmTailOptions,FmOptions).
+
+/* Display list of active selectable items
+*/
+f1(selectable_on([]), []).
+f1(selectable_on([Head|Tail]), FmText):-
+   f1(Head, []),
+   f1(selectable_on(Tail), FmText).
+f1(selectable_on([Head|Tail]), FmText):-
+   f1(Head, FmTextHead),
+   f1(selectable_on(Tail), FmTextTail),
+   append(FmTextHead, [46,79,78|FmTextTail], FmText).
+
+/* Rules for deciding which type of system_state question to use
+   given by:
+             f1(+Match,-FormattedQuestion).
+*/
+f1(If,Question):-
+   functor(If,if,5),
+   arg(1,If,Condition),
+   f1(Condition,Question1),
+   [A,B,C|X] = Question1,                          %R3
+   C1 is (C-32),                                   %R3
+   append([A,B,C1|X],".|?|",Question).             %R2
+
+/* group1: functor cond
+*/
+f1(cond(A),Question):-
+   functor(A,system_state,_),
+   state_question(type1,A,Question).
+f1(cond(A),Question):-
+   functor(A,user_state,_),
+   state_question(type1,A,Question).
+f1(cond(A and B),Question):-
+   state_question(type1,A,Question1),
+   f1(A and B, Question2),
+   append(Question1,Question2,Question).
+f1(cond(A or B),Question):-
+   f1(cond(A),Question1),
+   f1(A or B, Question2),
+   append(Question1,Question2,Question).
+
+/* group2: functor and
+*/
+f1(A and C and D, Question):-                                 %recursive
+   f1(A and C, Question1),
+   f1(C and D, Question2),
+   append(Question1,Question2,Question).
+f1(user_state(a,AtomA) and user_state(a,AtomB), Question):-    %user_state's
+   name(AtomA,StringA),                                        %identical
+   name(AtomB,StringB),                                        %part2's.
+   find_ustate_p2(StringA,Part2),
+   find_ustate_p2(StringB,Part2),
+   state_question(type3,user_state(a,AtomB),Question1),
+   append(".NL.|and |",Question1,Question).
+f1(user_state(a,AtomA) and user_state(a,AtomB), Question):-    %user_states
+   name(AtomA,StringA),                                        %identical
+   name(AtomB,StringB),                                        %part1's but
+   find_ustate_p2(StringA,Part2A),                             %different
+   find_ustate_p2(StringB,Part2B),                             %part2's
+   ustate_p1(Part1,Part2A),
+   ustate_p1(Part1,Part2B),
+   state_question(type2,user_state(a,AtomB),Question1),
+   append(".NL.|and |",Question1,Question).
+f1(user_state(a,AtomA) and user_state(a,AtomB), Question):-    %user_states
+   name(AtomA,StringA),                                        %different
+   name(AtomB,StringB),                                        %part1's
+   find_ustate_p2(StringA,Part2A),
+   find_ustate_p2(StringB,Part2B),
+   ustate_p1("are you",Part2A),
+   ustate_p1("do you",Part2B),
+   state_question(type2,user_state(a,AtomB),Question1),
+   append(".NL.|and |",Question1,Question).
+f1(user_state(a,AtomA) and user_state(a,AtomB), Question):-    %user_states
+   name(AtomA,StringA),                                        %different
+   name(AtomB,StringB),                                        %part1's
+   find_ustate_p2(StringA,Part2A),
+   find_ustate_p2(StringB,Part2B),
+   ustate_p1("do you",Part2A),
+   ustate_p1("are you",Part2B),
+   state_question(type1,user_state(a,AtomB),Question1),
+   append(".NL.|and |",Question1,Question).
+f1(A and B, Question):-                                        %system_states
+   functor(A,system_state,_),                                  %only
+   functor(B,system_state,_),
+   state_question(type2,B,Question1),
+   append(".NL.|and |",Question1,Question).
+f1(A and B, Question):-                                        %mixed
+   state_question(type1,B,Question1),                          %system_states
+   append(".NL.|and |",Question1,Question).                    %& user_states
+
+/* group3: functor or
+*/
+f1(A or C or D, Question):-                                   %recursive
+   f1(A or C, Question1),
+   f1(C or D, Question2),
+   append(Question1,Question2,Question).
+f1(system_state(OA,SA) or system_state(OA,SB), Question):-     %system_states
+   state_question(type3,system_state(OA,SB),Question1),        %identical
+   append(".NL.NL.|or |",Question1,Question).                   %objects   
+f1(A or B, Question):-                                         
+   f1(cond(B),Question1),                                      %otherwise
+   append(".NL.NL.|or |",Question1,Question).
+
+/* Rules for forming questions on the states of both the user and the system
+   given by:
+            state_question(+TypeNo,+match,-Question).
+*/
+state_question(type1,user_state(a,Atom),Question):-
+   name(Atom,String),
+   find_ustate_p2(String,Part2),
+   ustate_p1(Part1,Part2),
+   append(String,"|",L1),
+   append(" ",L1,L2),
+   append(Part1,L2,L3),
+   append(".|",L3,Question).
+state_question(type2,user_state(a,Atom),Question):-
+   name(Atom,String),
+   append(String,"|",L1),
+   append(".|",L1,Question).
+state_question(type3,user_state(a,Atom),Question):-
+   name(Atom,String),
+   find_ustate_p2(String,Part2),
+   subtract_prefix(Part2,String,SubString),
+   append(SubString,"|",L1),
+   append(".|",L1,Question).
+state_question(type1,SystemState,Question):-
+   f1(SystemState,FmSysState),
+   append(".|is ",FmSysState,Question).
+state_question(type2,system_state(Object,Status),Question):-
+   f1(SystemState,FmSysState),
+   append(".|",FmSysState,Question).
+
+%R4
+state_question(type3,system_state(Object,Status),Question):-
+   f1(obj_and_stat(Object,Status),fm_obj_and_stat(ObjectStr,StatusStr)),
+   append(StatusStr,"|",L1),
+   append(".|",L1,Question).
+
+f1(not system_state(Object,Status),FmSysState):-
+   f1(obj_and_stat(Object,Status),fm_obj_and_stat(FmObject,FmStatus)),
+   append(FmStatus,"|",L1),
+   append(" not ",L1,L2),
+   append(FmObject,L2,FmSysState).
+
+f1(system_state(Object,Status),FmSysState):-
+   f1(obj_and_stat(Object,Status),fm_obj_and_stat(FmObject,FmStatus)),
+   append(FmStatus,"|",L1),
+   append(" ",L1,L2),
+   append(FmObject,L2,FmSysState).
+   
+f1(obj_and_stat(contents_level,Num),fm_obj_and_stat("contents",FmStatus)):-
+   name(Num,NumStr),
+   append("at level ",NumStr,FmStatus).
+
+f1(obj_and_stat(previous_query,exists),
+      fm_obj_and_stat("there a","previous query")).
+
+f1(obj_and_stat(chart_type,bar_chart),
+      fm_obj_and_stat("chart_type","bar")).
+f1(obj_and_stat(chart_type,looping_bar_chart),
+      fm_obj_and_stat("chart_type","looping_bar")).
+f1(obj_and_stat(chart_type,back_to_back_chart),
+      fm_obj_and_stat("chart_type","back_to_back")).
+
+f1(obj_and_stat(data_mapping_system,find),
+      fm_obj_and_stat("data_mapping_system","in find")).
+f1(obj_and_stat(data_mapping_system,contents),
+      fm_obj_and_stat("data_mapping_system","in contents")).
+
+f1(obj_and_stat(Object,Status),fm_obj_and_stat(FmObject,FmStatus)):-
+   name(Object,ObjectStr),
+   name(Status,StatusStr),
+   append("the ",ObjectStr,FmObject),
+   replace_character("_"," ",StatusStr,FmStatus).
+
+/*find_ustate_p2(+String,-FoundPrefix)
+*/
+find_ustate_p2(String,Prefix):-
+   ustate_p2(Prefix),
+   prefix(Prefix,String).
+find_ustate_p2(String,_,_):-
+   write('Prefix cannot be found for user_state:'),nl,nl,
+   name(Atom,String),
+   write(Atom),nl,
+   abort.
+
+/* Possible part2's (p2) for the user_state sentence arranged in reverse
+   canonical order,
+   given by:
+             ustate_p2(-P2).
+*/
+ustate_p2("want to").
+ustate_p2("want").
+ustate_p2("think").
+ustate_p2("see").
+ustate_p2("happy with").
+ustate_p2("interested in").
+ustate_p2("know").
+
+/*  Each part2 has an associated part1 given in reverse canonical order
+    by:
+             state_p1(-P1,+P2).
+*/
+ustate_p1("do you","want to").
+ustate_p1("do you","want").
+ustate_p1("do you","think").
+ustate_p1("do you","see").
+ustate_p1("do you","know").
+ustate_p1("are you","happy with").
+ustate_p1("are you","interested in").
+
+/* help on option buttons
+*/
+f1(help(Options),FmHelp):-
+   f1(soft_options(Options),FmSoftOptions),
+   f1(other_options,FmOtherOptions),
+   append(".NL.NL",FmOtherOptions,L1),
+   append(FmSoftOptions,L1,FmHelp).
+
+f1(other_options,".|Peephole Toggle - open/close peephole on user modelling|").
+
+f1(soft_options([]),[]).
+f1(soft_options([Option|Options]),FmSoftOptions):-
+   f1(Option,FmHeadOption),
+   f1(soft_options(Options),FmTailOptions),
+   append(FmHeadOption,FmTailOptions,L1),
+   append(".NL.NL",L1,FmSoftOptions).
+
+f1(how, ".|HOW - advice on how to perform current step|").
+f1(why,  ".|WHY - explanation of current step|").
+f1(summary, ".|SUMMARY - summary of status of current procedure|"). 
+f1(next,  ".|NEXT - next procedure step|").
+f1(stack, ".|STACK - breakdown of current and pending steps/procedures|").
+f1(remediation, ".|REMEDIATION - procedures requiring remediation|").
+f1(help, ".|HELP - advice on meaning of options|").
+f1(yes, ".|YES - affirmative response to conditional question|").
+f1(no, ".|NO - negative response to conditional question|").
+f1(quit, ".|QUIT - end session|").
+f1(exit, ".|EXIT - return to Domesday|").
+
+/* end of procedure
+*/
+f1(end_proc(Proc),FmProc):-
+   f1(push_proc(Proc),FmProc).
+
+/* end of timeline
+*/
+f1(end_of_timeline,".|You have completed the timeline.|").
+
+/* Why
+*/
+f1(why(generic(root),Procedure),FmWhy):-
+   f1(push_proc(Procedure),FmWhy).
+f1(why(Generic,_),FmWhy):-
+   f1(Generic,FmWhy).
+
+/* Remediation
+*/
+f1(remediation([]),[]).
+f1(remediation([Proc|Procs]),FmRemediation):-
+   f1(push_proc(Proc),FmRemProc),
+   f1(remediation(Procs),FmRemProcs),
+   append(FmRemProc,FmRemProcs,FmRemBody),
+   append(".NL.NL",FmRemBody,FmRemediation).
+
+/* summary
+*/
+f1(summary(Procedure,DoneList,DoingList,ToDoList),FmSummary):-
+   f1(push_proc(Procedure),FmProcedure),
+   f1(sum(DoneList),FmDone1),
+   (\+(FmDone1=[])->FmDone=FmDone1;FmDone=".|none|"),
+   f1(sum(DoingList),FmDoing1),
+   (\+(FmDoing1=[])->FmDoing=FmDoing1;FmDoing=".|none|"),
+   f1(sum(ToDoList),FmToDo1),
+   (\+(FmToDo1=[])->FmToDo=FmToDo1;FmToDo=".|none|"),
+   append(".NL.NL.NL.|Future steps:|.NL",FmToDo,L1),
+   append(FmDoing,L1,L2),
+   append(".NL.NL.NL.|Current step:|.NL",L2,L3),
+   append(FmDone,L3,L4),
+   append(".NL.NL.|Completed steps:|.NL",L4,L5),
+   append(".NL.|>|.NL",L5,L6),
+   append(FmProcedure,L6,L7),
+   append(".|<|.NL",L7,FmSummary).
+
+f1(sum([]),[]).                               %R6
+f1(sum([Head|Tail]),FmList):-
+   f1(Head,FmHead),
+   f1(sum(Tail),FmTail),
+   append(".NL",FmTail,L1),
+   append(FmHead,L1,FmList).
+
+f1(some_of(X),FmSomeOf):-                     %R6
+   f1(sum(X),L1),
+   append(".|some of:|.NL",L1,FmSomeOf).
+
+f1(one_of(X),FmOneOf):-                       %R6
+   f1(sum(X),L1),
+   append(".|one of:|.NL",L1,FmOneOf).
+
+/* wait
+*/
+f1(wait, ".|Please Wait!|").
+
+/* catchall.
+*/
+f1(Match, FmText):-
+   f1(argument(Match),FmText).

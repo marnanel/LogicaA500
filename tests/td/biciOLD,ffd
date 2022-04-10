@@ -1,0 +1,208 @@
+;*******************-*- Mode: Assembler -*-****************************
+;*  Title:      BICI - assembler for A500 BCPL-Prolog interface       *
+;*  Author:     Paul Cunnell                                          *
+;*  Lastedit:   11 Aug 87 17:21:30  by Paul Cunnell (Logica)          *
+;**********************************************************************
+
+        GET     :4.Alib.BCPLMacs
+
+r1              RN      1
+r2              RN      2
+r3              RN      3
+r4              RN      4
+r5              RN      5
+r6              RN      6
+r7              RN      7
+r13             RN      13
+r11             RN      11
+r12             RN      12
+
+BICIhandler     GlobNo  157
+
+; SWI calls used in this module:
+
+KOS_EnterOS     *       22
+KOS_Claim       *       31
+KOS_Release     *       32
+KOS_ConvertHex8 *       &D4
+
+; constants
+
+CliV            *       5  
+
+        Module BICI, "11 Aug 87 12:10:02"
+
+MajorVersion * 0
+MinorVersion * 1
+
+LocalDataP
+        Address localData
+        &       -1
+        =       7, "Initial"
+
+
+ GlobDef 158, BICIinstall
+
+; install the Cli vector interception code
+; uses the SWI OS_Claim to make our code part 
+; of the Cli vector chain.
+
+        ADR     r0, BCPLDump            ; bcpl register dump
+        STMEA   r0, {rgb-r13}^          ; save bcpl environment regs
+        
+;        MOV     r6, r14
+;        BL      displayregs
+;        MOV     r14, r6
+
+        MOV     r0, #CliV               ; vector number
+        ADR     r1, clihandler          ; handler routine
+        MOV     r2, #0                  ; not used by us
+        SWI     KOS_Claim               ; grab the vector
+        MOV     pc, r14                 ; return to caller
+
+ GlobDef 159, BICIremove
+
+; remove the BICI handler from the Cli vector
+; uses SWI OS_Release to take it out of the 
+; Cli vector chain.
+
+        MOV     r0, #CliV               ; vector number
+        ADR     r1, clihandler          ; handler routine
+        MOV     r2, #0                  ; not used by us 
+        SWI     KOS_Release             ; free the vector
+        MOV     pc, r14                 ; return to caller
+
+clihandler
+
+; entry here in SVC mode,  r0 = pointer to command line
+; first thing to do is to check the command string to see
+; whether we recognise it. If so, then do the clever stuff.
+
+        STMFD   r13!, {r0-r4}          ; save these regs on SVC stack
+        ADR     r1, id_string          ; points at identifier
+        LDRB    r2, [r1], #1           ; get length, inc. pointer
+
+compare
+        LDRB    r3, [r0], #1           ; get char from command
+        LDRB    r4, [r1], #1           ; and char from ident
+        CMPS    r3, r4                 ; compare them
+        BNE     not_ours
+        SUBS    r2, r2, #1             ; see if we're at the end
+        BNE     compare
+
+; now we know that the command starts with the letters 'BICI',
+; and so we're free to intercept it.
+; First save pointer to the command tail, which is pointed to
+; by r1.
+
+after_compare
+
+        STR     r0, command_tail    ;
+        STR     r14, pcdump         ; save r14 (not sure about this) ???
+        LDMFD   r13!, {r0-r4}       ; recover our cached registers
+        ADR     r14, RegDump        ; point at save block
+        STMEA   r14, {r0-r14}^      ; save all the user registers
+        LDMFD   r13!, {r0}          ; pop the return address for CliV
+        STR     r0, retaddr         ; save this as well
+        TEQP    pc, #0              ; back to user mode
+        MOVNV   r0, r0              ; a necessary dummy instruction
+
+;        ADR     r0, ours_str         
+;        SWI     KWrite0
+;        BL      displayregs    
+
+        ADR     r0, BCPLDump        ; point at BCPL dump 
+        LDMFD   r0, {rgb-r13}^      ; load environment regs
+    ;        BL      displayregs       
+;
+; now we are clear to call the BCPL handler
+;
+        LDR     rb, [rg, #G_BICIhandler]
+        LDR     a1, command_tail    ; and recover command line
+        MOV     a1, a1, LSR #2      ; as BCPL address
+        MOV     r14, pc             ; manually save link reg.
+        MOV     pc, rb              ; call BCPL handler
+;
+; on return, restore the old environment - we don't care about
+; any return codes at the moment. N.B. Entered in user mode.
+;
+  ;        ADR     r14, RegDump
+  ;        LDMFD   r14, {r0-r14}^      ; pick up previous register set
+  ;        BL      displayregs
+
+        SWI     KOS_EnterOS         ; into SVC mode again    
+        ADR     r14, RegDump
+        LDMFD   r14, {r0-r14}^      ; pick up previous register set
+        LDR     pc, retaddr         ; jump to return address
+
+
+;        LDR     r14, pcdump         ; the last value of r14
+;        ADR     r0, nullcommand     ; set command string to a null
+;        MOVS    pc, r14             ; and go down the chain
+
+not_ours
+        LDMFD   r13!, {r0-r4}       ; recover regs
+        MOV     pc, r14             ; pass on the call
+
+;
+; diagnostics - display registers, etc.
+; call with r0 pointing at the block
+; trashes r0-r5
+;
+displayregs
+        ADR     r0, rbuff
+        STMEA   r0, {r0-r14}
+        MOV     r4, r0             ; pointer to block
+        MOV     r5, #16            ; convert 16 values
+disp    LDR     r0, [r4], #4       ; first value
+        ADR     r1, dbuff          ; buffer
+        MOV     r2, #9             ; buffer size
+        SWI     KOS_ConvertHex8    ; convert to ascii
+        SWI     KWrite0            ; print it
+        SWI     KNewline           ; print newline
+        SUBS    r5, r5, #1         ; see if we're at the end
+        BNE     disp
+        MOV     pc, r14            ; return to caller
+
+dbuff   = "00000000 ",0
+        ALIGN
+rbuff   %       15*4
+
+
+
+;
+; statics - register dumps, etc.
+;
+BCPLDump
+        %       15*4
+RegDump
+        %       15*4
+pcdump
+        &       0
+retaddr
+        &       0
+command_tail
+        &       0
+id_string
+        =       4, "BICI"
+        ALIGN
+nullcommand
+        =       " ",13
+        ALIGN
+;
+; diagnostic strings - use SWI OS_WriteO for them
+;
+not_str =       "past vector",10,13,0
+        ALIGN
+ours_str =      "claim vector",10,13,0
+        ALIGN
+
+localData
+        = "VERN"
+        = MinorVersion
+        = MajorVersion
+        ALIGN 4
+
+        EndModule
+
+        END

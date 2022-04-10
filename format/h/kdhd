@@ -1,0 +1,13 @@
+manifest
+$( m.kd.noact=0 m.kd.change=9 m.kd.tab=9 m.kd.action=13 m.kd.return=13
+m.kd.stop=27 m.kd.delete=127 m.kd.kb=140 m.kd.keybase=140
+m.kd.shiftbase=m.kd.kb+20 m.kd.Fkey0=m.kd.kb+0 m.kd.Fkey1=m.kd.kb+1
+m.kd.Fkey2=m.kd.kb+2 m.kd.Fkey3=m.kd.kb+3 m.kd.Fkey4=m.kd.kb+4
+m.kd.Fkey5=m.kd.kb+5 m.kd.Fkey6=m.kd.kb+6 m.kd.Fkey7=m.kd.kb+7
+m.kd.Fkey8=m.kd.kb+8 m.kd.Fkey9=m.kd.kb+9 m.kd.copy=m.kd.kb+11
+m.kd.left=m.kd.kb+12 m.kd.right=m.kd.kb+13 m.kd.down=m.kd.kb+14
+m.kd.up=m.kd.kb+15 m.kd.curstart=m.kd.left m.kd.cursend=m.kd.up
+m.kd.S.copy=m.kd.kb+31 m.kd.S.left=m.kd.kb+32 m.kd.S.right=m.kd.kb+33
+m.kd.S.down=m.kd.kb+34 m.kd.S.up=m.kd.kb+35 m.kd.Ileft=#xE6
+m.kd.Iright=#x86 m.kd.Idown=#xD6 m.kd.Iup=#XC6 $)
+

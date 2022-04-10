@@ -1,0 +1,453 @@
+section "cm2"
+
+/**
+         CM.B.CM2 - Control Routines for Map Overlay
+         -------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+         r.map
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       24.04.87   1        SRY         Adopted for Input Editor
+       26.06.87   2        SRY         Fix illegal value on
+                                       attempted zoom
+        5.08.87   3        SRY         Fix level 1 data entry!
+
+         GLOBALS DEFINED:
+         g.cm.mapwal
+         g.cm.cmpw
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.kdhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.cmhd"
+get ":4.UINED.h.cm2hd"
+get ":4.UINED.h.sihd"
+
+/**
+         Procedure g.cm.mapwal () has been taken from the main action
+         routine for mapwalking on the Community Disc. Now includes
+         data entry.
+**/
+
+static $( within=?
+          cmlevel = ?
+       $)
+
+let g.cm.mapwal() be
+$( let barflags = table 0,0,0,0,0,0
+   let dispflags = m.cm.frame.bit | m.cm.graphics.bit |
+                   m.cm.messages.bit | m.cm.icons.bit
+   let oldframe = g.cm.s!m.frame
+   let string = G.cm.s!m.data.string
+   let l = ?
+
+   if g.context!m.justselected
+   $( g.cm.mapini.special ()
+      g.context!m.justselected := false
+   $)
+
+   if G.menubar!m.box1 = m.wExit return // in help
+
+   cmlevel := G.cm.s!m.cmlevel
+   within := false
+
+//   unless g.key = m.kd.noact g.sc.pointer (m.sd.off)
+
+   //  clear of final box after zoom out to L1, L2
+   if g.cm.s!m.substate = m.box.clear.pending.substate then
+      if g.key ~= m.kd.noact |
+         g.xpoint ~= g.cm.s!m.old.xpoint | g.ypoint ~= g.cm.s!m.old.ypoint
+      $( g.sc.XOR.selcol (m.sd.yellow)
+         g.cm.box (true, g.cm.s!m.old.a0, g.cm.s!m.old.b0,
+                          g.cm.s!m.old.a1, g.cm.s!m.old.b1)
+         g.cm.s!m.substate := m.mapwalk.substate
+      $)
+
+   // Waiting for reply to "Eject disc?" prompt
+   test g.cm.s!m.turn.over.pending
+   then g.cm.turn.over.reply ()
+
+   // Deal with data entry value outputting and evaluating + grid ref
+   else if 1 <= cmlevel <= 3
+   $( let x, y = ?, ?
+      let oldx, oldy = G.cm.s!m.old.km.x, G.cm.s!m.old.km.y
+      get.km()
+      x, y := G.cm.s!m.km.x, G.cm.s!m.km.y
+      if (x ~= oldx) | (y ~= oldy)
+      $( let num = vec 1
+//         G.sc.pointer(m.sd.off)
+         if oldx >= 0 & cmlevel > 1
+         $( let n = vec 1
+            G.cm.s!m.km.x, G.cm.s!m.km.y := oldx, oldy
+            G.gr.get.val(n)
+            // See if number for old square is ok
+            test eval.(string, num)
+            // If it has changed we'll store old value
+            then unless g.ut.cmp32(n, num) = m.eq G.gr.store.val(num)
+            // If not and have gone from missing to illegal, must blank
+            // out grid square again
+            else if G.gr.missing(n) G.gr.grid.cross()
+            grid.square()
+            G.cm.s!m.km.x, G.cm.s!m.km.y := x, y
+         $)
+         test within
+         then $( let s = "0000" // Grid ref
+
+                 // Display value
+                 test cmlevel > 1
+                 then $( let save = G.key
+                         G.gr.get.val(num)
+                         G.sc.mess("")  // must be after get.val
+                         convert.(num, string)
+                         G.sc.selcol(m.sd.blue)
+                         G.sc.movea(m.sd.message, m.sd.mesXtex, m.sd.mesYtex)
+                         G.sc.ofstr(string) // output number and stay at end
+                         G.key := m.kd.noact
+                         G.sc.input(string, m.sd.blue,
+                                    m.sd.cyan, m.cm.data.length)
+                         G.key := save
+                         grid.square()
+                      $)
+                 else G.sc.mess("")
+
+                 // Now grid reference
+                 G.sc.selcol(m.sd.blue)
+                 G.sc.movea(m.sd.message, m.sd.disW-m.sd.charwidth*10,
+                            m.sd.mesYtex)
+                 grid.to.string(x, s)
+                 G.sc.ofstr(s)
+                 G.sc.ofstr(" ")
+                 grid.to.string(y, s)
+                 G.sc.ofstr(s)
+              $)
+         else G.sc.clear(m.sd.message)
+         G.cm.s!m.old.km.x, G.cm.s!m.old.km.y := x, y
+      $)
+   $)
+
+   l := string%0
+
+   // Main key handling
+   switchon g.key into
+   $( case m.kd.tab:                // handle sideways moves
+         if g.screen = m.sd.display do
+         $( let direc = g.cm.direction ()
+            unless direc = m.invalid
+            $( save.current()
+               g.cm.go (direc, dispflags)
+            $)
+         $)
+      endcase
+
+      case m.kd.S.left:
+         save.current()
+         g.cm.go (m.w, dispflags)
+      endcase
+
+      case m.kd.S.right:
+         save.current()
+         g.cm.go (m.e, dispflags)
+      endcase
+
+      case m.kd.S.up:
+         save.current()
+         g.cm.go (m.n, dispflags)
+      endcase
+
+      case m.kd.S.down:
+         save.current()
+         g.cm.go (m.s, dispflags)
+      endcase
+
+      case m.kd.return:       // handle zoom in, including graphics etc.
+         if g.screen = m.sd.display
+         $( save.current()
+            if cmlevel = 3 G.sc.clear(m.sd.message) // added for Input Editor
+            g.cm.down (dispflags)
+         $)
+      endcase
+
+      case m.kd.noact:        // handle L0 pointer shifting
+         if cmlevel = 0 do g.cm.highlight.level0 ()
+      endcase
+
+      case m.kd.Fkey2:
+      case m.kd.Fkey5:
+      case m.kd.Fkey6:
+         save.current()
+         G.gr.save.data()
+      endcase
+
+      case m.kd.Fkey3:        // 'Out' on menu bar - zoom out
+         save.current()
+         if cmlevel = 2
+            G.gr.save.data() // save all data so pattern is true
+         G.sc.clear(m.sd.message)
+         g.cm.up (dispflags)
+         if cmlevel = 1 // now 0 !
+            g.cm.highlight.level0 ()
+      endcase
+
+      case '0': case '1': case '2': case '3': case '4':
+      case '5': case '6': case '7': case '8': case '9':
+         if within & (cmlevel > 1)
+         $( ch.input(string)
+            if (l = 0) | (l = 1 & string%1 = '-')
+               G.gr.grid.cross() // changed from empty to number
+         $)
+      endcase
+
+      case m.kd.delete:
+         if within & (cmlevel > 1)
+         $( ch.input(string)
+            if (l = 1 & string%1 ~= '-') | (l = 2 & string%1 = '-')
+               G.gr.grid.cross() // changed from number to empty
+         $)
+      endcase
+
+      case '-':
+         if within & (l = 0) & (cmlevel > 1) ch.input(string)
+      endcase
+   $)
+
+   if g.cm.s!m.frame ~= oldframe | g.redraw do
+   $( if mapwalk.config.mb (barflags) | g.redraw g.sc.menu (barflags)
+      if g.cm.s!m.frame = 0 do
+         g.cm.showmap (m.cm.frame.bit | m.cm.icons.bit)
+   $)
+
+   if g.cm.s!m.data.accessed G.cm.showframe(G.cm.s!m.frame)
+
+   if g.cm.s!m.video.muted
+   $( G.vh.video(m.vh.video.on)
+      g.cm.s!m.video.muted := false
+   $)
+   g.sc.pointer (m.sd.on)
+$)
+
+and save.current() be // save current square value if mapwalk etc
+$( G.cm.s!m.old.km.x := -2 // so that message area is redrawn
+   if (2 <= cmlevel <= 3) & within
+   $( let num = vec 1
+      let n = vec 1
+      grid.square()
+      G.gr.get.val(n)
+      test eval.(G.cm.s!m.data.string, num)
+      then $( // if it has changed we'll store old value
+              // NB - check on data size is done in store.val
+              unless g.ut.cmp32(n, num) = m.eq G.gr.store.val(num)
+           $)
+      // if value is illegal, and it was missing, blank square out
+      else if G.gr.missing(n) G.gr.grid.cross()
+   $)
+$)
+
+and ch.input(string) be
+$( G.sc.movea(m.sd.message, m.sd.mesXtex, m.sd.mesYtex)
+   G.sc.input(string, m.sd.blue, m.sd.cyan, m.cm.data.length)
+$)
+
+/**
+         function mapwalk.config.mb (barflags) returns whether it
+         is necessary to redraw the menu bar due to a change in
+         its contents.  A new menu bar is constructed and
+         compared with the current one in g.context to determine
+         this.
+**/
+
+and mapwalk.config.mb (barflags) = valof
+$( barflags!0 := m.sd.act
+   move (barflags, barflags+1, 5)
+   if G.cm.s!m.cmlevel = 0 barflags!m.box3 := m.sd.wblank   // no Out
+   resultis g.cm.cmpw (barflags, g.menubar, 6) ~= -1
+$)
+
+/**
+         function g.cm.cmpw (vector 1, vector 2, number of words)
+         returns the offset to the first differing word of the
+         vectors within the given number of words, or -1 for
+         identical.
+         There is no check that the number of words is within the
+         actual length of the vectors.
+**/
+
+and g.cm.cmpw (v1, v2, n) = valof
+$( let x = 0
+   $( unless v1!x = v2!x resultis x    // different - return offset
+      x := x+1
+   $)  repeatuntil x = n
+   resultis -1                         // same
+$)
+
+/*
+   Convert string to 32-bit number. Assumes valid integer format
+   returns true if valid number
+*/
+
+and eval.(string, num) = valof
+$( let len = string%0
+   let bottom = 1
+   let n = vec 1
+   let radix = vec 1
+   let neg = string%1 = '-'
+   let zero = vec 1
+   let t = vec 1
+   let t1 = vec 1
+   g.ut.set32(0, 0, zero)
+   g.ut.set32(10, 0, t)
+   g.ut.set32(1, 0, radix)
+   if len = 0 goto missing
+   if neg
+   $( bottom := 2
+      if len = 1 goto missing
+   $)
+   g.ut.set32(0, 0, num)
+   for i = len to bottom by -1
+   $( g.ut.set32(string%i - '0', 0, n)
+      unless G.ut.mul32(radix, n) goto error
+      G.ut.add32(n, num)
+      if G.ut.cmp32(num, zero) = m.lt goto error
+      G.ut.mul32(t, radix)
+   $)
+   if G.ut.cmp32(num, zero) = m.lt goto error
+   if len = 9 + bottom unless string%bottom < '3' goto error
+   test neg
+   then rev32(num) // reverse sign of num
+   else if (len = 11) & (string%1 ~= '0') goto error
+
+   // Check incidence values are 0, 1 or missing
+   g.ut.set32(0, 0, t)
+   g.ut.set32(1, 0, t1)
+   if G.context!m.data.type = 5 // incidence
+      unless G.gr.missing(num) | (g.ut.cmp32(num, t) = m.eq) |
+             (G.ut.cmp32(t1, num) = m.eq)
+       $( G.sc.ermess("Incidence values must be 0 or 1")
+          resultis false
+       $)
+
+   // Check value against data size
+   switchon G.cm.s!m.datasize into
+   $( case 1:
+         g.ut.set32(#xFF80, #xFFFF, t)
+         g.ut.set32(#x80, 0, t1)
+         unless G.ut.cmp32(num, t) = m.gt &
+                G.ut.cmp32(num, t1) = m.lt
+            goto error
+      endcase
+      case 2:
+         g.ut.set32(#x8000, #xFFFF, t)
+         G.ut.set32(#x8000, 0, t1)
+         unless G.ut.cmp32(num, t) = m.gt &
+                G.ut.cmp32(num, t1) = m.lt
+            goto error
+      endcase
+      case 4:
+         if G.gr.missing(num) goto error
+   $)
+   resultis true
+
+error:
+   G.sc.ermess("Data value is outside range")
+   resultis false
+
+missing:
+   G.gr.set.missing(num)
+   resultis true
+$)
+
+/*
+   Converts 32-bit integer into string format
+*/
+
+and convert.(num, string) be
+$( let neg = false
+   let bottom = 1
+   let zero = vec 1
+   let r = vec 1
+   let c = m.cm.data.length
+   let t = vec m.cm.data.length/bytesperword
+   let t1 = vec 1
+
+   g.ut.set32(0, 0, zero)
+   if G.gr.missing(num)
+   $( string%0 := 0
+      return
+   $)
+   if G.ut.cmp32(num, zero) = m.lt
+   $( neg := true
+      rev32(num)
+      string%1 := '-'
+      bottom := 2
+   $)
+   g.ut.set32(10, 0, t1)
+   $( G.ut.div32(t1, num, r)
+      t%c := !r + '0'
+      unless G.ut.cmp32(num, zero) = m.gt break
+      c := c - 1
+   $) repeat
+   for i = m.cm.data.length to c by -1
+      string%(bottom + i - c) := t%i
+   string%0 := bottom + m.cm.data.length - c
+$)
+
+and rev32(num) be
+$( let t = vec 1
+   g.ut.set32(1, 0, t)
+   g.ut.set32(g.ut.unpack16(num, 0) neqv #XFFFF, 
+                 g.ut.unpack16(num, 2) neqv #XFFFF, num)
+   G.ut.add32(t, num)
+$)
+
+and get.km() be
+   test 0 <= G.xpoint <= m.sd.disW & 0 <= G.ypoint <= m.sd.disH &
+        G.screen = m.sd.display
+   then $( let res = G.context!m.resolution
+           let x = ((G.cm.s!m.km.x0 + (x.of(G.xpoint))/10)/res) * res
+           let y = ((G.cm.s!m.km.y0 + (y.of(G.ypoint))/10)/res) * res
+           G.cm.s!m.km.x, G.cm.s!m.km.y := x, y
+           within := (x >= 0) & (y >= 0) // may not be at level 1
+        $)
+   else $( G.cm.s!m.km.x, G.cm.s!m.km.y := -1, -1
+           within := false
+        $)
+
+and grid.square() be
+$( let tenres = G.context!m.resolution * 10
+   let xoff = (G.cm.s!m.km.x - G.cm.s!m.km.x0)*10
+   let yoff = (G.cm.s!m.km.y - G.cm.s!m.km.y0)*10
+   let x = G.cm.a.of(xoff)
+   let y = G.cm.b.of(yoff)
+   let x1 = G.cm.a.of(xoff+tenres)
+   let y1 = G.cm.b.of(yoff+tenres)
+   let w, h = ?, ?
+   test x < 0 then x := 0 else if x > m.sd.disW x := m.sd.disW
+   test y < 0 then y := 0 else if y > m.sd.disH y := m.sd.disH
+   test x1 > m.sd.disW then x1 := m.sd.disW else if x1 < 0 x1 := 0
+   test y1 > m.sd.disH then y1 := m.sd.disH else if y1 < 0 y1 := 0
+   w := x1 - x - 4
+   h := y1 - y - 4
+   G.sc.movea(m.sd.display, x, y)
+   G.sc.XOR.selcol(m.sd.yellow)
+   test y = 0 then G.sc.mover(w, 0) else G.sc.liner(m.sd.plot, w, 0)
+   test x1 = m.sd.disW then G.sc.mover(0, h) else G.sc.liner(m.sd.plot, 0, h)
+   test y1 = m.sd.disH then G.sc.mover(-w, 0) else G.sc.liner(m.sd.plot, -w, 0)
+   test x = 0 then G.sc.mover(0, -h) else G.sc.liner(m.sd.plot, 0, -h)
+$)
+
+and grid.to.string(g, s) be
+   for j = 4 to 1 by -1
+   $( s%j := g rem 10 + '0'
+      g := g/10
+   $)
+
+and x.of(a) = muldiv(a-g.cm.s!m.a0, g.cm.s!m.width, g.cm.s!m.a1-g.cm.s!m.a0)
+and y.of(b) = muldiv(b-g.cm.s!m.b0, g.cm.s!m.height, g.cm.s!m.b1-g.cm.s!m.b0)
+.

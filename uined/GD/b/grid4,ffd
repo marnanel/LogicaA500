@@ -1,0 +1,307 @@
+SECTION "GRID4"
+
+/**
+      GRID 4 - INCIDENCE FUNCTION
+      ---------------------------
+
+      This module contains
+         g.gh.incidence
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.gridh
+
+      REVSION HISTORY:
+
+      DATE     VERSION   AUTHOR     COMMENTS
+    17.06.87   1         SA         Initial Version
+    22.06.87   2         SRY        Added incidence conversion
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.kdhd"
+get ":4.UINED.h.sthd"
+get ":4.UINED.h.dhhd"
+GET ":4.UINED.h.grhhd"
+
+/**
+      G.gd.INCIDENCE - CONTROL INCIDENCE INPUT
+      ----------------------------------------
+
+      Controls the input of data into the incidence entry box when
+      incidence is the current string in the data entry box
+
+      INPUTS:
+
+      none
+
+      OUTPUTS:
+
+      screen output
+
+      GLOBALS MODIFIED:
+
+      G.gd.buff!m.gd.firstincid
+      G.gd.buff!m.gd.readreply
+      G.gd.buff+m.gd.reply
+      G.gd.buff+m.gd.incid
+      g.context!m.data.type
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.gd.INCIDENCE()
+      ----------------
+
+      IF data exists and it is not incidence type
+      THEN IF first time in
+           THEN message: "Enter maximum value for Absent data"
+                show entry box in cyan
+           allow input to entry box
+           IF key = return
+           THEN IF contents of box valid
+                THEN message: "Convert data to incidence (y/n)? "
+                     IF answer = Y
+                     THEN convert data
+                          data type = incidence
+                          reduce cycle field
+                          delete box
+                     ENDIF
+                ENDIF
+           ENDIF
+      ENDIF
+**/
+
+LET G.gd.incidence() BE
+$(
+   IF g.context!m.oldfile &
+      g.context!m.data.type ~= m.gd.incidence
+   THEN $(
+           IF G.gd.buff!m.gd.firstincid
+           THEN $( LET g = G.key
+                   G.gd.highlight (m.gd.incid, m.sd.cyan, m.sd.blue)
+                   g.key := m.kd.noact
+                   G.gd.char.input (m.gd.incid)
+                   G.gd.buff!m.gd.firstincid := false
+                   g.key := g
+                $)
+           TEST G.gd.buff!m.gd.readreply
+           THEN
+           $( UNLESS G.key = m.kd.noact DO G.gd.char.input (m.gd.reply)
+              IF G.key = m.kd.return
+              TEST G.gd.buff%(m.gd.reply*bytesperword+1) = 'Y' |
+                   G.gd.buff%(m.gd.reply*bytesperword+1) = 'y'
+              THEN $( LET boxes = TABLE m.sd.act, m.sd.wBlank, m.sd.act,
+                                        m.sd.wBlank, m.sd.act, m.sd.act
+                      g.sc.menu (boxes)
+                      convert.incidence()
+                      g.context!m.data.type := m.gd.incidence
+                      G.gd.buff%(m.gd.nfac*bytesperword+m.lsb) := 1
+                      G.gd.buff%(m.gd.nfac*bytesperword+m.msb) := '0'
+                      G.gd.highlight (m.gd.incid, m.sd.black, m.sd.black)
+                      G.gd.highlight (m.gd.nfac,  m.sd.blue, m.sd.yellow)
+                   $)
+              ELSE $( G.gd.buff!m.gd.firstincid := true
+                      G.gd.buff!m.gd.readreply  := false
+                      G.gd.buff!m.gd.reply      := 0
+                      G.gd.buff!m.gd.incid      := 0
+                   $)
+           $)
+           ELSE $( UNLESS g.key = m.kd.noact DO G.gd.char.input (m.gd.incid)
+                   IF G.key = m.kd.return
+                   $( g.sc.clear (m.sd.message)      // eliminate message flash
+                      TEST G.gd.valid (m.gd.incid)
+                      THEN $( LET g = G.key
+                              LET ptr = g.sc.pointer (m.sd.off)
+                              g.sc.mess ("")
+                              g.sc.movea (m.sd.message, m.sd.mesXtex,
+                                                                  m.sd.mesYtex)
+                              g.sc.selcol (m.sd.blue)
+                              g.sc.oprop ("Convert data to incidence (Y/N)? ")
+                              g.sc.pointer (ptr)
+                              G.key := m.kd.noact
+                              G.gd.char.input (m.gd.reply)
+                              G.key := g
+                              G.gd.buff!m.gd.readreply := true
+                           $)
+                      ELSE $( G.gd.buff!m.gd.firstincid := true
+                              G.gd.buff!m.gd.readreply  := false
+                           $)
+                   $)
+                $)
+        $)
+$)
+
+
+// performs the conversion of data values
+AND convert.incidence () BE
+$(
+   manifest $( data.words = 386/bytesperword    // 64*6 + 2
+               fine.words = 64/bytesperword
+            $)
+
+   let h = G.context!m.data.handle
+   let cutoff = G.gd.buff + m.gd.inc.cut.off
+   let blocks = ?
+   let datasize = G.gd.buff!m.gd.data.size
+   let fine = getvec(fine.words)
+   let data = getvec(data.words)
+   let coarse.offset = vec 1
+   let length = vec 1
+   let t = vec 1
+   let t1 = vec 1
+   let t2 = vec 1
+
+   if fine = 0 | data = 0
+   $( G.sc.ermess("Not enough store")
+      goto error
+   $)
+
+   G.sc.mess("Converting data")
+   G.gd.save()
+   G.dh.length(h, length)
+   find.offset(1, 1, coarse.offset)
+   if G.dh.read(h, coarse.offset, data, 4) = 0 goto error
+   blocks := g.ut.unpack16(data, 0) * g.ut.unpack16(data, 2)
+   g.ut.set32(4, 0, t)
+   for i = 1 to blocks
+   $( G.ut.add32(t, coarse.offset)
+      if G.dh.read(h, coarse.offset, data, 4) = 0 goto error
+      test g.ut.unpack16.signed(data, 0) <= 0
+      then unless (g.ut.unpack16.signed(data, 0) & #xFFFF) = #X8000 // missing
+           $( test G.ut.cmp32(data, cutoff) = m.gt
+                 g.ut.set32(1, 0, t1)
+               else
+                 g.ut.set32(0, 0, t1)
+              G.ut.movebytes(t1, 0, data, 0, 2)
+              if G.dh.write(h, coarse.offset, data, 4) = 0 goto error
+           $)
+      else $( let write.fine = false
+              let fine.offset = vec 1
+              find.offset(G.ut.unpack16.signed(data, 0) , 
+                          g.ut.unpack16.signed(data, 2), fine.offset)
+              if G.dh.read(h, fine.offset, fine, 64) = 0 goto error
+              for j = 0 to 15
+              $( let fptr = fine 
+                 test g.ut.unpack16.signed(fptr, j*4) <= 0
+                 then unless (g.ut.unpack16.signed(fptr, j*4) & #xFFFF) = 
+                                                                        #X8000
+                      $( g.ut.movebytes(fptr, j*4, t2, 0, 4)
+                         test G.ut.cmp32(t2, cutoff) = m.gt
+                           g.ut.set32(1, 0, t1)
+                         else 
+                           g.ut.set32(0, 0, t1)
+                         g.ut.movebytes(t1, 0, fptr, j*4, 4)
+                         write.fine := true
+                      $)
+                 else $( let items = ?
+                         let bytes.to.read = data.words * bytesperword
+                         let o = 2 // byte offset in data buffer
+                         let data.offset = vec 1
+                         let v = vec 1
+                         find.offset(G.ut.unpack16.signed(fptr, j*4), 
+                              G.ut.unpack16.signed(fptr, (j*4)+2), data.offset)
+                         G.ut.set32(bytes.to.read, 0, v)
+                         G.ut.add32(data.offset, v)
+                         if G.ut.cmp32(length, v) = m.lt
+                         $( G.ut.mov32(length, v)
+                            G.ut.sub32(data.offset, v)
+                            bytes.to.read := G.ut.unpack16(v, 0)
+                         $)
+                         if G.dh.read(h, data.offset, data, bytes.to.read) = 0
+                            goto error
+                         items := G.ut.unpack16(data, 0)
+                         for i = 1 to items
+                         $( o := o + 2 // skip location and repeat count
+                            if get.value(data, o, v)
+                            $(
+                               test G.ut.cmp32(v, cutoff) = m.gt then
+                                  g.ut.set32(1, 0, v)
+                               else
+                                  G.ut.set32(0, 0, v)
+                               store.value(data, o, v)
+                            $)
+                            o := o + datasize
+                         $)
+                         if G.dh.write(h, data.offset, data, bytes.to.read) = 0
+                            goto error
+                      $)
+              $)
+              if write.fine
+                 if G.dh.write(h, fine.offset, fine, 64) = 0 goto error
+           $)
+   $)
+   goto exit
+
+error:
+   G.key := - m.st.inputed
+
+exit:
+   freevec(fine)
+   freevec(data)
+   G.sc.clear(m.sd.message)
+$)
+
+and get.value(buffer, byte.offset, result) = valof
+$( let v = ?
+   let t1 = vec 1
+   let t2 = vec 1
+   switchon G.gd.buff!m.gd.data.size into
+   $( case 1:
+         v := buffer%byte.offset
+         test v = #X80
+         then resultis false
+         else test v > #X80  // negative
+              then $( G.ut.set32(v | #Xff00, #xffff, result)
+                   $)
+              else G.ut.set32(v, 0, result)
+      endcase
+      case 2:
+         v := G.ut.unpack16.signed(buffer, byte.offset)
+         test (v & #xFFFF) = #X8000
+         then resultis false
+         else $( G.ut.set32(v, (v < 0 -> #xffff, 0), result)
+              $)
+      endcase
+      case 4:
+         g.ut.movebytes(buffer, byte.offset, t1, 0, 4)
+         g.ut.set32(0, #x8000, t2)
+         test G.ut.cmp32(t1, t2) = m.eq
+         then resultis false
+         else g.ut.mov32(t1, result)
+      endcase
+   $)
+   resultis true
+$)
+
+and store.value(buffer, byte.offset, value) be  // only 0 or 1!
+   switchon G.gd.buff!m.gd.data.size into
+   $( case 1:
+         buffer%byte.offset := value%0
+      endcase
+      case 2:
+         G.ut.movebytes(value, 0, buffer, byte.offset, 2)
+      endcase
+      case 4:
+         G.ut.movebytes(value, 0, buffer, byte.offset, 4)
+      endcase
+   $)
+
+
+// Based on G.gr.find.offset in inputed.GR.b.gr2
+and find.offset(rec, off, offset) be
+$( let f = vec 1
+   let t = vec 1
+   g.ut.set32(m.dh.bytes.per.frame, 0, f)
+   G.ut.set32(G.gd.buff!m.gd.data.rec + rec - 1, 0, t)
+   G.ut.mul32(f, t)
+   G.ut.set32((off - 1) * 2, 0, offset)
+   G.ut.add32(t, offset)
+$)
+.

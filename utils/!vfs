@@ -1,0 +1,6 @@
+*|>!Boot
+*RMLoad Modules.JonSCSI
+*RMLoad Modules.VideoCom
+*RMLoad Modules.VFSA500
+*Vfs
+*Mount 0

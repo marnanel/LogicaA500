@@ -1,0 +1,118 @@
+//
+// Set Time utility
+//                      
+// 6.5.87 PAC 
+                                              
+Section "Timeset"
+  
+Get "Libhdr"
+
+LET Start() BE
+$(
+   LET bs = VEC 25/BYTESPERWORD      
+            
+          // 12345678901234567890123
+   LET cs = "DATE XX-XXX-XX YY:YY:YY*C"      
+
+            // 012345678901234567890123    
+//   LET ds = "ddd,nn mmm yyyy.hh:mm:ss*C"
+
+   // stage 1 : read I/O processor cmos clock
+            
+   bs!0 := 0
+   Osword( 14, bs ) 
+
+    Writes("Set Time on : ")
+    FOR i = 0 TO 23 Wrch( bs%i )
+    Wrch('*n')
+    
+    // set up the command string
+             
+   cs%6, cs%7 := bs%4, bs%5               // set up day
+   cs%9, cs%10, cs%11 := bs%7, bs%8, bs%9 // set up month
+   cs%13, cs%14 := bs%13, bs%14           // set up year
+
+   for i = 16 to 23 cs%i := bs%i          // set up time
+                                                        
+  // Writef("*nSetting date/time to : %s*n*n",cs)
+                                
+   //  run 'DATE'
+
+   Oscli(cs) 
+
+$)
+
+/*
+
+  // this code provides a cleaner way to do it
+  // but life's too short !!!
+
+AND Date()      = DateAndTimeOfDay()
+
+AND TimeOfDay() = DateAndTimeOfDay()+3
+
+AND DateAndTimeOfDay() = VALOF
+$( LET v = TABLE 0, 0, 0, 0, 0, 0;
+   LET v1 = VEC 4;
+   LET leap = FALSE;
+   LET years, months, days, hours, mins, secs, ticks =
+       ?, ?, ?, ?, ?, ?, ?;
+   LET Plant(v, b, c, n) BE
+   $( v%b     := c;
+      v%(b+1) := '0'+(n/10);
+      v%(b+2) := '0'+(n REM 10)
+   $);
+   $( LET s = "<unset>";
+      LET w0, w1 = s!0, s!1;
+      v!0, v!1, v!3, v!4 := w0, w1, w0, w1 $);
+
+   OSWord(1, v1);                      // Read system timer
+
+   ticks := (v1!0 >> 8) | (v1%4 << 24);// High order 32 bits
+   days := ticks / 33750;
+   ticks := ((ticks REM 33750) << 8) | (v1%0);
+
+   hours := ticks / 360000;   ticks := ticks-360000*hours;
+   mins  := ticks / 6000;     ticks := ticks-6000*mins;
+   secs  := ticks / 100;  //  ticks := ticks-100*secs;
+
+// Times are kept starting from January 1st 1900 as day zero. 1904 was
+// the first leap year after that.
+
+   years := 4*((days+1)/1461)
+   days := (days+2) REM 1461;
+   $( TEST (years REM 4)=0
+         THEN TEST days>366
+            THEN days := days-366
+            ELSE $( leap := TRUE; BREAK $)
+      ELSE TEST days>365
+         THEN days := days-365
+         ELSE BREAK;
+      years := years + 1
+   $) REPEAT;
+
+   IF (years<83) | (years>99) THEN RESULTIS v;  // <unset>
+
+   months := 0;
+   $( LET monlen = months!table 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31;
+      IF leap & (months=1) THEN monlen := 29;
+      IF monlen>=days THEN BREAK;
+      days := days-monlen;
+      months := months+1
+   $) REPEAT;
+
+   v!2, v!5 := 0, 0;    // Tidy out final bytes
+
+   Plant(v, 0, 9, days);
+   v%3 := '-';
+   FOR i = 1 TO 3 DO
+      v%(i+3) := "JanFebMarAprMayJunJulAugSepOctNovDec"%(3*months+i);
+   Plant(v, 7, '-', years);
+
+   Plant(v, 12, 8, hours);
+   Plant(v, 15, ':', mins);
+   Plant(v, 18, ':', secs);
+
+   RESULTIS v
+$)
+*/                                

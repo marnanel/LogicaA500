@@ -1,0 +1,600 @@
+/**
+         DATA FORMATTER - GRID MAPPABLE
+         ------------------------------
+
+         This section contains :
+
+            G.df.main.sub.dataset
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.format
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       9.03.87   1         SRY         Initial version
+      21.04.87   2         SRY         Check after initial get.b32
+      16.06.87   3         SRY         Fix small dataset bug
+       3.08.87   4         SRY         Removed m.ut.*
+      27.11.87   5         MH          Updated to Unified version
+**/
+
+SECTION "Mapform3"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.dfhd"
+
+STATIC $( crec    = ?   // Cumulative record and offset for inserting in
+          coff    = ?   // coarse index entries. Relative to rastoff
+          frec    = ?   // Ditto fine index
+          foff    = ?
+          drec    = ?   // Record and offset to start of data. Must add to
+          doff    = ?   // entries from fine index to get relative offset to
+                        // rastoff of the item
+          w       = ?   // Number of 32x32 blocks east-west
+          n       = ?   // Number of 32x32 blocks south-north
+          no.per.row = ? // Number of elements per row of matrix
+          headers = ?   // Number of headers read from download
+          no.blocks = ? // Number of 32x32 blocks (w * n)
+          unit32  = ?   // Length of a 32x32 side in decametres
+          unit8   = ?   // Ditto 8x8
+          plus.r = ?    // word size check +
+          neg.r = ?     // word size check -
+          datasize = ?  // 1, 2, 4 bytes
+          val = ?       // pointer to 32-bit number
+          valHI = ?
+       $)
+
+/**
+         G.DF.FORMAT.GRID
+         ----------------
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         PROGRAM DESIGN LANGUAGE:
+
+         If on first pass
+         then do index build
+         Else build data
+**/
+
+let G.df.main.sub.dataset() be // Write out main subdataset
+$( neg.r := getvec(1)
+   plus.r := getvec(1)
+   datasize := G.df!m.df.datasize
+   val := G.df + m.df.val
+   switchon datasize into
+   $( case 1: G.ut.set32(#x7F, 0, plus.r)
+              G.ut.set32(#xFF80, #xFFFF, neg.r)
+              endcase
+      case 2: G.ut.set32(#x7FFF, 0, plus.r)
+              G.ut.set32(#x8000, #xFFFF, neg.r)
+              endcase
+      case 4: G.ut.set32(#xFFFF, #x7FFF, plus.r)
+              G.ut.set32(0, #x8000, neg.r)
+   $)
+   test G.df!m.df.dummy
+   then dummy.grid.data()      // set up indices
+   else grid.data()            // write out indices and data
+   G.df!m.df.eof := false      // Natural - no error
+   freevec(neg.r)
+   freevec(plus.r)
+$)
+
+// Process grid data. No logical error checking; done on first pass.
+// No padding necessary; just read and write 8x8 blocks sequentially,
+// after coarse and fine indices.
+
+and grid.data() be
+$( let next.32.word = ?
+
+   G.df.counter(m.df.grid, 0)           // set up screen display
+   word.pad(1, 0)                       // Pad to rastoff (1 frame in)
+   G.df!m.df.record := 0                // Everything now relative to rastoff
+
+   G.df.word(w)                         // Number of blocks e/w & s/n
+   G.df.word(n)
+   G.df!m.df.offset := 2
+   for i = 1 to no.blocks               // Coarse index
+   $( get.coarse.index(i)               // get offset for i'th 32x32 block
+      if G.df.check.() return
+      G.df.double.word(val) // write record no & offset
+      G.df!m.df.offset := G.df!m.df.offset + 2
+   $)
+   next.32.word := ((G.df!m.df.offset) & #XFFE0) + m.df.fine.index.size
+   word.pad(G.df!m.df.record, next.32.word) // must not cross frame
+   for i = 1 to no.blocks               // Fine indices
+   $( get.coarse.index(i)               // uniform coarse block
+      if G.df.check.() return           // has no fine entries
+      if G.ut.unpack16.signed(val, 0) <= 0 loop
+      for j = 1 to 16
+      $( get.fine.index(i, j)
+         if G.df.check.() return
+         G.df.double.word(val)
+         G.df!m.df.offset := G.df!m.df.offset + 2
+      $)
+   $)
+
+   // Could optimise by checking b32 and b8 and skipping to next
+   // grid header if uniform
+   for i = 1 to headers
+   $( G.df.counter(i, headers)
+      get.8.header()          // Read grid ref & no.per.row
+      if G.df!m.df.err break
+      get.b32()               // Discover 32x32 block
+      get.b8()                // Set up base8
+      process.8.block()       // Read and write 8x8 block
+      if G.df!m.df.err return
+   $)
+$)
+
+// Process grid data, setting up index and
+// checking for logical and i/o errors
+
+and dummy.grid.data() be
+$( let n8, n32, words = 1, ?, ?
+   let b8, b32 = 1, 1
+   let have.header = true
+
+   G.ut.mov32(G.df+m.df.base, G.df+m.df.gref)
+   G.df.counter(m.df.grid, 0)  // set up screen display
+
+   no.blocks := no.32.blocks() // set up w & n
+   if G.df.check.() return
+   G.df.init.index(w, n) // Initialise SRAM index
+   if G.df.check.() return
+
+   // Coarse offsets are set up just after coarse index, relative to rastoff.
+   // Record numbers and offsets both start at ONE not ZERO. BEWARE!
+   // (Fortran arrays!) Ditto fine index.
+   // Must add drec, doff after retrieval as we don't know in advance
+   // how big the fine index is. Only used in dummy run.
+
+   crec, coff := 1, (( (2 + no.blocks*2) & #XFFE0) + m.df.fine.index.size + 1)
+   frec, foff := 1, 1
+
+   get.8.header()                        // Read grid ref & no.per.row
+   if G.df!m.df.err return
+   if G.df!m.df.eof goto pad.to.end
+   headers := 1
+   n32 := get.b32()                      // Not nec. 1 !
+   if G.df.check.() return
+
+   // Cycle through 32x32 blocks
+   // Always store no.blocks; any may be set missing
+
+   $( for i = b32 to n32 - 1 grid.pad32(i)        // Pad missing blocks
+      b8, b32 := 1, n32
+      G.df.coarse.index(b32, crec, coff)          // Put in coarse index
+      rec.add(@crec, @coff, m.df.fine.index.size) // Track index offset
+      $( unless have.header
+         $( get.8.header()                        // Read grid ref & no.per.row
+            if G.df!m.df.err return
+            if G.df!m.df.eof goto pad.to.end      // Pad index to end
+            have.header := true
+            headers := headers + 1
+         $)
+         n32 := get.b32()                         // Discover 32x32 block
+         if G.df.check.() return                  // for grid ref
+         unless n32 = b32
+         $( if n32 < b32 goto out.of.order        // 32x32 in wrong order
+            end.32(b32, b8)                       // Finish current 32x32
+            break                                 // Next 32x32
+         $)
+         n8 := get.b8()                           // Discover 8x8 block
+         if G.df.check.() return                  // for grid ref
+         unless n8 = b8
+         $( if n8 < b8 goto out.of.order          // 8x8 in wrong order
+            for i = b8 to n8-1 grid.pad8(b32, i)  // Pad index to n8'th 8x8
+            b8 := n8
+         $)
+         G.df.counter(((b32-1) << 4) + b8, (no.blocks << 4))
+         words := process.8.block()               // Read values
+         if G.df.check.() return
+         have.header := false
+         test words <= 0
+         then G.df.fine.index(b32, b8, words, 0)  // Uniform block
+         else $( G.df.fine.index(b32, b8, frec, foff)
+                 rec.add(@frec, @foff, words)     // Track data offset
+              $)
+         b8 := b8 + 1
+      $) repeat
+      if b32 = no.blocks break; b32 := b32 + 1
+   $) repeat
+
+   goto exit
+
+out.of.order: // Grid references out of order
+   G.df.ermess("Grid reference out of order")
+   return
+
+pad.to.end: // Pad index to end of dataset
+   end.32(b32, b8)
+   for k = b32 + 1 to no.blocks grid.pad32(k)
+
+exit:
+   // NB: drec and doff are used to keep a constant record, offset pair in
+   // the second pass to add on to all values retrieved from the index lookup.
+   // The following assignment is for this purpose, at the very end of the
+   // first pass.
+
+   drec, doff := crec - 1, coff - 1 // Crec, coff start at 1, d's start at 0
+$)
+
+and no.32.blocks() = valof // Determine no of 32x32 blocks
+$( unit32 := (G.df!m.df.raster) * 320 // GRs in km/10
+   unit8 := (G.df!m.df.raster) * 80
+   w := find.blocks(G.ut.unpack16(G.df, m.df.top.byte), 
+         G.ut.unpack16(G.df, m.df.base.byte), unit32)
+   n := find.blocks(G.ut.unpack16(G.df, m.df.topHI.byte), 
+         G.ut.unpack16(G.df, m.df.baseHI.byte), unit32)
+   unless (1 <= w <= m.df.max.ew) & (1 <= n <= m.df.max.ns)
+      G.df.ermess("Area specified is too large")
+   resultis w * n
+$)
+
+and end.32(b32, b8) be                     // Pad to end of coarse block
+   test b8 = 1                             // Pad current fine block
+   then grid.pad32(b32)                    // but not current coarse
+   else for i = b8 to 16 grid.pad8(b32, i) // unless on first fine
+
+and get.b32() = valof // Get 32x32 block of grid reference
+$( let no = ?         // Set up base.32
+   let b = vec 1
+   let b1 = vec 1
+   let diffw = find.blocks(G.ut.unpack16(G.df, m.df.gref.byte), 
+                G.ut.unpack16(G.df, m.df.base.byte), unit32)
+   let diffn = find.blocks(G.ut.unpack16(G.df, m.df.grefHI.byte),
+                G.ut.unpack16(G.df, m.df.baseHI.byte), unit32)
+
+   G.ut.set32(G.ut.unpack16(G.df, m.df.base.byte), 0, b)
+   G.ut.set32(diffw * unit32, 0, b1)
+   G.ut.add32(b1, b)
+   G.ut.movebytes(b, 0, G.df, m.df.base.32.byte, 2)
+
+   G.ut.set32(G.ut.unpack16(G.df, m.df.baseHI.byte), 0, b)
+   G.ut.set32(diffn * unit32, 0, b1)
+   G.ut.add32(b1, b)
+   G.ut.movebytes(b, 0, G.df, m.df.base.32HI.byte, 2)
+
+   no := diffn * w + diffw + 1         // Determine 32x32 block
+   unless 1 <= no <= no.blocks err.()  // scanned w -> e and s -> n
+   resultis no
+$)
+
+and get.b8() = valof // Get number of 8x8 block of grid reference
+$( let no = ?        // Assume right 32x32. Set up base.8
+   let diffw = find.blocks(G.ut.unpack16(G.df, m.df.gref.byte), 
+                G.ut.unpack16(G.df, m.df.base.32.byte), unit8)
+   let diffn = find.blocks(G.ut.unpack16(G.df, m.df.grefHI.byte), 
+                G.ut.unpack16(G.df, m.df.base.32HI.byte), unit8)
+   let b = vec 1
+   let b1 = vec 1
+
+   G.ut.set32(G.ut.unpack16(G.df, m.df.base.32.byte), 0, b)
+   G.ut.set32(diffw * unit8, 0, b1)
+   G.ut.add32(b1, b)
+   G.ut.movebytes(b, 0, G.df, m.df.base.8.byte, 2)
+
+   G.ut.set32(G.ut.unpack16(G.df, m.df.base.32HI.byte), 0, b)
+   G.ut.set32(diffn * unit8, 0, b1)
+   G.ut.add32(b1, b)
+   G.ut.movebytes(b, 0, G.df, m.df.base.8HI.byte, 2)
+
+   no := valof switchon diffw into // Get number of block according to order
+   $( case 0: resultis diffn + 1   //     4 | 4  5  12 13
+      case 1: resultis 8 - diffn   //     3 | 3  6  11 14
+      case 2: resultis 9 + diffn   //     2 | 2  7  10 15
+      case 3: resultis 16 - diffn  // nl= 1 | 1  8   9 16
+      default: resultis 0          //     --|--------------
+   $)                              //     wl= 1  2   3  4
+   unless 1 <= no <= 16 err.()
+   resultis no
+$)
+
+and err.() be G.df.ermess("Grid reference outside area")
+
+and get.8.header() be
+$( let ch = ?
+   let bnr = "Bad grid header"
+   no.per.row := 0
+   $( ch := capch(G.df.rdch())
+      if G.df!m.df.eof | G.df!m.df.err return
+      test ch = 'G'
+      then $( ch := G.df.rdch()
+              if G.df.check.() return; unless ch = '=' goto error
+              break
+           $)
+      else unless pad(ch) goto error
+   $) repeat
+   G.df.get.grid.ref(G.df+m.df.gref); if G.df.check.() return
+   G.df.checkgr(); if G.df.check.() return
+   ch := G.df.rdch(); if G.df.check.() return
+   if capch(ch) = 'R'
+   $( G.df.read.num(false, false, bnr); if G.df.check.() return
+      no.per.row := !val
+      unless 1 <= no.per.row <= 8 goto error
+   $)
+   return
+
+error:
+   G.df.ermess(bnr)
+$)
+
+and process.8.block() = valof // returns how many words of
+$( let o = G.df+m.df.gvals // data written out - can be 0 or
+   let off = 2 + datasize  // less for a uniform block
+   let any.zero = false
+   let itemcount, items, c, bytes = 0, 0, 1, 2
+   let prev = vec 1
+   let cur = vec 1
+   let t = vec 1
+   let bd = "Bad data value"
+
+   G.ut.set32(0, 0, prev)
+   G.ut.set32(0, 0, cur)
+   if next.item() = -1 resultis #XFFFF8000 
+                                   // Read to a number, new header or eof
+
+   test no.per.row = 0            // Full 8x8 block
+   then $( unless G.ut.cmp32(G.df+m.df.gref, G.df+m.df.base.8) = m.eq 
+              goto bad.grid
+           for i = 1 to 64        // read exactly 64 numbers
+           $( G.df.read.num(true, true, bd)
+              if check.() resultis 0
+              G.ut.mov32(val , cur)
+              G.ut.mov32(cur, o)
+              G.ut.set32(0, 0, t)
+              test G.ut.cmp32(cur, t) = m.eq
+              then any.zero := true
+              else unless G.ut.cmp32(cur, prev) = m.eq items := items + 1
+              o := o + (4/bytesperword)
+              G.ut.mov32(cur, prev)
+           $)
+        $)
+   else $( let unit = (G.df!m.df.raster) * 10
+           let x0 = find.blocks(G.ut.unpack16(G.df, m.df.gref.byte), 
+                     G.ut.unpack16(G.df, m.df.base.8.byte), unit)
+           let y0 = find.blocks(G.ut.unpack16(G.df, m.df.grefHI.byte),
+                     G.ut.unpack16(G.df, m.df.base.8HI.byte), unit)
+           let no.per.col = 8 - y0  
+           unless (x0 + no.per.row = 8) | (x0 = 0)
+              unless same.eight(G.ut.unpack16(G.df, m.df.gridbl.byte), 
+                      G.ut.unpack16(G.df, m.df.gridtr.byte))
+                 goto bad.grid
+           if y0 > 0
+           $( for i = 1 to (y0 << 3)
+              $( missing(o)
+                 o := o + (4/bytesperword)
+              $)
+              G.ut.mov32(o-(4/bytesperword), prev)
+              items := 1
+           $)
+           for i = y0 + 1 to 8      // but may not get there
+           $( if next.item() = -1   // Read to a number, new header or eof
+              $( if G.df!m.df.err resultis 0
+                 no.per.col := i - 1 - y0
+                 break
+              $)
+              for j = 1 to x0
+              $( missing(o)
+                 G.ut.mov32(o, cur)
+                 unless (G.ut.cmp32(prev, cur) = m.eq) do items := items + 1
+                 o := o + (4/bytesperword)
+                 G.ut.mov32(cur, prev)
+              $)
+              for j = 1 to no.per.row
+              $( G.df.read.num(true, true, bd)
+                 if check.() resultis 0
+                 G.ut.mov32(val, cur)
+                 G.ut.mov32(cur, o)
+                 G.ut.set32(0, 0, t)
+                 test G.ut.cmp32(cur, t) = m.eq
+                 then any.zero := true
+                 else unless ((o > G.df+m.df.gvals) &
+                             (G.ut.cmp32(cur, prev) = m.eq)) do 
+                         items := items + 1
+                 o := o + (4/bytesperword)
+                 G.ut.mov32(cur, prev)
+              $)
+              for j = x0 + no.per.row + 1 to 8
+              $( missing(o)
+                 G.ut.mov32(o, cur)
+                 unless (G.ut.cmp32(prev, cur) = m.eq) do items := items + 1
+                 o := o + (4/bytesperword)
+                 G.ut.mov32(cur, prev)
+              $)
+           $)
+           unless (no.per.col + y0 <= 8) | (y0 = 0)
+              unless same.eight(G.ut.unpack16(G.df, m.df.gridblHI.byte), 
+                      G.ut.unpack16(G.df, m.df.gridtrHI.byte))
+                 goto bad.grid
+           for i = ((y0 + no.per.col) << 3) + 1 to 64
+           $( missing(o)
+              G.ut.mov32(o, cur)
+              unless (G.ut.cmp32(prev, cur) = m.eq) do items := items + 1
+              o := o + (4/bytesperword)
+              G.ut.mov32(cur, prev)
+           $)
+        $)
+
+   if items <= 1
+   $( if items = 0 resultis 0 // uniform zero block
+      unless any.zero
+      $( if is.missing() resultis #XFFFF8000
+         if (G.ut.unpack16.signed(cur, 0) > 0) & (G.ut.unpack16(cur, 2) = 0)
+            resultis (-(G.ut.unpack16.signed(cur, 0))) // Other uniform block
+      $)
+   $)
+
+   // Write out the 8x8 block and return number of words written for
+   // benefit of first pass index build. Optimised for repeat counts.
+
+   o := G.df + m.df.gvals
+   G.df.word(items)
+   $( G.ut.mov32(o, cur)
+      G.ut.set32(0, 0, t)
+      unless G.ut.cmp32(cur, t) = m.eq   // Omit if value zero
+      $( let rep = 1
+         G.ut.mov32(cur ,val)
+         G.df.wrch(c)          // Relative location in matrix (1 - 64)
+         while (c < 64) & (G.ut.cmp32(cur, o+(4/bytesperword)) = m.eq)
+         $( rep := rep + 1
+            c := c + 1
+            o := o + (4/bytesperword)
+         $)
+         G.df.wrch(rep)        // Repeat count
+         G.df.cell()           // Value
+         bytes := bytes + off
+         itemcount := itemcount + 1
+      $)
+      if c = 64 break
+      c := c + 1
+      o := o + (4/bytesperword)
+   $) repeat
+
+   $<debug
+   unless itemcount = items
+   $( G.df.ermess("**** Internal processing error ****")
+      resultis 0
+   $)
+   $>debug
+
+   // Pad to a word boundary
+   unless (bytes & 1) = 0 $( G.df.wrch(0); bytes := bytes + 1 $)
+   resultis (bytes / 2)
+
+bad.grid:
+   G.df.ermess("Grid reference not on block boundary")
+   resultis 0
+$)
+
+and same.eight(a, b) = valof
+$( let eight = ?
+   let t = vec 1
+   let t1 = vec 1
+   let unit = vec 1
+   G.ut.set32((G.df!m.df.raster)*80, 0, unit)
+   G.ut.set32(a, 0, t)
+   G.ut.div32(unit, t, t1)
+   eight := !t
+   G.ut.set32(b, 0, t)
+   G.ut.div32(unit, t, t1)
+   resultis !t = eight
+$)
+
+and missing(o) be
+   switchon datasize into
+   $( case 1: G.ut.set32(#X80, 0, o); endcase
+      case 2: G.ut.set32(#X8000, 0, o); endcase
+      case 4: G.ut.set32(0, #X8000, o)
+   $)
+
+and is.missing() = valof
+$( let t = vec 1
+   let result = valof switchon datasize into
+   $( case 1: G.ut.set32(#x80, 0, t)
+              resultis (G.ut.cmp32(val, t) = m.eq)
+      case 2: G.ut.set32(#x8000, 0, t)
+              resultis (G.ut.cmp32(val, t) = m.eq)
+      case 4: G.ut.set32(0, #x8000, t)
+              resultis (G.ut.cmp32(val, t) = m.eq)
+   $)
+   G.ut.set32(0, #x8000, t)
+   test result then
+      resultis true
+   else test G.ut.cmp32(val, t) = m.eq then
+      resultis true
+   else
+      resultis false
+$)
+
+and check.() = valof
+$( if G.df.check.() resultis true
+   if datasize = 4 resultis false
+   test is.missing()
+   then $( missing(val)
+           resultis false
+        $)
+   else $( test G.ut.unpack16.signed(val, 2) < 0
+           then unless G.ut.cmp32(val, neg.r) = m.lt resultis false
+           else unless G.ut.cmp32(val, plus.r) = m.gt resultis false
+           G.df.ermess("Data value is outside range")
+           resultis G.df.check.()
+        $)
+$)
+
+// Read to a number, new header or eof
+and next.item() = valof
+$( let ch = G.df.rdch()
+   if (G.df!m.df.eof) | (G.df!m.df.err)
+   $( G.df!m.df.eof := false
+      resultis -1
+   $)
+   unless pad(ch)
+   $( G.df.unrdch()
+      resultis (capch(ch) = 'G') -> -1, ch
+   $)
+$) repeat
+
+// Work out no of 'intervals' from low to top GRs (truncated)
+// Use 32-bit arithmetic for Channel Islands benefit (grr!)
+and find.blocks(top, low, interval) = valof
+$( let t = vec 1
+   let t1 = vec 1
+   let u = vec 1
+   G.ut.set32(top, 0, t)
+   G.ut.set32(low, 0, t1)
+   G.ut.set32(interval, 0, u)
+   G.ut.sub32(t1, t)
+   G.ut.div32(u, t, t1)
+   resultis !t
+$)
+
+and get.coarse.index(b32) be G.df.coarse.index(b32, 0, -1)
+
+and get.fine.index(b32, b8) be
+$( G.df.fine.index(b32, b8, 0, -1) // Retrieve relative value
+   if G.ut.unpack16.signed(val, 0) > 0
+   $( let rno = G.ut.unpack16.signed(val, 0)
+      let offset = G.ut.unpack16.signed(val, 2)
+      rec.add(@rno, @offset, doff) // Add on data offset
+      G.ut.set32(rno + drec, offset, val)
+   $)
+$)
+
+and grid.pad32(b32) be // Set this 32x32 block to missing
+   G.df.coarse.index(b32, #X8000, 0)
+
+and grid.pad8(b32, b8) be // Set this 8x8 block to missing
+   G.df.fine.index(b32, b8, #X8000, 0)
+
+and rec.add(rnoptr, offptr, n) be
+$( !offptr := !offptr + n
+   if !offptr >= m.df.record.words
+   $( !offptr := !offptr - m.df.record.words
+      !rnoptr := !rnoptr + 1
+   $)
+$)
+
+and pad(ch) = ch = '*S' | ch = '*N' | ch = '*C'
+
+// Pad from <record, offset> to <rno, off>
+and word.pad(rno, off) be
+$( test rno = G.df!m.df.record
+   then for i = G.df!m.df.offset to off - 1 G.df.word(0)
+   else $( for i = G.df!m.df.offset to m.df.record.words - 1 G.df.word(0)
+           for i = G.df!m.df.record to rno - 2
+              for j = 1 to m.df.record.words G.df.word(0)
+           for i = 1 to off G.df.word(0)
+           G.df!m.df.record := rno
+        $)
+   G.df!m.df.offset := off
+   rec.add(G.df+m.df.record, G.df+m.df.offset, 1)
+$)
+.
+

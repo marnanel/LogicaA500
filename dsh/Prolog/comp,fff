@@ -1,0 +1,16 @@
+Prolog
+compile('kbase.ops').
+compile('kbase.pkbs').
+compile('kbase.bmethods').
+compile('newhelp.ops').
+compile('newhelp.dmagb').
+compile('newhelp.toplevel').
+compile('newhelp.admin').
+compile('newhelp.um').
+compile('newhelp.utilities').
+compile('ifmod.control').
+compile('ifmod.textkb').
+compile('ifmod.wimpkb').
+compile('ifmod.framekb').
+save('$.DSH.R.code').
+halt.

@@ -1,0 +1,390 @@
+user_model(
+um(
+um(
+um(
+um(
+um(
+um(
+um(
+empty,
+basic_method(check)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method('choose second variable')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+empty,
+basic_method(close_window)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+basic_method(contents_option)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+basic_method(decide)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method('decide when to stop')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+basic_method('down load data onto disc')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+basic_method('finish editing the chart')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method('finish regrouping operations')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method('finish using the special menu')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+basic_method(go_to_bookmark)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method(load_bookmark)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+,
+basic_method(look_at)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+empty,
+basic_method(map_operations)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method(move_mouse)/entry(last_seen('use dish',time(88,8,23,19,21,20)),exposition,5),
+empty)
+,
+basic_method(position_cursor)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+basic_method(press_mouse)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method(press_return)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+basic_method(read)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+basic_method('regroup variables so that there are fewer than 24')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method(reinclude)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method(release_mouse)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+basic_method(save_bookmark)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+basic_method(set_bookmark)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+)
+,
+basic_method(type_in)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+um(
+empty,
+generic('carry out chart operations')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('carry out map operations')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('carry out regrouping operations')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('change chart')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('choose new chart type')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+generic('choose second variable')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+generic(combine)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('down load data onto disc')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('edit chart')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('edit name or choose another method')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('examine dataset')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+,
+generic('finish chart operations')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+empty,
+generic('finish editing the chart')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('finish using the special menu')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('go to a book mark')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('inspect current variable')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('load a book mark')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+generic(omit)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+generic('regroup variables so that there are fewer than 24')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic(reinclude)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('retrieve values from a bar chart')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('retrieve values from a line graph')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('retrieve values from a pie chart')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+)
+)
+,
+generic('retrieve values from the chart')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+um(
+um(
+empty,
+generic('save a book mark')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('see text about chart')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+empty,
+generic('select category from pop up menu')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+generic('select category to regroup')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('select from contents page')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('select from hitlist')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+generic('select new variable')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+generic('select variable to regroup')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('set a book mark')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic(split)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('submit a query to the system')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('type in dataset title')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+,
+generic('use contents option')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+empty,
+generic('use find option to retrieve specific dataset')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('use find option with keyword housing tenure, educational opportunity, local government grants, local government expenditure, cipfa')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('use find option with keywords banking, mortgages, housing tenure, insurance, building societies')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic('use find option with keywords mortality, births, accidents, social security, health services, cipfa')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic('use find option with keywords ownership, consumption, super profiles, amenities')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+library('carry out special operations')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+library('change categories and variables of chart display')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('choose dataset')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('choose new dataset')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library('clarify that you want to quit')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(click)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+)
+,
+library(click_mouse)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+um(
+empty,
+library(click_mouse_in)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(click_mouse_over)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('display text about the chart')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library(drag)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(draw_box)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+library(edit)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+library('enter a named dataset')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('enter find option')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('expand variable name')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library(pop_up)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(position_cursor_in)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+,
+library(position_cursor_over)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+empty,
+library(pull_down)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('quit find option')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('regroup data')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library(scroll)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(select)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+library('select dataset')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+library('select from data list')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('select from summary')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library('use find option to enter a topic')/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library('use rescale option in edit menu')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+procedure('use dish')/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+)
+)
+)
+).

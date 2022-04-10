@@ -1,0 +1,378 @@
+SECTION "Area3"
+
+/**   AREAL HEADER - ACTIVE FIELD ROUTINES
+      ------------------------------------
+
+      This section contains :
+
+         g.ar.highlight
+         g.ar.char.input
+         g.ar.cycle
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.areal
+
+      REVISION HISTORY:
+
+      DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+      30.4.87     1        SA       Initial version
+       5.5.87     2        SA       add g.ar.highlight
+       8.5.87     3        SA       Mods for g.ar.incidence
+      11.5.87     4        SA       Manifests for data type strings
+      12.6.87     5        SA       Remove g.ar.valid to data1
+      16.7.87     6        SA       Handles areal units with limitless areas
+      28.7.87     7        SA       Eliminate g.sc.ofstr bug possibility
+      19.10.87    8        MH       updated for UNI version
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.sdphd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.arhd"
+
+/**
+      G.AR.HIGHLIGHT - CONTROL ENTRY BOX FIELDS
+      -----------------------------------------
+
+      controls highlighting of entry boxes
+
+      INPUTS:
+
+      field : m.ar.units
+              m.ar.nfac
+              m.ar.incid
+              m.ar.values.str...
+      output colour of entry box
+      output colour of string
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ar.highlight (box, back.colour, text.colour)
+      ----------------------------------------------
+
+      move to appropriate position
+      show entry box and contents in named colours
+         and message if required
+**/
+
+
+LET g.ar.highlight (box, back.colour, text.colour, index) BE
+$( LET posY, posX, absX, width = ?, ?, ?, ?
+   LET text = box
+//   LET ptr  = g.sc.pointer (m.sd.off)
+
+   IF box = m.ar.values
+   THEN text := m.ar.values.str + (index-1)*m.ar.val.len.words
+
+   SWITCHON box INTO
+   $( CASE m.ar.nfac   : posY  := m.ar.nfacY
+                         posX  := m.ar.nfacX
+                         absX  := m.ar.nfacXstr
+                         width := -m.sd.linW
+                         ENDCASE
+      CASE m.ar.units  : posY  := m.ar.unitsY
+                         posX  := m.ar.unitsX
+                         absX  := m.ar.posX
+                         width := -m.sd.linW
+                         ENDCASE
+      CASE m.ar.incid  : posY  := m.ar.incidY
+                         posX  := m.ar.incidX
+                         absX  := m.ar.incidXstr
+                         width := -m.sd.linW
+                         ENDCASE
+      CASE m.ar.values : posY  := m.sd.linW*(m.sd.displines-index+1)
+                         posX  := m.ar.valueX
+                         absX  := m.ar.valueXstr
+                         width := (back.colour = m.sd.blue) ->
+                                                  -m.sd.charheight, 4-m.sd.linW
+                         ENDCASE
+   $)
+
+   text := text + g.ar.buff
+
+   IF (box = m.ar.incid) &
+      (g.context!m.oldfile)
+   THEN g.sc.clear (m.sd.message)       // clear incidence message if it exists
+   IF (box = m.ar.incid) & (back.colour = m.sd.cyan)
+      THEN g.sc.mess ("Enter maximum value for absent data")
+
+   IF (box = m.ar.values) &
+      (back.colour = m.sd.blue)
+   THEN $( g.sc.selcol (m.sd.black)
+           g.sc.movea (m.sd.display, absX, posY)
+           g.sc.rect (m.sd.plot, posX-m.ar.posX, 4-m.sd.linW)
+        $)
+   g.sc.movea (m.sd.display, absX, posY)
+   g.sc.selcol (back.colour)
+   g.sc.rect (m.sd.plot, posX-m.ar.posX, width)
+   g.sc.selcol (text.colour)
+   g.sc.movea (m.sd.display, absX+m.sd.disXtex, posY-2)
+   g.sc.ofstr ("%S", text)
+//   g.sc.pointer (ptr)
+$)
+
+
+/**
+      G.AR.CHAR.INPUT - ALLOWS INPUT INTO ENTRY BOXES
+      -----------------------------------------------
+
+      Controls input of characters into entry boxes, including on-screen
+      display and storage in g.ar.buff
+
+
+      INPUTS:
+
+      pointer to string : m.ar.units
+                          m.ar.nfac
+                          m.ar.incid
+                          m.ar.reply
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      g.ar.buff+box
+
+      SPECIAL NOTES FOR CALLERS:
+
+      should only be used when on an active entry box and
+      cursor position has been adjusted appropriately
+      uses g.sc.input()
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ar.char.input (box)
+      ---------------------
+
+      define length of allowed string
+      call g.sc.input()
+**/
+
+
+AND g.ar.char.input(box, index) BE
+$( LET string = ?
+   LET length = ?
+   TEST box = m.ar.values
+   THEN string := g.ar.buff+m.ar.values.str+(index-1)*m.ar.val.len.words
+   ELSE string := g.ar.buff+box
+   length := VALOF SWITCHON box INTO
+   $( CASE m.ar.units  : RESULTIS m.ar.ulength
+      CASE m.ar.nfac   : RESULTIS m.ar.nflength
+      CASE m.ar.values : RESULTIS m.ar.value.length
+      CASE m.ar.incid  : RESULTIS m.ar.inclength
+      CASE m.ar.reply  : RESULTIS m.ar.replength
+      CASE m.ar.find   : RESULTIS m.ar.findlength
+   $)
+   G.sc.input (string, m.sd.blue, m.sd.cyan, length)
+$)
+
+
+/**
+      G.AR.CYCLE - CONTROL CYCLE FIELDS
+      ---------------------------------
+
+      controls cycling of strings
+
+      INPUTS:
+
+      field : m.ar.data
+              m.ar.area
+      output colour of string
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      contents of g.ar.buff
+      g.ar.buff!m.ar.cycol
+
+      SPECIAL NOTES FOR CALLERS:
+
+      g.ar.buff!m.ar.cycol is modified to hold the colour passed as input
+      to the routine - hence callers should not highlight a new cycle
+      field if they have not de-highlighted the old one.
+
+      This routine uses certain hard-wired strings.
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ar.cycle (box, colour)
+      ------------------------
+
+      IF no string
+         THEN Initialise data input
+      ENDIF
+      IF colour is not old colour
+         THEN show string in colour
+      IF key pressed is 'change'
+         THEN show next string
+      ENDIF
+**/
+
+AND G.ar.cycle (box, colour) BE
+$( UNLESS g.ar.buff!m.ar.cycstr
+   THEN data.init (box)
+   IF G.key = m.kd.change
+   THEN next.string (box)
+   IF g.ar.buff!m.ar.cycol ~= colour | G.key = m.kd.change
+   THEN $( // LET m = g.sc.pointer (m.sd.off)
+           LET strptr = (box = m.ar.area) -> m.ar.gstr, m.ar.data
+           LET ypos   = (box = m.ar.area) -> m.ar.areaY, m.ar.dataY
+           g.sc.selcol (colour)
+           g.sc.movea (m.sd.display, m.ar.posX, ypos)
+           IF g.key = m.kd.change DO
+              g.sc.rect (m.sd.clrR, m.ar.unitsX-m.ar.posX, -m.sd.linW)
+           g.sc.movea (m.sd.display, m.ar.posX, ypos)
+           g.sc.ofstr (g.ar.buff+strptr)
+//           g.sc.pointer (m)
+        $)
+$)
+
+AND next.string (box) BE
+$( TEST box = m.ar.data
+   THEN $( LET string = VEC 7               // vector to point to strings below
+
+           string!m.ar.categorised := "Categorised"
+           string!m.ar.incidence   := "Incidence"
+           string!m.ar.absolute    := "Absolute values (additive)"
+           string!m.ar.ratio       := "Ratio"
+           string!m.ar.percentage  := "Percentage"
+           string!m.ar.means       := "Means"
+
+           IF g.ar.buff!m.ar.cycstr
+           g.ar.buff!m.ar.datatype :=
+           VALOF SWITCHON g.ar.buff!m.ar.datatype INTO
+           $( CASE m.ar.categorised : RESULTIS m.ar.incidence
+              CASE m.ar.incidence   : TEST g.context!m.data.type=m.ar.incidence
+                                      THEN RESULTIS m.ar.categorised
+                                      ELSE RESULTIS m.ar.absolute
+              CASE m.ar.absolute    : RESULTIS m.ar.ratio
+              CASE m.ar.ratio       : RESULTIS m.ar.percentage
+              CASE m.ar.percentage  : RESULTIS m.ar.means
+              CASE m.ar.means       : RESULTIS m.ar.categorised
+              DEFAULT               : RESULTIS m.ar.absolute
+           $)
+
+           MOVE (string!(g.ar.buff!m.ar.datatype), g.ar.buff+m.ar.data,
+                                                                m.ar.dstrwords)
+        $)
+   ELSE $( LET len = VEC 1
+           LET rec = VEC 1
+           G.ut.set32(m.ar.gazbytes, 0, len)
+           $( UNLESS g.ar.buff!m.ar.area.types = 1 DO
+              $( g.ar.buff!m.ar.areacyc := g.ar.buff!m.ar.areacyc + 1
+                 IF g.ar.buff!m.ar.areacyc > g.ar.buff!m.ar.area.types
+                 THEN g.ar.buff!m.ar.areacyc := 1
+              $)
+              G.ut.set32(G.ar.buff!m.ar.areacyc, 0, rec)
+              g.ut.mul32 (len, rec)
+              g.ar.selfs (m.dh.vfs)
+              IF G.ar.read.gaz(rec) = 0
+              THEN g.key := -m.st.inputed
+           $) REPEATWHILE ((g.context!m.discid   = m.dh.natA) &
+                           (g.ar.buff!m.ar.areas > m.ar.max.areas))
+        $)
+$)
+
+AND data.init(box) BE
+$( TEST box = m.ar.data
+   THEN TEST g.context!m.oldfile
+        THEN $( LET tag = ?
+                tag := VALOF SWITCHON g.ar.buff!m.ar.datatype INTO
+                $( CASE m.ar.categorised :
+                   CASE m.ar.incidence   :
+                   CASE m.ar.absolute    :
+                   CASE m.ar.ratio       :
+                   CASE m.ar.percentage  :
+                   CASE m.ar.means       : RESULTIS true
+                   DEFAULT               : RESULTIS false
+                $)
+                UNLESS tag DO
+                $( g.key := -m.st.inputed
+                   g.sc.ermess("Invalid data type: %n",G.ar.buff!m.ar.datatype)
+                $)
+             $)
+        ELSE g.ar.buff!m.ar.datatype := m.ar.absolute
+   ELSE $( LET rec.ptr = VEC 1
+           G.ut.set32(m.ar.gazbytes, 0, rec.ptr)
+           g.ar.selfs (m.dh.vfs)
+           IF G.ar.read.gaz(rec.ptr) = 0
+           THEN g.key := -m.st.inputed
+           TEST g.context!m.oldfile
+           THEN
+           $( LET file.ptr = VEC 1
+              LET tag = false
+              LET inc = 0
+              MOVE (rec.ptr, file.ptr, 2)
+              $( inc := inc + 1
+                 IF G.ar.read.gaz(file.ptr) = 0
+                 THEN g.key := -m.st.inputed
+                 g.ut.add32 (rec.ptr, file.ptr)
+                 IF g.ar.buff!m.ar.area = g.ar.buff!m.ar.areal.unit |
+                    g.ar.buff%(m.ar.gstr*bytesperword) = 1
+                 THEN tag := true
+              $) REPEATUNTIL tag = true
+              TEST g.ar.buff%(m.ar.gstr*bytesperword) = 1
+              THEN $( g.sc.ermess ("Invalid area type: %n",
+                      g.ar.buff!m.ar.areal.unit)
+                      g.ar.buff!m.ar.areacyc := m.ar.county-1
+                      g.key := -m.st.inputed
+                   $)
+              ELSE g.ar.buff!m.ar.areacyc := inc
+              g.ar.buff!m.ar.area.types   := 1
+           $)
+           ELSE
+           $( LET first.str = VEC 1
+              let t = vec 1
+              G.ut.set32(m.ar.county, 0, first.str)
+              g.ut.div32 (rec.ptr, g.ar.buff+m.ar.gptr, t)
+              g.ar.buff!m.ar.area.types := g.ar.buff!m.ar.gptr - 6 // 3
+              g.ar.buff!m.ar.areacyc    := m.ar.county - 1
+           $)
+       $)
+   next.string (box)
+   g.ar.buff!m.ar.cycstr := true
+$)
+
+and G.ar.read.gaz(rec) = valof
+$( let res = ?
+  
+   res := g.dh.read (g.ar.buff!m.ar.gaz, rec, g.ar.buff+m.ar.gbuff.r,
+                    m.ar.gazbytes)
+ 
+   UNLESS res = 0 THEN
+   $(
+      g.ar.buff!m.ar.area := G.ut.unpack16(g.ar.buff, m.ar.area.r)
+      g.ut.movebytes(g.ar.buff, m.ar.gstr.r, g.ar.buff, 
+                      m.ar.gstr*bytesperword, 32)
+      g.ar.buff!m.ar.areas := G.ut.unpack16(g.ar.buff, m.ar.areas.r)
+      G.ut.movebytes(g.ar.buff, m.ar.gptr.r, g.ar.buff, 
+                      m.ar.gptr*bytesperword, 12)
+   $)
+   resultis res
+$)
+ 
+
+.

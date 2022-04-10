@@ -1,0 +1,283 @@
+
+// AES Acorm Risc Machine Development source
+// module PMdebug - post mortem debugger
+//
+// Version of mapstore, etc. considerably modified by 
+// Paul Cunnell (Logica) for use in testing Domesday port
+// software. It hangs around after an Abort, and lets you
+// look at things. 
+
+SECTION "PMdebug"
+
+GET "LibHdr"
+
+STATIC
+$( /* Version of 2 Jun 87 11:13:20
+   */
+   dummy = VersionMark;
+   version = 1*256 + 3
+
+   STYLE=0; A=0          // A is current variable
+   REC.P=0; REC.L=0
+$)
+
+GLOBAL 
+$(
+   TopOfStore : 148
+$)  
+
+MANIFEST
+$( SectionStart       = #x4c504342;
+   StartRelocation    = #x12345678;
+   EndRelocation      = #x87654321;
+   EndMark            = 1002;
+   HunkMark           = 1001;
+   linelength         = 80;
+   UnsetGlobalMask    = #xFFFF0000;
+   UnsetGlobalValue   = #xAE950000;
+   PCMask             = #x03FFFFFC
+$)
+
+LET Debug() = VALOF
+$(  
+    LET CODE = -1
+    LET COUNT = ?
+
+    VARS  := TABLE 0,0,0,0,0,0,0,0,0,0
+    REC.P, REC.L := LEVEL(), NXTC
+    STYLE := 'D' ; A := 0      
+ 
+    UNRDCH()
+    RCH() REPEATUNTIL CH='*N' | CH=ENDSTREAMCH
+
+// Start of main loop.
+
+NXTC: WRITEF("**")
+NXT:  RCH()
+
+SW: 
+SWITCHON CH INTO
+$( DEFAULT: IF CH<32 GOTO NXT
+            XERROR("BAD COMMAND %C", CH)
+
+   CASE ENDSTREAMCH:       
+   CASE '*N': GOTO NXTC 
+   CASE '*S': GOTO NXT
+
+   CASE '*'':CASE 'V':CASE 'G':
+         A := RBEXP()
+         GOTO SW
+
+   CASE '#':
+   CASE '0':CASE '1':CASE '2':CASE '3':CASE '4':
+   CASE '5':CASE '6':CASE '7':CASE '8':CASE '9':
+             A := RBEXP()
+             IF CH = 'H'
+                THEN RCH() // get rid of 'H' rubbish
+             GOTO SW
+
+   CASE '.':CASE '!':CASE '+':CASE '-':CASE '**':
+   CASE '/':CASE '%':CASE '<':CASE '>':
+   CASE '&':CASE '|':
+            A := REXP(A)
+            GOTO SW
+
+   CASE '$': RCH()
+             UNLESS CH='C' | CH='X' | CH='D' | CH='O' DO
+                    XERROR("BAD STYLE CHAR %C", CH)
+             STYLE := CH
+             GOTO NXT
+
+   CASE '=': OUT(A)
+             NEWLINE()
+             GOTO NXT
+
+   CASE ':': RCH()
+             $( LET N= '0'<=CH<='9' | CH='*#' -> RBEXP()-1, 7
+                FOR I = 0 TO N DO
+                $( IF I REM 8 = 0 DO
+                    $( IF CHECKESC() BREAK
+                       PRADDR(A+I)
+                    $)
+                   OUT(A!I)     // BEWARE:- no '*N's output because BBC
+                $)              // VDU driver does one automatically if
+                NEWLINE()       // last column is written to
+             $)
+             GOTO SW
+
+   CASE 'H': ShowBlocks()
+             GOTO NXT
+
+   CASE 'C': DescribeCode(loadPoint)
+             GOTO NXT
+
+   CASE 'G': ShowGlobs()
+             GOTO NXT
+   
+   CASE '?': DoHelp()
+             GOTO NXT
+  
+   CASE 'M': Mapstore()
+             GOTO NXT
+
+   CASE 'X': RESULTIS TRUE // Exit from debug()
+
+$)  // end of switch
+
+GOTO NXT
+
+$)  // end of Debug()
+
+AND DoHelp() BE
+$(
+   Writes("*nPost-mortem debugger V1.1*n")
+   Writes("*nWorks like DEBUG, but has following options :*n")
+   Writes("*nX - Exit, ? - Help, H - show heap, C - show code")
+   Writes("*nG - Show Globals")
+   Writes("*n*n...plus all normal expression evaluation*n")
+$)
+
+AND OUT(A) BE SWITCHON STYLE INTO
+$( DEFAULT:
+   CASE 'D': WRITEF("%I7 ", A); RETURN
+   CASE 'C': OUTC(A); OUTC(A>>8); RETURN
+   CASE 'X': WRITEF("   %X4 ", A); RETURN
+   CASE 'O': WRCH('*S')
+             WROCT(A, 6)
+             WRCH('*S')
+             RETURN
+$)
+
+
+AND OUTC(C) BE
+   WRITEF("  %C ", SPCHAR(C))
+
+AND SPCHAR(C) = VALOF
+$( C := C & #X7F
+   IF 32 <= C < 127 THEN
+      RESULTIS C
+   IF C='*C' | C='*N' THEN
+      RESULTIS '**'
+   RESULTIS '.'
+$)
+
+AND PRADDR(A) BE
+$(  LET GLOBBASE = @MAXGLOB
+    A := A & #X7FFF
+    TEST GLOBBASE<=A<=GLOBBASE+MAXGLOB
+    THEN WRITEF(" G%I3 ", A-GLOBBASE)
+    ELSE TEST VARS<=A<=VARS+9
+         THEN WRITEF(" V%I2  ", A-VARS)
+         ELSE WRITEF("%I6", A)
+    WRITEF(" (%X4):  ", A)  $)
+
+AND RCH() BE $( CH := CAPCH( RDCH()) $)
+
+AND RDN(RADIX) = VALOF
+$(  LET A, GOODN = 0, FALSE
+
+    $( LET D = -1
+       IF '0'<=CH<='9' DO D := CH-'0'
+       IF 'A'<=CH<='F' DO D := 10+CH-'A'
+       UNLESS 0<=D<RADIX BREAK
+       GOODN := TRUE
+       A := A*RADIX + D
+       RCH()  $) REPEAT
+
+    UNLESS GOODN DO XERROR("BAD NUMBER")
+    RESULTIS A 
+$)
+
+AND RSIGCH() = VALOF
+$( WHILE CH='*S' DO RCH()
+   RESULTIS CH
+$)
+
+AND WROCT(N, D) BE
+   FOR I = 1 TO D DO
+      WRCH('0'+( (N >> (3*(D-I))) & 7 ))
+
+
+AND XERROR(S, A) BE
+$(  WRITEF(S, A)
+    NEWLINE()
+    UNRDCH()
+    RCH() REPEATUNTIL CH='*N'
+    LONGJUMP(REC.P, REC.L)
+$)
+
+AND REXP(A) = VALOF
+$(1 SWITCHON CH INTO
+
+    $( DEFAULT:   RESULTIS A
+
+       CASE '.':
+       CASE '!': A := !A;            ENDCASE
+       CASE '+': A := A+RBEXPB();    LOOP
+       CASE '-': A := A-RBEXPB();    LOOP
+       CASE '**':A := A*RBEXPB();    LOOP
+       CASE '/': A := A/RBEXPB();    LOOP
+       CASE '%': A := A REM RBEXPB();LOOP
+       CASE '<': A := A<<1;          ENDCASE
+       CASE '>': A := A>>1;          ENDCASE
+       CASE '&': A := A&RBEXPB();    LOOP
+       CASE '|': A := A|RBEXPB();    LOOP
+    $)
+    CH := CAPCH(RDCH())
+$)1 REPEAT
+
+
+AND RBEXP() = VALOF SWITCHON CH INTO
+$(1 DEFAULT:  XERROR("BAD EXPRESSION")
+
+    CASE '0':CASE '1':CASE '2':CASE '3':CASE '4':
+    CASE '5':CASE '6':CASE '7':CASE '8':CASE '9':
+              RESULTIS RDN(10)
+
+    CASE '*'': $( LET K = RDCH()
+                  RCH()
+                  RESULTIS K
+               $)
+
+    CASE '#': RCH()
+              IF CH='X' DO
+              $( RCH()
+                 RESULTIS RDN(16)
+              $)
+              RESULTIS RDN(8)
+
+    CASE 'G': RCH()
+              UNLESS '0'<=CH<='9' RESULTIS @MAXGLOB
+              $( LET N=RDN(10)
+                 IF N<=MAXGLOB
+                    RESULTIS (@MAXGLOB)!N
+              $)
+              XERROR("MAX GLOBAL %N",MAXGLOB)
+
+    CASE 'V': RCH()
+              UNLESS '0'<=CH<='9' RESULTIS VARS
+              RESULTIS VARS!RDN1()
+
+    CASE '-': RESULTIS -RBEXPB()
+    CASE '+': RESULTIS  RBEXPB()
+$)1
+
+
+AND RBEXPB() = VALOF $( RCH()  REPEATWHILE CH = '*S'
+                   RESULTIS RBEXP()  $)
+
+AND RDN1() = VALOF
+$(1 LET A = CH-'0'
+    UNLESS 0<=A<=9 DO XERROR("BAD NUMBER")
+    RCH()
+    RESULTIS A  $)1
+
+
+AND CHECKESC() = VALOF
+$(
+   LET r = OsByte( #x81, -113, #xFF )
+
+   RESULTIS (Result2 = r = #xFF)
+$)
+.
+

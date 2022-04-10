@@ -1,0 +1,358 @@
+SECTION "save"
+
+/**
+      SAVE - DATA STORE AND EXIT FUNCTIONS
+      ------------------------------------
+
+      This module contains
+         g.ar.save
+         g.ar.selfs
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.areal
+
+      REVSION HISTORY:
+
+      DATE     VERSION   AUTHOR     COMMENTS
+      12.6.87     1        SA       Initial Version
+      23.6.87     2        SA       New data message
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.gh.glGRhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.SAVE - SAVE OPERATION
+         --------------------------
+
+         Performs the save operation
+
+         INPUTS:
+
+         m.ar.data or m.ar.header
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.context variables
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.ar.save (screen)
+         ------------------
+
+         IF screen = header
+         THEN save header
+         IF screen = data
+         THEN save data page
+         ensure save
+**/
+
+LET G.ar.save (screen) BE
+$( TEST screen = m.ar.header
+   THEN store.header ()
+   ELSE g.ar.page (m.ar.store)
+   g.dh.ensure()
+$)
+
+
+/**
+      store.header()
+      Controls the storage of data in buffers
+      and out to current file.
+
+      INPUTS:
+      3 flags to indicate what to store and where
+
+      GLOBALS MODIFIED:
+      g.context!m.data.type
+      g.ar.buff!m.ar.datatype
+      g.ar.buff!m.ar.areal.unit
+      g.ar.buff!m.ar.range1/2/3/4
+      g.ar.buff!m.ar.norm
+      g.ar.buff!m.ar.units
+**/
+AND store.header () BE
+$(
+                                                                     //  ranges
+   LET ranges = g.ar.buff+m.ar.ranges
+   LET file.ranges = g.ar.buff+m.ar.range1
+   MOVE (ranges, file.ranges, 8)                       // ranges into g.ar.buff
+
+                                                                      // header
+   g.context!m.data.type     := g.ar.buff!m.ar.datatype
+   g.ar.buff!m.ar.areal.unit := g.ar.buff!m.ar.area
+   string.format (g.ar.buff+m.ar.units, m.ar.ulength)
+
+                                                                        // file
+   TEST g.context!m.oldfile
+   THEN old.file()
+   ELSE $( g.sc.clear (m.sd.message)
+           g.sc.mess ("Creating new data")
+           new.file()
+           new.data ()
+           g.context!m.oldfile := true
+           g.sc.clear (m.sd.message)
+        $)
+$)
+
+// ## stores data changed on an old file
+AND old.file () BE
+$( LET ptr = VEC 1
+   LET t = VEC 1
+   LET sumbuf = VEC 148/bytesperword
+   let buff = vec (m.ar.header.bytes/bytesperword) + 1 
+   g.ar.selfs (m.dh.adfs)
+
+                // file frig to accommodate new ranges
+   G.ut.mov32(g.ar.buff+m.ar.data.ptr, ptr)
+   G.ut.set32(m.ar.data.sec.bytes, 0, t)
+   g.ut.add32 (t, ptr)
+   G.ut.set32(m.ar.summary.bytes, 0, t)
+   g.ut.add32 (t, ptr)
+   IF g.ut.cmp32 (ptr, g.ar.buff+m.ar.values.ptr) = m.gt
+   THEN $( LET p = VEC 1
+           G.ut.mov32(ptr, p)
+           g.ut.sub32 (g.ar.buff+m.ar.values.ptr, p)
+           UNLESS g.dh.space (p) $( g.key := -m.st.inputed ; RETURN $)
+           g.gr.insert.bytes (p, g.ar.buff+m.ar.values.ptr)
+           g.ut.add32 (p, g.ar.buff+m.ar.values.ptr)
+           g.ar.buff!m.ar.value.off := g.ar.buff!m.ar.value.off +
+                                         (G.ut.unpack16(p, 0)/2)
+           g.ar.buff!m.ar.default.ranges := m.ar.num.of.class.intervals - 1
+        $)
+   g.ar.buff%(m.ar.size.default*bytesperword+m.msb) :=
+                                      m.ar.num.of.class.intervals - 1
+
+   G.ut.movebytes(g.ar.buff, m.ar.header*bytesperword, buff, 0, 120)
+   g.ut.movebytes(g.ar.buff, m.ar.datatype*bytesperword, buff, 120, 2)
+   g.ut.movebytes(g.ar.buff, m.ar.datasets*bytesperword, buff, 122, 2)
+   g.ut.movebytes(g.ar.buff, m.ar.areal.unit*bytesperword, buff, 124, 2)
+   g.ut.movebytes(g.ar.buff, m.ar.data.recno*bytesperword, buff, 126, 2)
+   g.ut.movebytes(G.ar.buff, m.ar.data.off*bytesperword, buff, 128, 2)
+   IF g.dh.write (g.context!m.data.handle, g.ar.buff+m.ar.header.ptr,
+                                  buff, m.ar.header.bytes) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+
+   g.ut.movebytes(g.ar.buff, m.ar.value.recno*bytesperword, buff, 0, 2)
+   g.ut.movebytes(g.ar.buff, m.ar.value.off*bytesperword, buff, 2, 2)
+   g.ut.movebytes(g.ar.buff, m.ar.norm*bytesperword, buff, 4, 4)
+   g.ut.movebytes(g.ar.buff, m.ar.areas.file*bytesperword, buff, 8, 4)
+   g.ut.movebytes(g.ar.buff, m.ar.size.default*bytesperword, buff, 12, 2)
+   g.ut.movebytes(g.ar.buff, m.ar.range1*bytesperword, buff, 14, 4)
+   g.ut.movebytes(g.ar.buff, m.ar.range2*bytesperword, buff, 18, 4)
+   g.ut.movebytes(g.ar.buff, m.ar.range3*bytesperword, buff, 22, 4)
+   g.ut.movebytes(g.ar.buff, m.ar.range4*bytesperword, buff, 26, 4)
+
+   IF g.dh.write (g.context!m.data.handle, g.ar.buff+m.ar.data.ptr,
+                              buff, m.ar.data.sec.bytes) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+   summary (sumbuf)
+   G.ut.set32(m.ar.summary.bytes, 0, t)
+   g.ut.sub32 (t, ptr)
+   IF g.dh.write (g.context!m.data.handle, ptr, sumbuf, m.ar.summary.bytes) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+$)
+
+// put string into videodisc structure format
+AND string.format (string, length) BE
+$( LET chs = string%0
+   FOR H = chs+1 TO length DO
+      string%H := '*s'
+$)
+
+// stores header, data and summary data for a new file
+AND new.file () BE
+$( LET ptr   = VEC 1
+   LET space = VEC 1
+   LET blank = VEC 40/bytesperword
+   LET buff  = VEC 160/bytesperword // = m.ar.header.bytes + m.ar.data.sec.bytes
+   LET new.header1 = TABLE #X0300, -1, -1, -1, -1, -1, -1,
+                               0,  0,  0,  0,  0,  0, -1
+   LET new.header2 = TABLE #XFFFF0300, -1, -1, #XFFFF, 0, 0, #XFFFF0000
+   LET new.header = bytesperword = 2 -> new.header1, new.header2
+   LET t = VEC 0
+   G.ut.set32(m.ar.header.offset + m.ar.header.bytes + m.ar.data.sec.bytes +
+                m.ar.summary.bytes, 0, space)
+   G.ut.set32(0, 0, ptr)
+   G.ut.set32(#X2020, #X2020, blank)    // insert text spaces
+   MOVE (blank, blank+1, 40/bytesperword)
+   g.ar.selfs (m.dh.adfs)
+   UNLESS g.dh.space (space) $( g.key := -m.st.inputed ; RETURN $)
+   IF g.dh.write (g.context!m.data.handle, ptr, new.header,
+                                                        m.ar.header.offset) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+
+   MOVE (blank, buff, 40/bytesperword)
+   MOVE (g.ar.buff+m.ar.units, buff+(40/bytesperword), 40/bytesperword)
+   MOVE (blank, buff+(80/bytesperword), 40/bytesperword)  
+   G.ut.movebytes(G.ar.buff, m.ar.datatype*bytesperword, buff, 120, 2)
+   !t := 1
+   G.ut.movebytes(t, 0, buff, 122, 2)
+   G.ut.movebytes(G.ar.buff, m.ar.areal.unit*bytesperword, buff, 124, 2)
+   !t := 0
+   G.ut.movebytes(t, 0, buff, 126, 2)
+   !t := (m.ar.header.offset + m.ar.header.bytes)/2
+   G.ut.movebytes(t, 0, buff, 128, 2)
+   !t := 0
+   G.ut.movebytes(t, 0, buff, 130, 2)
+   !t := (m.ar.header.offset + m.ar.header.bytes +m.ar.data.sec.bytes +
+                                       m.ar.summary.bytes)/2
+   G.ut.movebytes(t, 0, buff, 132, 2)
+   G.ut.movebytes(G.ar.buff, m.ar.norm*bytesperword, buff, 134, 2)
+   !t := 0
+   G.ut.movebytes(t, 0, buff, 136, 2)
+   G.ut.movebytes(G.ar.buff, m.ar.areas*bytesperword, buff, 138, 2)
+   !t := 0
+   G.ut.movebytes(t, 0, buff, 140, 2)
+   !t := #X0404
+   G.ut.movebytes(t, 0, buff, 142, 2)
+   for i = 0 to 3 G.ut.mov32(G.ar.buff+m.ar.ranges+i*2, buff+
+                                                      (144/bytesperword)+i)
+   G.ut.set32(m.ar.header.offset, 0, ptr)
+   IF g.dh.write (g.context!m.data.handle, ptr, buff,
+                                   (m.ar.header.bytes+m.ar.data.sec.bytes)) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+
+   G.ut.set32(m.ar.header.offset + m.ar.header.bytes + m.ar.data.sec.bytes,
+               0, ptr)
+   summary (buff)
+   IF g.dh.write (g.context!m.data.handle, ptr, buff, m.ar.summary.bytes) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+                                 // ensure default values are present in buffer
+   IF g.dh.read (g.context!m.data.handle, g.ar.buff+m.ar.header.ptr,
+                                  g.ar.buff+m.ar.header, m.ar.header.bytes) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+   IF g.dh.read (g.context!m.data.handle, g.ar.buff+m.ar.data.ptr,
+                              g.ar.buff+m.ar.data.sec, m.ar.data.sec.bytes) = 0
+   THEN $( g.key := -m.st.inputed ; RETURN $)
+$)
+
+// puts summary data into a buffer
+AND summary (buf) BE
+$( LET t = VEC 1
+   G.ut.set32(0, #X8000, t)
+   FOR A = 0 TO 2 DO G.ut.mov32(t, buf+A) 
+                                                   // min, max, average
+   sumdata (3, buf, 10) // equal - 4
+   sumdata (4, buf, 24) // equal - 5
+   sumdata (5, buf, 42) // equal - 6
+   sumdata (3, buf, 64) // nested means
+   sumdata (3, buf, 78) // quartiles
+   sumdata (4, buf, 92) // quintiles
+   sumdata (5, buf, 110) // sextiles
+   sumdata (3, buf, 132) // signed Chi-squared
+$)
+
+AND sumdata (n, buf, byte.offset) BE
+$( LET t = VEC 1
+   let n.buf = vec 0
+   let t.buf = ?
+   
+   !n.buf := n
+   G.ut.movebytes(n.buf, 0, buf, byte.offset+2, 2)
+   t.buf := GETVEC(n)
+   G.ut.movebytes(buf, byte.offset+4, t.buf, 4, n*bytesperword)
+   G.ut.set32(0, #X8000, t)
+   FOR C = 1 TO n DO G.ut.mov32(t, t.buf+c)
+   G.ut.movebytes(t.buf, 4, buf, byte.offset+4, n*bytesperword)
+   FREEVEC(t.buf)
+$)
+
+// sets new data values in file to missing value
+AND new.data() BE
+$( LET buf   = VEC 200/bytesperword
+   LET ptr   = VEC 1
+   LET bytes = VEC 1
+   LET out   = VEC 1
+   LET size  = VEC 1
+   let t = VEC 1
+   let dummy = ?
+
+   G.ut.set32(g.ar.buff!m.ar.size, 0, size)
+   G.ut.set32(g.ar.buff!m.ar.areas, 0, bytes)
+   g.ut.mul32 (size, bytes)
+
+   SWITCHON g.ar.buff!m.ar.size INTO
+   $( CASE 2  : G.ut.set32(#X8000, #X8000, buf)
+                MOVE (buf, buf+1, 200/bytesperword)
+                ENDCASE
+      CASE 4  : FOR G = 0 TO 199 BY bytesperword DO
+                      G.ut.set32(0, #X8000, buf+(G/bytesperword))
+                ENDCASE
+      DEFAULT : ENDCASE
+   $)
+
+   MOVE (g.ar.buff+m.ar.values.ptr, ptr, 2)
+   g.ar.selfs (m.dh.adfs)
+   UNLESS g.dh.space (bytes) $( g.key := -m.st.inputed ; RETURN $)
+  
+   $( LET t = VEC 1
+      LET bytes.left = ?
+      G.ut.set32(200, 0, t)
+      bytes.left := (g.ut.cmp32 (t, bytes) = m.lt)
+      G.ut.set32((bytes.left -> 200, G.ut.unpack16(bytes, 0)), 0, out)
+      IF g.dh.write (g.context!m.data.handle, ptr, buf, out!0) = 0
+      THEN $( g.key := -m.st.inputed ; RETURN $)
+      g.ut.add32 (out, ptr)
+      g.ut.sub32 (out, bytes)
+      G.ut.set32(0, 0, t)
+   dummy := g.ut.cmp32(t, bytes)
+   $) REPEATUNTIL dummy = m.eq
+//   $) REPEATUNTIL (g.ut.cmp32(t, bytes) = m.eq)
+$)
+
+/**
+// sets new data values in file to missing value
+AND new.data() BE
+$( LET buf   = VEC 200/bytesperword
+   LET ptr   = VEC 1
+   LET bytes = VEC 1
+   LET out   = VEC 1
+   LET t = vec 1
+
+   G.ut.set32(0, 0, t)
+   SWITCHON g.ar.buff!m.ar.size INTO
+   $( CASE 2  : buf!0 := #X8000
+                MOVE (buf, buf+1, 200/bytesperword)
+                ENDCASE
+      CASE 4  : FOR G = 0 TO 199 BY bytesperword DO
+                    G.ut.set32(0, #X8000, buf+(G/bytesperword))
+                ENDCASE
+      DEFAULT : ENDCASE
+   $)
+   MOVE (g.ar.buff+m.ar.values.ptr, ptr, 2)
+   G.ut.set32((g.ar.buff!m.ar.areas)*(g.ar.buff!m.ar.size)), 0, bytes)
+   g.ar.selfs (m.dh.adfs)
+   UNLESS g.dh.space (bytes) $( g.key := -m.st.inputed ; RETURN $)
+   $( G.ut.set32(((G.ut.unpack16(bytes, 0) > 200) -> 200,
+                              G.ut.unpack16(bytes, 0)), 0, out)
+      IF g.dh.write (g.context!m.data.handle, ptr, buf,
+                                          G.ut.unpack16(out, 0) = 0
+      THEN $( g.key := -m.st.inputed ; RETURN $)
+      g.ut.add32 (out, ptr)
+      g.ut.sub32 (out, bytes)
+   $) REPEATUNTIL G.ut.cmp32(t, bytes) = m.eq
+$)
+**/
+// changes filing system to that specified if it is not the current system
+AND g.ar.selfs (fs) BE
+$( IF g.dh.fstype () ~= fs
+   THEN g.vh.call.oscli (fs = m.dh.vfs -> "vfs*c", "adfs*c")
+$)
+.
+

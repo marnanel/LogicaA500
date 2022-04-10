@@ -1,0 +1,504 @@
+section "ma3"
+
+/**
+         MA.B.MA3 - File access Routines
+         -------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         12.06.87    1     AEG      Initial version
+          3.08.87    2     SRY      Changed messages
+          4.08.87    3     SRY      Fixed 4-byte overflow
+         11.08.87    4     SA       Overflow message flagged in g.ma.addval
+         23.10.87    5     MH       updated for UNI version
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.mahd"
+
+STATIC
+$(
+   r.buffer = ?       // user read buffer for file data
+   w.buffer = ?       // user write buffer for file data
+   r.base = ?         // lowest address of file contained in user read buffer
+   w.base = ?         // lowest address of file contained in user write buffer
+   r.top = ?          // highest address of file contained in user read buffer
+   w.top = ?          // highest address of file contained in user write buffer
+   r.ptr = ?          // pointer to read buffer
+   w.ptr = ?          // pointer to write buffer
+   one = ?            // value one for 32 bit calculations
+   data.offset = ?    // offset of data in file
+   data.len = ?       // length of data in file
+   buf.len32 = ?      // length of user buffer for 32 bit calculations
+   block.no = ?       // block number
+   buf.len = ?        // length of user buffer
+   handle = ?         // file handle
+   change = ?         // TRUE if user buffer has been changed
+   update = ?         // TRUE if data length needs to be updated
+   more.bytes = ?     // number of extra bytes required in file
+   dir = ?            // moving up or down file
+   end.buf = ?        // end of buffer marker
+   remvar = ?         // remove variable flag
+   overflag = ?       // show overflow message in  g.ma.addval
+$)
+
+/*
+   initialise variables
+*/
+
+LET G.ma.inibuf (length, direction, remflg) BE
+$(
+   r.base := GETVEC (1)                        // get variables
+   w.base := GETVEC (1)
+   r.top  := GETVEC (1)
+   w.top  := GETVEC (1)
+   data.offset := GETVEC (1)
+   data.len    := GETVEC (1)
+   buf.len32   := GETVEC (1)
+   more.bytes  := GETVEC (1)
+   one := GETVEC (1)
+
+   G.ut.set32(0, 0, r.base)                 // initialise variables
+   G.ut.set32(0, 0, w.base)
+   G.ut.set32(0, 0, r.top)
+   G.ut.set32(0, 0, w.top)
+   block.no := 0
+   change := FALSE
+   update := FALSE
+   G.ut.set32(1, 0, one)
+
+   buf.len := MAXVEC ()                            // buffer length in words
+   if buf.len > 32767 buf.len := 32767
+   // g.sc.ermess ("Maxvec %N", buf.len)
+   buf.len := buf.len - (buf.len REM 4)            // make divisible by 8 bytes
+   buf.len := buf.len / 2                          // two equal buffers
+   buf.len := buf.len - 4                          // for safety
+   r.buffer := GETVEC (buf.len)
+   w.buffer := GETVEC (buf.len)
+   buf.len := buf.len * bytesperword               // convert to bytes
+   G.ut.set32(buf.len, 0, buf.len32)           // for 32 bit calculations
+
+   handle := g.context!m.data.handle
+   G.ut.set32(m.ma.offset, 0, data.offset)
+   G.ut.mov32(length, data.len)
+   remvar := remflg
+   dir := direction
+   TEST dir = m.ma.up THEN end.buf := -1
+   ELSE end.buf := buf.len
+   r.ptr := end.buf
+   w.ptr := end.buf
+$)
+
+/*
+   read required block into specified buffer, and set up offset into buffer
+*/
+and G.ma.getbuf (file.offset, read) = VALOF
+$(
+   TEST read THEN
+   $(
+      block.no := g.ma.get.block.no (file.offset, buf.len32)
+      g.ma.calc.offset (r.base, r.top, block.no, buf.len32)
+      UNLESS g.ma.read.block (r.base, r.top, data.len, data.offset, handle,
+                                                              r.buffer) THEN
+         RESULTIS FALSE
+      r.ptr := g.ma.get.buf.offset (file.offset, r.base)
+   $)
+   ELSE
+   $(
+      IF change THEN
+      $(
+         IF update THEN
+         $(
+            g.ut.add32 (more.bytes, data.len)
+            update := FALSE
+         $)
+         UNLESS g.ma.write.block(w.base, w.top, data.len, data.offset,
+                                                     handle, w.buffer) THEN
+            RESULTIS FALSE
+      $)
+      block.no := g.ma.get.block.no (file.offset, buf.len32)
+      g.ma.calc.offset (w.base, w.top, block.no, buf.len32)
+      change := FALSE
+      w.ptr := g.ma.get.buf.offset (file.offset, w.base)
+   $)
+   RESULTIS TRUE
+$)
+
+/*
+   move a number of data bytes from read buffer to write buffer
+*/
+and G.ma.move.data (ptr1, ptr2, count, bytes.val) = VALOF
+$(
+   LET offset = ?
+   LET num.bytes = ?
+
+   num.bytes := count * bytes.val
+   change := TRUE
+   FOR i = 1 TO num.bytes DO
+   $(
+      IF r.ptr = end.buf THEN
+      $(
+         UNLESS g.ma.getbuf (ptr1, TRUE) THEN
+         $(
+            g.ma.tidy.up ()
+            RESULTIS FALSE
+         $)
+      $)
+      IF w.ptr = end.buf THEN
+      $(
+         UNLESS g.ma.getbuf (ptr2, FALSE) THEN
+         $(
+            g.ma.tidy.up ()
+            RESULTIS FALSE
+         $)
+      $)
+      w.buffer%w.ptr := r.buffer%r.ptr              // move data byte
+      w.ptr := w.ptr + dir                          // update pointers
+      r.ptr := r.ptr + dir
+      TEST dir = m.ma.down THEN
+      $(
+         g.ut.add32 (one, ptr1)
+         g.ut.add32 (one, ptr2)
+      $)
+      ELSE
+      $(
+         g.ut.sub32 (one, ptr1)
+         g.ut.sub32 (one, ptr2)
+      $)
+   $)
+   RESULTIS TRUE
+$)
+
+/*
+   store a number of 0 data values in write buffer
+*/
+and G.ma.init.data (ptr, count, bytes.val) = VALOF
+$(
+   LET offset = ?
+   LET num.bytes = ?
+
+   num.bytes := count * bytes.val
+   FOR i = 1 TO num.bytes
+   $(
+      IF w.ptr = end.buf THEN
+      $(
+         UNLESS g.ma.getbuf (ptr, FALSE) THEN
+         $(
+            g.ma.tidy.up ()
+            RESULTIS FALSE
+         $)
+      $)
+      w.buffer%w.ptr := 0
+      change := TRUE
+      w.ptr := w.ptr + dir
+      g.ut.sub32 (one, ptr)
+   $)
+   RESULTIS TRUE
+$)
+
+
+/*
+   delete data by incrementing pointer
+*/
+and G.ma.delete.data (ptr, count, bytes.val) = VALOF
+$(
+   LET offset = ?
+   LET num.bytes = ?
+
+   num.bytes := count * bytes.val
+   FOR i = 1 TO num.bytes
+   $(
+      IF r.ptr = end.buf THEN
+      $(
+         UNLESS g.ma.getbuf (ptr, TRUE) THEN
+         $(
+            g.ma.tidy.up ()
+            RESULTIS FALSE
+         $)
+      $)
+      r.ptr := r.ptr + dir
+      g.ut.add32 (one, ptr)
+   $)
+   RESULTIS TRUE
+$)
+
+/*
+   add value at ptr1 to value at ptr2 - each value is 1, 2 or 4 bytes
+   the 1 and 2 byte numbers can be signed or unsigned
+   4-byte numbers are SIGNED! - SRY
+*/
+and g.ma.addval (ptr1, ptr2, bytes.val, sign, set.mess) = VALOF
+$(
+   LET top.bit.set, convert = ?, ?
+   LET buf.off = ?
+   LET val1 = VEC (1)
+   LET val2 = VEC (1)
+   LET bytes32 = VEC (1)
+
+   IF set.mess THEN overflag := TRUE
+
+   G.ut.set32(0, 0, val1)
+   G.ut.set32(0, 0, val2)
+   G.ut.set32(bytes.val, 0, bytes32)
+
+   // g.sc.ermess("p1 #X%X4%X4 p2 #X%X4%X4", ptr1!1, !ptr1, ptr2!1, !ptr2)
+   UNLESS get.value(ptr1, bytes.val, val1, @buf.off, TRUE) THEN RESULTIS FALSE
+   UNLESS get.value(ptr2, bytes.val, val2, @buf.off, FALSE) THEN RESULTIS FALSE
+   // g.sc.ermess("v1 #X%X4%X4 v2 #X%X4%X4", val1!1, !val1, val2!1, !val2)
+   // determine whether values are signed and do necessary arithmetic
+   TEST bytes.val = 4 THEN
+   $( // let tb1 = (val1!1 & #x8000)
+      // let tb2 = (val2!1 & #x8000)
+      // NB Problem occurs here if we have negative and positive numbers
+      // added together - add32 is unsigned and thinks overflow has occurred
+      // test
+      g.ut.add32(val1, val2)
+      // then overflow()
+      // Fix 4.8.87 SRY
+      // else if (tb1 = tb2) & ((val2!1 & #x8000) ~= tb1) overflow()
+   $)
+   ELSE
+   $(
+      TEST bytes.val = 2 THEN
+      $(
+         TEST sign THEN
+         $(
+            convert := 0
+            top.bit.set := #X8000
+            signed.add (val1, val2, convert, top.bit.set)
+         $)
+         ELSE
+         $(
+            // if bit 17 is set then overflow has occurred
+            g.ut.add32 (val1, val2)
+            UNLESS ((G.ut.unpack16(val2, 2) & #X0001) = 0) overflow()
+         $)
+      $)
+      ELSE
+      $(
+         // byte.val = 1
+         TEST sign THEN
+         $(
+            convert := #X0100
+            top.bit.set := #X0080
+            signed.add (val1, val2, convert, top.bit.set)
+         $)
+         ELSE
+         $(
+            // if bit 9 is set then overflow has occurred
+            g.ut.add32 (val1, val2)
+            UNLESS ((G.ut.unpack16(val2, 0) & #X0100) = 0) overflow()
+         $)
+      $)
+   $)
+   // g.sc.ermess("Final val #X%X4%X4", val2!1, !val2)
+   put.value (buf.off, bytes.val, val2)
+   RESULTIS TRUE
+$)
+
+/*
+   check that there is enough space to insert the required number of bytes
+   at the end of the file
+   Note that some of the data at the end of the file may be discarded and
+   can therefore be overwritten (this is the difference between the actual
+   length of the file, and the calculated length of the data)
+*/
+and g.ma.space (num.bytes) = VALOF
+$(
+   LET len32 = VEC (1)
+   LET file.extra = VEC (1)
+   LET t = VEC (1)
+
+   G.ut.mov32(num.bytes, more.bytes)
+   g.dh.length (handle, file.extra)               // actual length of file
+   G.ut.set32(0, 0, t)
+   IF G.ut.cmp32(file.extra, t) = m.eq THEN
+   $(
+      g.sc.ermess ("File has zero length")
+      RESULTIS FALSE
+   $)
+   g.ut.sub32 (data.offset, file.extra)           // minus (offset - 1)
+   g.ut.sub32 (one, file.extra)                   // minus 1
+   g.ut.sub32 (data.len, file.extra)              // find no of extra bytes
+   IF g.ut.cmp32 (num.bytes, file.extra) = m.gt THEN
+   $(
+      g.ut.sub32 (file.extra, num.bytes)          // extra bytes needed
+      UNLESS g.dh.space (num.bytes) THEN
+      $(
+         // g.sc.ermess ("File cannot be extended") // commented out SRY 3.8
+         RESULTIS FALSE
+      $)
+   $)
+   // update data length later, after the first read
+   update := TRUE
+   RESULTIS TRUE
+$)
+
+/*
+   write the user buffer to file (if necessary) and free all vectors
+*/
+and G.ma.endbuf() = VALOF
+$(
+   IF change THEN
+   $(
+      IF update THEN
+      $(
+         g.ut.add32 (more.bytes, data.len)
+         update := FALSE
+      $)
+      UNLESS g.ma.write.block (w.base, w.top, data.len, data.offset, handle,
+                                                              w.buffer) THEN
+        RESULTIS FALSE
+   $)
+   r.ptr := end.buf
+   w.ptr := end.buf
+   RESULTIS TRUE
+$)
+
+and g.ma.tidy.up () BE
+$(
+   FREEVEC (r.buffer)
+   FREEVEC (w.buffer)
+   FREEVEC (r.base)
+   FREEVEC (w.base)
+   FREEVEC (r.top )
+   FREEVEC (w.top )
+   FREEVEC (data.offset)
+   FREEVEC (data.len)
+   FREEVEC (buf.len32)
+   FREEVEC (more.bytes)
+   FREEVEC (one)
+$)
+
+and get.value (ptr, count, value, buf.off, read) = VALOF
+$(
+   LET buf.ptr = ?          // temporary pointer for write buffer
+
+/*
+   the buffers always contain whole numbers of data values, so once the first
+   ptr is obtained, don't need to check that the rest of the values are in the
+   buffer
+*/
+   TEST read THEN
+   $(
+      IF r.ptr = end.buf THEN
+         UNLESS g.ma.getbuf (ptr, TRUE) THEN
+            RESULTIS FALSE
+      // g.sc.ermess("r.ptr %n", r.ptr)
+      FOR i = 1 TO count DO
+      $(
+         value%(i-1) := r.buffer%r.ptr
+         r.ptr := r.ptr + dir
+         g.ut.add32 (one, ptr)
+      $)
+   $)
+   ELSE
+   $(
+      // the value to be added is not necessarily at w.ptr so may have to
+      // read a new block
+      TEST not.in.block (w.base, w.top, ptr) THEN
+      $(
+         UNLESS g.ma.getbuf (ptr, FALSE) THEN
+            RESULTIS FALSE
+         buf.ptr := w.ptr     // set up temporary pointer for write buffer
+         w.ptr := end.buf     // ensure original block is set up next time
+      $)
+      ELSE buf.ptr := g.ma.get.buf.offset (ptr, w.base)
+
+      // g.sc.ermess("buf.ptr %n", buf.ptr)
+      FOR i = 1 TO count DO
+      $(
+         value%(i-1) := w.buffer%buf.ptr
+         buf.ptr := buf.ptr + dir
+         g.ut.add32 (one, ptr)
+      $)
+      buf.ptr := buf.ptr - count        // restore pointer to start of value
+      G.ut.set32(buf.ptr, G.ut.unpack16(buf.off, 2), buf.off)
+   $)
+   RESULTIS TRUE
+$)
+
+and put.value (buf.ptr, count, value) BE
+$(
+   change := TRUE
+   FOR i = 1 TO count DO
+   $(
+      w.buffer%buf.ptr := value%(i-1)
+      buf.ptr := buf.ptr + dir
+   $)
+$)
+
+and not.in.block (base, top, ptr) = VALOF
+$(
+   RESULTIS (g.ut.cmp32 (base, ptr) = m.gt) |
+            (g.ut.cmp32 (top, ptr) = m.lt)
+$)
+
+and signed.add (val1, val2, convert, top.bit.set) BE
+$(
+   LET set, one.minus, two.minus = FALSE, FALSE, FALSE
+
+   UNLESS (G.ut.unpack16(val1, 0) & top.bit.set) = 0 THEN
+   $(
+      G.ut.set32(convert - G.ut.unpack16(val1, 0), G.ut.unpack16(val1, 2),
+                  val1)
+      one.minus := TRUE
+   $)
+   UNLESS (G.ut.unpack16(val2, 0) & top.bit.set) = 0 THEN
+   $(
+      G.ut.set32(convert - G.ut.unpack16(val2, 0), G.ut.unpack16(val2, 2),
+                  val2)
+      two.minus := TRUE
+   $)
+
+   TEST one.minus & two.minus THEN
+   $(                                                // add if both negative
+      set := TRUE
+      g.ut.add32 (val1, val2)
+   $)
+   ELSE TEST one.minus & NOT two.minus THEN          // subtract if different
+   $(
+      TEST g.ut.cmp32 (val1, val2) = m.gt THEN
+      $(
+         g.ut.sub32 (val2, val1)
+         G.ut.mov32(val1, val2)
+         set := TRUE
+      $)
+      ELSE g.ut.sub32 (val1, val2)
+   $)
+   ELSE TEST NOT one.minus & two.minus THEN
+   $(
+      TEST g.ut.cmp32 (val1, val2) = m.lt THEN
+      $(
+         g.ut.sub32 (val1, val2)
+         set := TRUE
+      $)
+      ELSE
+      $(
+         g.ut.sub32 (val2, val1)
+         G.ut.mov32(val1, val2)
+      $)
+   $)
+   ELSE
+   $(
+       set := FALSE
+       g.ut.add32 (val1, val2)                       // add if both positive
+   $)
+   UNLESS (G.ut.unpack16(val2, 0) & top.bit.set) = 0 overflow()
+   IF set THEN
+      G.ut.set32(convert - G.ut.unpack16(val2, 0), G.ut.unpack16(val2, 2),
+                  val2) // make negative
+$)
+
+and overflow() be
+$( IF overflag
+   THEN g.sc.ermess ("Overflow while adding data values")
+   overflag := FALSE
+$)
+.
+

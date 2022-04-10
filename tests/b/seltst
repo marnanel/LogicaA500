@@ -1,0 +1,19 @@
+section "seltst"
+
+get "libhdr"
+get ":4.ads.gh.glhd"
+
+let start () be
+$(
+   g.context := getvec( m.contextsize )
+
+   g.context!m.discid := g.dh.discid()
+
+   $( let num, rc = ?,?
+      writef ("*N*NTurn to which side? ")
+      num := readn ()     
+      if num = -1 stop(256)
+      rc := g.dh.select.disc (num)
+      writef ("*Nrc from g.dh.seldisc is %N", rc)
+   $) repeat
+$)

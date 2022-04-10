@@ -1,0 +1,273 @@
+ REM > Skeleton
+ REM /// Skeleton BASIC program to control Wimp ///
+ 
+ DIM fontcounts 256
+ FOR I%=0 TO 255:
+ fontcounts?I%=0:
+ NEXT
+ 
+ MODE 12
+ ON ERROR PROCerrordisplay(ERR,REPORT$,ERL)
+ 
+ REM -- set up palette
+ VDU 23,25,3,2,4,6,8,10,12,14       :
+  REM 3 bits per pixel anti-aliasing
+ VDU 23,25,&80,1,&F0,&F0,&F0,0,0,0  :
+  REM black on white text
+ *Print !NewPal
+ *Print F.Wimp
+ *SMerge Sprites.Skeleton
+ 
+ REM -- dimension arrays
+ DIM q% &300
+ DIM curbuf% &1000:
+ endbuf%=curbuf%+&1000 :
+  REM for workspace allocation
+ DIM erroraddr%(4)                       :
+  REM for formatting error messages
+ 
+ REM -- Start Wimp going
+ SYS "Wimp_Initialise" TO version%
+ minv%=12
+ IF version%<minv% THEN ERROR 1,"Needs at least Wimp "+STR$(minv%/100)
+ dragging%=FALSE:
+ dialogue%=-1
+ 
+ REM -- Create Windows
+ SYS "Wimp_OpenTemplate",,"Templates.Skeleton"
+ ON ERROR SYS "Wimp_CloseTemplate":
+ PROCerrordisplay(ERR,REPORT$,ERL)
+ iconbar%=FNtemplate("iconbar")
+ example1%=FNtemplate("example1")
+ example2%=FNtemplate("example2")
+ errorbox%=FNtemplate("errorbox")
+ SYS "Wimp_CloseTemplate"
+ ON ERROR PROCerrordisplay(ERR,REPORT$,ERL)
+ PROCfront(iconbar%)
+ 
+ REM -- Draw screen and pointer
+ SYS "Wimp_ForceRedraw",-1,0,0,1280,1024
+ *Pointer
+ 
+ REM -- Error handler - drops through to Wimp_Poll
+ inerror%=FALSE
+ ON ERROR PROCerrorbox(ERR,REPORT$,ERL)
+ 
+ REM -- Main Polling loop
+ REPEAT
+   SYS "Wimp_Poll",&00,q% TO action%
+   CASE action% OF
+     WHEN 0:
+      REM -- do user operations
+     WHEN 1:
+      PROCredraw(!q%)
+     WHEN 2:
+      PROCopen(!q%,q%!4,q%!8,q%!12,q%!16,q%!20,q%!24,q%!28)
+     WHEN 3:
+      PROCclose(!q%)
+     WHEN 6:
+      PROCmouse(!q%,q%!4,q%!8,q%!12,q%!16,q%!20)
+     WHEN 7:
+      dragging%=FALSE
+     WHEN 8:
+      REM decode keys
+     WHEN 9:
+      REM decode menu selection
+   ENDCASE
+ UNTIL FALSE
+ 
+ DEF PROCredraw(handle%)
+ !q%=handle%
+ SYS "Wimp_RedrawWindow",,q% TO more%
+ PROCinfo(q%+4)
+ CASE handle% OF
+   WHEN example1%:
+   PROCdraw_example1
+   WHEN example2%:
+   PROCdraw_example2
+ ENDCASE
+ ENDPROC
+ 
+ DEF PROCdraw_example1
+ WHILE more%
+   MOVE bx%+175,by%-175:
+   PLOT &95,bx%+20,by%-175
+   SYS "Wimp_GetRectangle",,q% TO more%
+ ENDWHILE
+ ENDPROC
+ 
+ DEF PROCdraw_example2
+ WHILE more%
+   gx0%=q%!28:
+   gy0%=q%!32:
+   gx1%=q%!36:
+   gy1%=q%!40
+   gx0%=(gx0%-bx%)DIV32*32+bx%
+   gy1%=(gy1%-by%)DIV32*32+by%
+   FOR y%=gy1% TO gy0%-32 STEP -32
+     FOR x%=gx0% TO gx1% STEP 32
+       MOVE x%+16,y%+16:
+       PLOT &9D,x%+2,y%+16
+     NEXT x%,y%
+     SYS "Wimp_GetRectangle",,q% TO more%
+   ENDWHILE
+   ENDPROC
+   
+   DEF PROCinfo(p%)
+   x0%=!p%:
+   y0%=p%!4:
+   x1%=p%!8:
+   y1%=p%!12
+   scx%=p%!16:
+   scy%=p%!20:
+   bhandle%=p%!24
+   bx%=x0%-scx%:
+   by%=y1%-scy%    :
+    REM all drawing should be relative to bx%,by%
+   ENDPROC
+   
+   DEF PROCgetw(h%)
+   !q%=h%:
+   SYS "Wimp_GetWindowState",,q%
+   PROCinfo(q%+4)
+   ENDPROC
+   
+   DEF PROCfront(h%)
+   !q%=h%
+   SYS "Wimp_GetWindowState",,q% :
+    q%!28=-1
+   SYS "Wimp_OpenWindow",,q%
+   ENDPROC
+   
+   DEF PROCopen(handle%,x0%,y0%,x1%,y1%,scx%,scy%,bhandle%)
+   !q%=handle%
+   q%!4=x0%:
+   q%!8=y0%:
+   q%!12=x1%:
+   q%!16=y1%
+   q%!20=scx%:
+   q%!24=scy%
+   q%!28=bhandle%
+   SYS "Wimp_OpenWindow",,q%
+   IF handle%=dialogue% THEN
+       PROCgetw(handle%)
+       MOUSE RECTANGLE x0%,y0%,x1%-x0%,y1%-y0%+40
+   ENDIF
+   ENDPROC
+   
+   DEF PROCclose(handle%)
+   IF handle%=dialogue% THEN MOUSE RECTANGLE 0,0,1279,1023:
+   dialogue%=-1
+   !q%=handle%:
+   SYS "Wimp_CloseWindow",,q%
+   ENDPROC
+   
+   DEF PROCmouse(mousex%,mousey%,buttons%,handle%,icon%,oldbuttons%)
+   CASE buttons% OF
+     WHEN &02     :
+      REM -- MENU button
+     WHEN &01,&04 :
+      REM -- SELECT/ADJUST buttons
+          CASE handle% OF
+            WHEN iconbar%
+                 CASE icon% OF
+                   WHEN 1:
+         PROCfront(example1%)
+                   WHEN 0:
+         PROCfront(example2%)
+                 ENDCASE
+            WHEN errorbox%
+                 CASE icon% OF
+                   WHEN 5:
+         SYS "Wimp_CreateMenu",,-1
+                          PROCclose(errorbox%)
+                   WHEN 6:
+         PROCerrordisplay(Err%,Err$,Erl%)
+                 ENDCASE
+          ENDCASE
+     WHEN &10,&40 :
+      REM -- SELECT/ADJUST dragging
+     WHEN &100,&400:
+     REM -- selection if button type = 10
+   ENDCASE
+   ENDPROC
+   
+   ------------------------------------------------------------------------------
+   
+   DEF FNtemplate(a$)
+   LOCAL c%
+   SYS "Wimp_LoadTemplate",,q%,curbuf%,endbuf%,fontcounts,a$,0 TO ,,curbuf%,,,,c%
+   IF c%=0 THEN ERROR 1,"Template '"+a$+"' not found"
+   SYS "Wimp_CreateWindow",,q% TO c%
+   =c%
+   
+   DEF FNiconaddr(h%,i%)
+   !q%=h%:
+   q%!4=i%:
+   SYS "Wimp_GetIconState",,q%
+   IF (q%!24 AND &100)=0 THEN ERROR 1,"Icon is not indirected"
+   =q%!28
+   
+   DEF PROCdialogue(handle%,mx%,my%)
+   PROCgetw(handle%)
+   PROCopen(handle%,mx%,my%+y0%-y1%,mx%+x1%-x0%,my%,0,0,-1)
+   SYS "Wimp_SetCaretPosition",handle%,-1,0,0,&3000000,0
+   PROCgetw(handle%)
+   MOUSE RECTANGLE x0%,y0%,x1%-x0%,y1%-y0%+40
+   dialogue%=handle%
+   ENDPROC
+   
+   ------------------------------------------------------------------------------
+   
+   DEF PROCerrorbox(err%,err$,erl%)
+   Err%=err%:
+   Err$=err$:
+   Erl%=erl%
+   IFinerror%ORINKEY-1THENPROCerrordisplay(err%,err$,erl%)
+   inerror%=TRUE
+   SYS "Wimp_DragBox",,-1 :
+    dragtype%=0:
+   pdrag%=-1
+   IF dialogue%<>-1 THEN PROCclose(dialogue%)
+   FORI%=1TO4:
+   erroraddr%(I%)=FNiconaddr(errorbox%,I%):
+   ?erroraddr%(I%)=13:
+   NEXT
+   menu$=err$:
+   I%=1:
+   J%=0:
+   i%=0
+   REPEATw$=FNpar(" ")
+     IFJ%>0IFJ%+1+LENw$>26THEN I%+=1:
+     J%=0:
+     IFI%>4 THEN ERROR 1,"Error too big"
+     IFJ%>0THENw$=" "+w$
+     $(erroraddr%(I%)+J%)=w$:
+     J%+=LENw$
+   UNTIL w$="" OR w$=" "
+   PROCdialogue(errorbox%,300,650)
+   inerror%=FALSE
+   ENDPROC
+   
+   DEF FNpar(sep$)
+   i1%=i%+1:
+   i%=INSTR(menu$+sep$,sep$,i1%)
+   =MID$(menu$,i1%,i%-i1%)
+   
+   DEF PROCerrordisplay(err%,err$,erl%)
+   FOR I%=0 TO 255:
+   
+     WHILE fontcounts?I%>0:
+     SYS "Font_LoseFont",I%:
+     fontcounts?I%-=1:
+     ENDWHILE
+   NEXT
+   VDU4:
+   PRINT err$;
+   IF erl%<>0 THEN PRINT " at line ";erl%
+   *FX 225 1
+   OSCLI"Key 9 LIST "+STR$erl%+"|K|M"
+   *FX 4
+   *FX 15 1
+   IF erl%<>0 THEN *FX 138 0 137
+   END

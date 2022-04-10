@@ -1,0 +1,41 @@
+section "BICI.tst"
+
+get "libhdr"
+
+let start () be
+$(
+   Writes("*nBCPL - Prolog test harness*n")
+
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())
+
+   Debug(0)
+
+   BICIinstall()
+
+   Oscli("dir :4.prolog")
+   Oscli("key0 ['eg.hanoi'].|mhanoi(5).|m")
+
+   OsByte(138,0,128) // insert a key0 in buffer
+
+   Oscli("PrologX zap_out") // off into prolog
+   Oscli("back")
+
+   BICIremove()
+
+   Writes("*nback in BCPL...terminating*n")
+
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())   
+$)
+
+and BICIhandler(str) be
+$(
+   LET i = 0
+
+   Writes("*n...in BICI handler*n command string is : ")
+
+   WHILE ' ' <= str%i <= 'z' $( Wrch( str%i ); i := i+1 $)
+
+   IF CAPCH(str%1) = 'R' THEN BICIremove()
+
+   NEWLINE()
+$)

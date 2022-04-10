@@ -1,0 +1,186 @@
+*time
+Mon,22 Aug 1988.06:49:32
+*dir $.DSH.BI
+c linc
+*| link the BICI code 
+Join c.BICI1 c.BICI2 o.BICI -to c.Kernel
+bici1       FFFFFF41 20C0700C 00002CE0
+BICI2       FFFFFF41 20C07509 00000D0C
+bici        00000000 00000000 00000480
+
+Kernel      FFFFFF41 20C0700C 00003E70
+*dir $.DSH.KE
+c linc
+*|  link KE kernel
+*dir c                    
+Join init root general sram dummy -to kernel
+init        FFFFFF40 E3948C5C 000005C0
+root        FFFFFF40 E40DAAB2 000006D8
+general     FFFFFF40 EBF05D46 00000870
+sram        FFFFFF40 E183E605 00000140
+dummy       FFFFFF40 E183E853 000005E4
+
+kernel      FFFFFF40 E3948C5C 00001C30
+*back
+*dir $.DSH.UT
+c linc
+*|  join UT for AES
+*dir c
+Join utils1 utils2 utils3 utils4 calc32b errtext -to k1
+utils1      FFFFFF40 E1843BA6 0000053C
+utils2      FFFFFF40 ECEEAFEE 00000A78
+utils3      FFFFFF40 E1844275 00000334
+utils4      FFFFFF40 E1844437 00000120
+calc32b     FFFFFF40 E184467B 000002AC
+errtext     FFFFFF40 E18453A2 00000090
+
+k1          FFFFFF40 E1843BA6 00001748
+Join k1 print write grid1 grid2 bookmark helplnk FPlib -to kernel  
+k1          FFFFFF40 E1843BA6 00001748
+print       FFFFFF40 E1844CE4 00000224
+write       FFFFFF40 E1844A51 00000A04
+grid1       FFFFFF40 E1844F64 00000420
+grid2       FFFFFF40 E18451A6 00000324
+bookmark    FFFFFF40 E18457A8 000007CC
+helplnk     FFFFFF40 E1845A0B 000001AC
+FPlib       FFFFFF40 E1845DA8 00001650
+
+kernel      FFFFFF40 E1843BA6 00004A7C
+*delete k1
+*back
+*dir $.DSH.SC
+c linc
+*| link SC cintcode - getact,menu & input removed PAC 24.9.87
+*dir c    
+*remove kernel
+Join graph1 graph2 text1 text2 text3 number -to k1
+graph1      FFFFFF40 E1840166 000005B8
+graph2      FFFFFF40 E1840571 000009F0
+text1       FFFFFF40 E184086F 00000614
+text2       FFFFFF40 EE85FB51 00000474
+text3       FFFFFF40 E1840E13 00000488
+number      FFFFFF40 E1841915 00000974
+
+k1          FFFFFF40 E1840166 00002830
+Join k1 mouse textlnk icon setfont chart9 sprite -to kernel
+k1          FFFFFF40 E1840166 00002830
+mouse       FFFFFF40 E1841566 00000430
+textlnk     FFFFFF40 E1841237 00000978
+icon        FFFFFF40 E1841B8F 00000408
+setfont     FFFFFF40 E1841DAD 000001E4
+chart9      FFFFFF40 E1842011 000003CC
+sprite      FFFFFF40 E193D38C 000001D8
+
+kernel      FFFFFF40 E1840166 00004168
+*delete k1
+*dir ^
+*dir $.DSH.DH
+c linc
+*|  join the data handler
+*remove c.kernel
+Join c.dh1 c.dh2 c.seldisc -to c.kernel
+dh1         FFFFFF40 E183EFE8 000004F4
+dh2         FFFFFF40 E183F2C5 00000348
+seldisc     FFFFFF40 E183F676 00000844
+
+kernel      FFFFFF40 E183EFE8 00001084
+*dir $.DSH.UD
+c linc
+*|  join the user data handler
+*remove c.kernel
+Join c.write c.userdata -to c.kernel
+write       FFFFFF40 E183FB04 00000C10
+userdata    FFFFFF40 E183FD8F 000004D8
+
+kernel      FFFFFF40 E183FB04 000010EC
+*dir $.DSH.VH
+c linc     
+*|  join the Video Handler
+*remove c.kernel
+Join c.vh1 c.vh2 c.vh3 -to c.kernel
+vh1         FFFFFF40 E1843295 000005A0
+vh2         FFFFFF40 E18434D8 00000204
+vh3         FFFFFF40 E18437BC 0000030C
+
+kernel      FFFFFF40 E1843295 00000AB4
+*dir $.DSH.WM
+c linc     
+*|  link Window manager
+*dir c                    
+Join wimp1 wimp2 wimp3 -to kernel
+wimp1       FFFFFF40 EE7DD71D 00000DE8
+wimp2       FFFFFF40 EE864202 00000B80
+wimp3       FFFFFF40 EE75C179 00000480
+
+kernel      FFFFFF40 EE7DD71D 00001DEC
+*back
+*| make the state tables
+*dir $.DSH.SI
+c linc        
+*| link and run the state table init
+*dir c
+*remove $.DSH.r.stinit
+*| Join stinit rcom rexam rgalwal rhe rnm rsear -to t1
+Join $.Alib.Lib stinit -to $.dsh.r.stinit
+mclib       00008000 00008000 00001294
+xDebug      FFFFFD40 996E405C 00003948
+xDecArgs    00000000 FFFFFFFF 000007CC
+xfp         00000000 00000000 00000210
+xFPlib      FFFFFD40 996E392D 00001610
+xGbPb       00000000 00000000 00000098
+xGraf       00000000 00000000 00000238
+xiom        00000000 FFFFFFFF 00002784
+xRCP        FFFFFD40 996E34B0 000004E4
+xVFS        00000000 00000000 00000150
+xVFSlib     00000000 00000000 00000150
+xxfpio      00000000 FFFFFFFF 0000085C
+stinit      FFFFFF40 E19F6E55 000006FC
+
+stinit      00008000 00008000 0000ACFC
+*| delete t1
+*dir ^ 
+*| run it !!
+*run $.DSH.r.stinit
+
+Creating DISH State Tables
+
+Mon,22 Aug 1988.06:49:59
+
+State table size : 1452 (&05AC) bytes
+*| *dir $.DSH.HE
+*| c linc
+*| now make l.kernel - all but the KE package
+*dir $.DSH                                                       
+*remove l.kernel
+Join DH.c.kernel UD.c.kernel SC.c.kernel -to t1
+kernel      FFFFFF40 E183EFE8 00001084
+kernel      FFFFFF40 E183FB04 000010EC
+kernel      FFFFFF40 E1840166 00004168
+
+t1          FFFFFF40 E183EFE8 000062D0
+Join UT.c.kernel VH.c.kernel WM.c.kernel -to t2
+kernel      FFFFFF40 E1843BA6 00004A7C
+kernel      FFFFFF40 E1843295 00000AB4
+kernel      FFFFFF40 EE7DD71D 00001DEC
+
+t2          FFFFFF40 E1843BA6 00007314
+Join t1 t2 -to l.kernel
+t1          FFFFFF40 E183EFE8 000062D0
+t2          FFFFFF40 E1843BA6 00007314
+
+kernel      FFFFFF40 E183EFE8 0000D5E0
+*remove t1
+*remove t2
+*ex l
+L                   Disc LogicaA500 :4  Option 03 (Exec)    URD dsh         :4
+Dir. dsh        :4  Lib. library    :4  
+
+chart      WR  Text     17:33:18 16-May-1988 0000B364  007A8200
+kernel     WR  Text     11:31:11 21-Apr-1988 0000D5E0  00EE1C00
+mapproc    WR  Text     11:58:04 21-Apr-1988 00000440  00573300
+natfind    WR  Text     17:31:53 16-May-1988 00005D90  00C8A700
+national   WR  Text     17:31:53 16-May-1988 0001152C  007D3500
+*time
+Mon,22 Aug 1988.06:50:05
+*SPOOL
+

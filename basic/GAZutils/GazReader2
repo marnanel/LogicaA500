@@ -1,0 +1,83 @@
+   10 REM > GazReader2
+   20 REM basic program to display areal unit names
+   30 REM this version displays all the types and names
+   40 REM available on the Domesday discs. (Hides invalid ones)
+   50 REM Paul Cunnell (Logica) 18.9.87
+   60:
+   70 recsize% = 48              :REM gazetteer record size (bytes)
+   80 maxtypes% = 22             :REM limit for types to display
+   90 hide_invalid_names% = TRUE :REM don't display names which have no
+  100                            :REM valid MAPDATA record
+  110 data_file$ = ":4.ads.r.Gazetteer" :REM use '-vfs-gazetteer' for vfs
+  120 DIM rec% recsize%
+  130:
+  140 ON ERROR PROCtidy_up : REPORT:PRINT" @ ";ERL:END
+  150:
+  160 PROCenquire
+  170 PROCopen_file
+  180 PROCdisplay_names
+  190 PROCtidy_up
+  200 END
+  210:
+  220 DEF PROCenquire
+  230 PRINT '"GAZETTEER DISPLAY UTILITY TWO"'
+  240 PRINT "This program displays all the areal unit names"
+  250 PRINT " for all the area types in the Gazetteer file."'
+  260:
+  270 INPUT "Output file name ",out$
+  280 ENDPROC
+  290:
+  300 DEF PROCopen_file
+  310 gazhandle% = OPENIN(data_file$)
+  320 ENDPROC
+  330:
+  340 DEF PROCdisplay_names
+  350 off%=0
+  360 OSCLI "SPOOL "+out$
+  370 REPEAT
+  380:
+  390 PROCreadrec(off%)
+  400 off% = off%+recsize%
+  410 REM display the areal unit type
+  420 PRINT:FOR i=3 TO 32:VDU rec%?i:NEXT:PRINT:PRINT
+  430:
+  440 off2%=rec%!36 : REM offset to this type's AU names
+  450 num_of_names% = rec%!34 AND &FFFF
+  460:
+  470 REM display the areal unit names for the given type
+  480 FOR i% = 1 TO num_of_names%
+  490 PROCshowname(i%,off2%)
+  500 NEXT i%
+  510:
+  520 UNTIL off% > (maxtypes%-1)*recsize%
+  530 OSCLI "spool"
+  540 ENDPROC
+  550:
+  560 REM this procedure uses the fact that Nth sequential areal
+  570 REM unit name within a block contains the Gazetteer offset
+  580 REM to the name with number N (i.e. the first record has a
+  590 REM pointer to name number 1, etc.)
+  600:
+  610 DEF PROCshowname(num%,offset%)
+  620 PROCreadrec( offset%+(num%-1)*recsize% )
+  630 new_off% = rec%!42
+  640 IF hide_invalid_names% THEN IF (rec%!46 AND &FFFF) = 0 ENDPROC
+  650 PROCreadrec( new_off% )
+  660:
+  670 REM display the name
+  680 VDU9: PRINT num%;: VDU9
+  690 FOR i = 3 TO 32: VDU rec%?i : NEXT
+  700 PRINT
+  710 ENDPROC
+  720:
+  730 DEF PROCreadrec( offset% )
+  740 PTR#gazhandle% = offset%
+  750 FOR i = 0 TO recsize%-1
+  760 rec%?i = BGET#gazhandle%
+  770 NEXT
+  780 ENDPROC
+  790:
+  800 DEF PROCtidy_up
+  810 CLOSE#0
+  820 OSCLI "spool"
+  830 ENDPROC

@@ -1,0 +1,3 @@
+set alias$jn join $.alib.lib c.skeleton -to r.skeleton
+set alias$e twin b.skeleton
+use skeleton

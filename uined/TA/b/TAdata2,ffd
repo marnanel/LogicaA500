@@ -1,0 +1,248 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.highd
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.05.87 1        MH          initial version
+         11.08.87 2        SA          mods to remove messages and
+                                       highlight selected variables
+         13.08.87 3        SRY         Removed let a =
+**/
+
+SECTION "TAdata2"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.HIGHD
+         ----------
+
+         This routine highlights the label which has the pointer over it
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.highd[]
+         -------------
+
+         IF pointer over a label THEN
+            dehighlight old label
+            highlight new label
+         END IF
+**/
+
+
+let G.ta.highd() be
+$(
+   let x, y = m.ta.xdstart, m.ta.ydstart
+   let v = m.ta.INACTIVE
+   let c = m.ta.INACTIVE
+   let op = m.ta.INACTIVE
+   let l, m = -1, -1
+
+   if (m.ta.xdstart <= G.xpoint <= m.ta.xend) & G.screen = m.sd.display then
+   $(
+      for i = 1 to G.ta.area%m.ta.no.l do
+      $(
+         if y >= G.ypoint >= y - m.sd.linw then
+         $(
+            l := i
+            BREAK
+         $)
+         y := y - m.sd.linw
+         if y >= G.ypoint >= y - m.sd.linw &
+            G.xpoint > m.ta.xdstart + m.sd.charwidth then
+         $(
+            m := i
+            BREAK
+         $)
+         y := y - m.sd.linw
+      $)
+      if G.ta.area%m.ta.mp > 1 &  m.ta.ydstart-(12*m.sd.linw)-4 >= G.ypoint >=
+         m.ta.ydstart-(13*m.sd.linw)-8 op := m.ta.more
+   $)
+   if G.ta.area%m.ta.cur.var ~= m.ta.INACTIVE &
+        G.ta.area%(m.ta.var.table + G.ta.area%m.ta.cur.var - 1) > m.ta.lines &
+        m.ta.bx0+500 <= G.xpoint <= m.ta.bx0+500+m.ta.bw &
+        m.ta.byn <= G.ypoint <= m.ta.byn+m.ta.bhn then
+        op := m.ta.more1
+   if l > 0 v := G.ta.area%m.ta.base.l + l - 1
+   if m > 0 c := G.ta.area%m.ta.base.l + m - 1
+   if c = G.ta.area%m.ta.cur.var c := m.ta.INACTIVE
+   unless v = G.ta.area%m.ta.sel.var then
+   $( LET col = (G.ta.area%m.ta.cur.var = G.ta.area%m.ta.sel.var) -> m.sd.blue, m.sd.cyan
+//      G.sc.pointer(m.sd.off)
+      move.pos(G.ta.area%m.ta.sel.var, true)
+      G.ta.redrawdc(m.ta.INACTIVE,G.ta.area%m.ta.sel.var,col)
+      G.ta.area%m.ta.sel.var := v
+      move.pos(G.ta.area%m.ta.sel.var, true)
+      G.ta.redrawdc(m.ta.INACTIVE,G.ta.area%m.ta.sel.var,m.sd.yellow)
+      if G.ta.area%m.ta.del.mess = m.ta.true g.sc.clear (m.sd.message)
+//      G.sc.pointer(m.sd.on)
+   $)
+   unless c = G.ta.area%m.ta.sel.cat then
+   $(
+//      G.sc.pointer(m.sd.off)
+      move.pos(G.ta.area%m.ta.sel.cat, false)
+      G.ta.redrawdc(G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1),G.ta.area%m.ta.sel.cat,m.sd.blue)
+      G.ta.area%m.ta.sel.cat := c
+      move.pos(G.ta.area%m.ta.sel.cat, false)
+      G.ta.redrawdc(G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1),G.ta.area%m.ta.sel.cat,m.sd.yellow)
+      if G.ta.area%m.ta.del.mess = m.ta.true g.sc.clear (m.sd.message)
+//      G.sc.pointer(m.sd.on)
+   $)
+   if op = m.ta.more | G.ta.area%m.ta.op = m.ta.more then
+      unless op = G.ta.area%m.ta.op then
+      $(
+         G.sc.pointer(m.sd.off)
+         if G.ta.area%m.ta.op = m.ta.more then
+         $(
+            G.sc.movea(m.sd.display,m.ta.xdstart,m.ta.ydstart-(12*m.sd.linw)-8)
+            G.sc.selcol(m.sd.cyan)
+            G.sc.ofstr("More...")
+         $)
+         G.ta.area%m.ta.op := op
+         if G.ta.area%m.ta.op = m.ta.more then
+         $(
+            G.sc.movea(m.sd.display,m.ta.xdstart,m.ta.ydstart-(12*m.sd.linw)-8)
+            G.sc.selcol(m.sd.yellow)
+            G.sc.ofstr("More...")
+         $)
+         G.sc.pointer(m.sd.on)
+      $)
+   if op = m.ta.more1 G.ta.area%m.ta.op := op
+$)
+
+and move.pos(label,var) be
+$(
+   let l.pos = ?
+   let y, x = ?, ?
+
+   unless label = m.ta.INACTIVE
+   $(
+      switchon G.ta.area%m.ta.pg into
+      $(
+      case 1: l.pos := label - 1
+              endcase
+      case 2: l.pos := label - m.ta.dlines - 1
+              endcase
+      case 3: l.pos := label - (2 * m.ta.dlines) - 1
+              endcase
+      $)
+      y := m.ta.ydstart - (m.sd.linw * l.pos * 2)
+      y := var -> y, y - m.sd.linw
+      x := var -> m.ta.xdstart, m.ta.xdstart + m.sd.charwidth
+      G.sc.movea(m.sd.display,x,y)
+   $)
+$)
+
+
+/**
+         G.TA.CHANGE
+         -----------
+
+         This routine performs the change operation.
+**/
+
+
+and G.ta.change() = VALOF
+$(
+   test G.ta.area%m.ta.sel.var ~= m.ta.INACTIVE then
+   $(
+
+      if G.ta.area%m.ta.sel.var ~= G.ta.area%m.ta.cur.var then
+      $( move.pos (G.ta.area%m.ta.cur.var, true)
+         G.ta.redrawdc (m.ta.INACTIVE, G.ta.area%m.ta.cur.var, m.sd.cyan)
+      $)
+
+      test G.ta.area%m.ta.cur.var = m.ta.INACTIVE
+         if G.ta.area%m.ta.del.mess = m.ta.false then
+         $(
+            G.ta.area%m.ta.del.mess := m.ta.true
+            G.sc.clear (m.sd.message)
+         $)
+      else
+         unless G.ta.get.data(m.ta.write) resultis false
+      unless G.ta.area%m.ta.cur.var = G.ta.area%m.ta.sel.var then
+      $(
+         unless G.ta.area%m.ta.cur.var = m.ta.INACTIVE then
+            G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1) := 1
+         if G.ta.area%m.ta.base.l <= G.ta.area%m.ta.cur.var <= G.ta.area%m.ta.base.l + G.ta.area%m.ta.no.l - 1
+         $(
+            move.pos(G.ta.area%m.ta.cur.var,false)
+            G.ta.redrawdc(G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1),G.ta.area%m.ta.cur.var,m.sd.blue)
+         $)
+         G.ta.area%m.ta.cur.var := G.ta.area%m.ta.sel.var
+         move.pos(G.ta.area%m.ta.cur.var,false)
+         G.ta.redrawdc(G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1),G.ta.area%m.ta.cur.var,m.sd.black)
+         unless G.ta.get.data(m.ta.read) resultis false
+         update.pages()
+         G.ta.d.cats()
+      $)
+   $)
+   else if G.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE then
+      unless G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1) = 0 then
+      $(
+         unless G.ta.area%m.ta.cur.var = m.ta.INACTIVE then
+            unless G.ta.get.data(m.ta.write) resultis false
+         move.pos(G.ta.area%m.ta.sel.cat,false)
+         G.ta.redrawdc(G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1),
+                       G.ta.area%m.ta.sel.cat, m.sd.black)
+         test G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1) =
+              G.ta.area%(m.ta.var.table + G.ta.area%m.ta.sel.cat - 1) then
+            G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1) := 1
+         else
+            G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1) := G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1) + 1
+         move.pos(G.ta.area%m.ta.sel.cat,false)
+         G.ta.redrawdc(G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1),G.ta.area%m.ta.sel.cat,m.sd.yellow)
+         unless G.ta.area%m.ta.cur.var = m.ta.INACTIVE then
+         $(
+            unless G.ta.get.data(m.ta.read) resultis false
+            G.ta.d.cats()
+         $)
+      $)
+   resultis true
+$)
+
+and update.pages() be
+$( G.ta.area%m.ta.base.lc := 1
+   test G.ta.area%(m.ta.var.table + G.ta.area%m.ta.cur.var - 1) > m.ta.lines
+   then $( G.ta.area%m.ta.no.lc := m.ta.lines
+           G.ta.area%m.ta.mpc := 2
+        $)
+   else $( G.ta.area%m.ta.no.lc :=
+              G.ta.area%(m.ta.var.table + G.ta.area%m.ta.cur.var - 1)
+           G.ta.area%m.ta.mpc := 1
+        $)
+   G.ta.area%m.ta.pgc := 1
+$)
+.

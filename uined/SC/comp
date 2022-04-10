@@ -1,0 +1,10 @@
+|* compile all SC source
+co graph1
+co graph2
+co text1
+co text2
+co getact
+co menu
+co input
+co mouse
+co number

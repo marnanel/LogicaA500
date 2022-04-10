@@ -1,0 +1,48 @@
+// /**
+//       GLHARDR - GLOBALS HEADER FOR AREAL
+//       ----------------------------------
+//
+//       This is the master system Global definition file
+//       Reserved for state, routine and data globals
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       5.10.87     1       MH        CREATED FOR UNI SYSTEM
+// **/
+
+// $$debug    // SYSTEM WIDE DEBUG FLAG FOR CONDITIONAL COMPILATION
+
+GLOBAL $(
+
+G.ar.buff:FGAR+0     // AR buffer
+
+
+// AR state routines
+G.ar.arealdini :FGAR+1
+G.ar.arealh    :FGAR+2
+G.ar.arealhini :FGAR+3
+G.ar.areald    :FGAR+4
+
+// AR routines
+g.ar.valid:FGAR+5
+g.ar.find: FGAR+6
+g.ar.page: FGAR+7
+g.ar.save: FGAR+8
+g.ar.cycle:FGAR+9
+g.ar.ranges:FGAR+10
+g.ar.highlight:FGAR+11
+g.ar.incidence:FGAR+12
+g.ar.char.input:FGAR+13
+g.ar.display.box:FGAR+14
+g.ar.display.key:FGAR+15
+g.ar.string.to.num:FGAR+16
+g.ar.check.class.intervals:FGAR+17
+g.ar.selfs:FGAR+18
+
+$)
+
+//   ***  The End  ***
+
+
+

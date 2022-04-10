@@ -1,0 +1,5 @@
+set alias$jn join $.alib.lib c.bici o.bici -to r.bici
+set alias$fi fix r.bici 1D0000 
+set alias$e twin b.bici
+set alias$go cmp|mjn|mfi|m/r.bici|m
+use bici

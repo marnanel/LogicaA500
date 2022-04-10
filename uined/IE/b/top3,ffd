@@ -1,0 +1,141 @@
+SECTION "Top3"
+
+/**   TOP LEVEL - ACTIVE FIELD ROUTINES
+      ---------------------------------
+
+      This section contains :
+
+         g.ie.highlight
+         g.ie.char.input
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.top
+
+      REVISION HISTORY:
+
+      DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+      18.6.87     1        SA       Initial version
+      28.7.87     2        SA       Eliminate g.sc.ofstr bug possibility
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.iehd"
+
+/**
+      G.IE.HIGHLIGHT - CONTROL ENTRY BOX FIELDS
+      -----------------------------------------
+
+      controls highlighting of entry boxes
+
+      INPUTS:
+
+      field : m.ie.main
+              m.ie.backup
+      output colour of entry box
+      output colour of string
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ie.highlight (box, back.colour, text.colour)
+      ----------------------------------------------
+
+      move to appropriate position
+      show entry box and contents in named colours
+         and message if required
+**/
+
+
+LET g.ie.highlight (box, back.colour, text.colour) BE
+$( LET posY = ?
+   LET text = ?
+   LET ptr  = g.sc.pointer (m.sd.off)
+
+   posY := (box = m.ie.main) -> m.ie.mainY, m.ie.backupY
+   text := box + g.ie.buff
+
+   g.sc.movea (m.sd.display, 0, posY)
+   g.sc.selcol (back.colour)
+   g.sc.rect (m.sd.plot, m.ie.fileX, -m.sd.linW)
+   g.sc.selcol (text.colour)
+   g.sc.movea (m.sd.display, 0+m.sd.disXtex, posY-2)
+   g.sc.ofstr ("%s", text)
+   IF back.colour = m.sd.cyan
+   THEN cursor (box)
+   g.sc.pointer (ptr)
+$)
+
+AND cursor (box) BE
+$( LET g = g.key
+   g.key := m.kd.noact
+   g.ie.char.input (box)
+   g.key := g
+$)
+
+
+/**
+      G.IE.CHAR.INPUT - ALLOWS INPUT INTO ENTRY BOXES
+      -----------------------------------------------
+
+      Controls input of characters into entry boxes, including on-screen
+      display and storage in g.ie.buff
+
+
+      INPUTS:
+
+      pointer to string : m.ie.main
+                          m.ie.backup
+                          m.ie.reply
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      g.ie.buff+box
+
+      SPECIAL NOTES FOR CALLERS:
+
+      should only be used when on an active entry box and
+      cursor position has been adjusted appropriately
+      uses g.sc.input()
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ie.char.input (box)
+      ---------------------
+
+      define length of allowed string
+      call g.sc.input()
+**/
+
+
+AND g.ie.char.input(box, index) BE
+$( LET string = ?
+   LET length = ?
+   string := g.ie.buff+box
+   length := VALOF SWITCHON box INTO
+   $( CASE m.ie.main   :
+      CASE m.ie.backup : RESULTIS m.ie.name.length
+      CASE m.ie.reply1 :
+      CASE m.ie.reply2 : RESULTIS m.ie.rep.length
+   $)
+   G.sc.input (string, m.sd.blue, m.sd.cyan, length)
+$)
+.

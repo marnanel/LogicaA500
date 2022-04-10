@@ -1,0 +1,267 @@
+/*  > C.Arthur */
+
+#include "h.arthur"
+#include <stdarg.h>
+/* 
+** Things in the Arthur C library.
+**
+** See also S.ArthurAsm for the OS bits 
+*/
+
+int adval(int x)
+{ return osbyte(128,x,x>>8);
+}
+
+void clg()
+{ vdu(16);
+} 
+
+void cls()
+{ vdu(12);
+}
+
+void colour(int c)
+{ vdu(17);
+  vdu(c);
+}
+
+/* note: cursor ends up on circle */
+
+void circle(int x,int y,int r)
+{ move(x,y);
+  plot(0x95,x+r,y);
+}
+
+void circlefill(int x,int y,int r)
+{ move(x,y);
+  plot(0x9D,x+r,y);
+}
+
+void cursor(int c)
+{
+vduq(23,1,c,0,0,0,0,0,0,0);
+}
+
+void draw(int x,int y)
+{ vdu(25);vdu(5);
+  vduw(x);vduw(y);
+}
+
+void drawby(int x,int y)
+{ vdu(25);vdu(1);
+  vduw(x);vduw(y);
+}
+
+void envelope(int e,int pr,int pc1,int pc2,int pc3,int pl1,int pl2,int pl3,
+              int a,int d,int s,int r,int tl,int dl)      
+{ char block[14];
+
+  block[0] = e;
+  block[1] = pr;
+  block[2] = pc1;
+  block[3] = pc2;
+  block[4] = pc3;
+  block[5] = pl1;
+  block[6] = pl2;
+  block[7] = pl3;
+  block[8] = a;
+  block[9] = d;
+  block[10] = s;
+  block[11] = r;
+  block[12] = tl;
+  block[13] = dl;
+  osword(8,block);
+}
+ 
+void fill(int x,int y)
+{
+plot(0x85,x,y);
+}
+
+void gcol(int a,int b)
+{ vdu(18);vdu(a);vdu(b);
+}
+
+void gwindow(int a,int b,int c,int d)
+{ vdu(24);vduw(a);vduw(b);vduw(c);vduw(d);
+}
+
+
+short inkey(int n)
+{
+n=osbyte(129,n,n>>8);
+if ((n & 0xFF00) == 0xFF00) return -1;
+return n;
+}
+
+void mode(int n)
+{ vdu(22);
+  vdu(n);
+}
+
+/*
+mouseX();
+mouseY();
+mouseB();
+*/
+
+void move(int x,int y)
+{ vdu(25);vdu(4);
+  vduw(x);vduw(y);
+}
+
+void moveby(int x,int y)
+{ vdu(25);vdu(0);
+  vduw(x);vduw(y);
+}
+
+/* mandel() ? */
+
+void origin(int x,int y)
+{ vdu(29);vduw(x);vduw(y);
+}
+
+void palette(int l,int p,int r,int g,int b)
+{ vdu(19);vdu(l);vdu(p);vdu(r);vdu(g);vdu(b);
+}
+
+void plot(int n,int x,int y)
+{ vdu(25);vdu(n);
+  vduw(x);vduw(y);
+}
+
+int point(int x,int y) 
+{
+short block[3];
+block[0]=x;
+block[1]=y;
+block[2]=0;             /* to zero high byte */
+osword(9,block);
+return block[2];
+}
+
+int pos()
+{ return osbyte(134,0,0) & 0xFF;
+}
+
+void rectangle(int x,int y,int l,int h)
+{
+move(x,y);
+drawby(0,h);
+drawby(l,0);
+drawby(0,-h);
+drawby(-l,0);
+}
+
+void rectanglefill(int x,int y,int l,int h)
+{
+move(x,y);
+plot(0x51,l,h);
+}
+
+unsigned rnd(unsigned n)
+{
+extern unsigned rand(void);
+return rand()%n+1;
+}
+
+
+void sound(int a,int b,int c,int d)
+{
+short block[4];
+
+block[0]=a;
+block[1]=b;
+block[2]=c;
+block[3]=d;
+osword(7,block);
+}
+
+void stringprint(char *s)
+{
+while (*s) vdu(*s++);
+}
+
+void tab(int x,int y) { vdu(31);vdu(x);vdu(y); }
+
+/* 
+** array of length of sequence for vdu codes
+** it is assumed that the correct number of arguments has been supplied
+*/ 
+
+static char Qlen[32] =
+{ 1,   /* VDU 0 */
+  2,   /* next character to printer only */
+  1,   /* printer on */
+  1,   /* printer off */
+  1,   /* print at text cursor */
+  1,   /* print at graphics cursor */
+  1,   /* enable VDU driver */
+  1,   /* beep */
+  1,   /* backspace */
+  1,   /* forward space (horizontal tab) */
+  1,   /* line feed */
+  1,   /* up a line */
+  1,   /* clear (text) screen */
+  1,   /* carriage return */
+  1,   /* page mode on */
+  1,   /* page mode off */
+  1,   /* clear graphics window */
+  2,   /* define text colour */
+  3,   /* define graphics colour */
+  6,   /* define logical colour */
+  1,   /* restore default palette */
+  1,   /* disable VDU drivers */
+  2,   /* Select screen mode */
+  10,  /* VDU 23,.. */
+  9,   /* set graphics window */
+  6,   /* PLOT ... */
+  1,   /* restore default windows */
+  1,   /* ESCAPE char - no effect */
+  5,   /* define text window */
+  5,   /* define graphics origin */
+  1,   /* home cursor */
+  3    /* tab cursor */
+
+/* and all the rest are 1 */
+};
+
+/*
+** send the appropiate number of characters to vdu()
+** it is assumed that the correct number of arguments has been supplied
+*/
+
+
+void vduq(int c,...)
+{ va_list ap;
+  int n;
+
+  vdu(c);
+  if (c>=' ') return;
+
+  va_start(ap,c);
+  n=Qlen[c];
+  while(--n)
+  { vdu(va_arg(ap,int));
+  }
+  va_end(ap);
+}
+
+int vpos()
+{
+return osbyte(134,0,0) >> 8;
+}
+
+/* osgbpb(a,block) - think about these ... */
+
+/* in s.ArthurAsm ...
+**  get()
+**  vdu()
+**  vduw()
+**  mouseX()
+**  mouseY()
+**  mouseB()
+**  osbyte()
+**  osword()
+**  osfile()
+*/

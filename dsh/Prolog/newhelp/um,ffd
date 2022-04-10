@@ -1,0 +1,586 @@
+/**************************************************
+*                   AUI / um                      *
+*                   ********                      *
+*                                                 *
+* Program Id     :  um                            *
+* Author         :  Alan Bustany / Simon Dickens  *
+* Installation   :  Logica Cambridge Ltd.         *
+* Project Name   :  AUI                           *
+* Language       :  Quintus PROLOG                *
+* Date Written   :  29 / 07 / 87                  *
+* Function       :  this is the user modeller     *
+*                   which provides the model by   *
+*                   which the program grades the  *
+*                   user                          *
+* Called by      :  admin                         *
+* Modules called :  utilities                     *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*                Revision History                 *
+* Revised by   : S Ala'i                          *
+* Date         : 21/10/87                         *
+* Description  : Porting to Acorn ADFS            *
+*            R1: Removed cutting clause for       *
+*                'um_save_and_quit'.              *
+*            R2: communications with ARM filing   *
+*                system: 'open','set_output',     *
+*                'close' clauses replaced by      *
+*                'tell' and 'told'.               *
+*            R3: Removed cutting clause for       *
+*                'um_presentation_level'.         *
+*            R4: Deleted old 'um_archetype'       *
+*                clauses and added new clause for *
+*                the 'DOOM' procedure.            *
+*            R5: Removed cutting clause for       *
+*                'um_remediation'.                *
+*            R6: Removed cutting clause for       *
+*                'um_update_grade'.               *
+*            R7: Removed cutting clause for       *
+*                'um_reduce_level'.               *
+*            R8: Syntax error for 'um_bin_order'  *
+*                term corrected.                  *
+***************************************************
+*                Revision History                 *
+* Revised by   : S Ala'i                          *
+* Date         : 11/12/87                         *
+* Description  : WP3300 for DISH.  Changes to     *
+*                implement new presentation level.*
+*            R9: modified to give two presentation*
+*                levels only.                     *
+*           R10: modified to find presentation    *
+*                level for any primitive          *
+*           R11: introduced cut to prevent second *
+*                clause being chosen on           *
+*                backtracking.                    *
+***************************************************
+*                Revision History                 *
+* Revised by   : S Ala'i                          *
+* Description  : testing & debugging DISH         *
+* 09/03/88  R12: changed to 'use dish'            *
+* 14/03/88  R13: removed event_key term from      *
+*                um_presentation.                 *
+* 16/03/88  R14: reduced thresholds for           *
+*                recall & fine_tuning             *
+**************************************************/
+
+/*  User Modelling Component  */
+
+/*
+*  Name         :  um_save_and_quit(+Env)
+*  Function     :  extracts Name, File and the user model from the present
+*                  environment and saves it, then quits after a verify
+*  Arguments    :  Env; present environment
+*/
+
+/* um_save_and_quit(_):- !. */                                    %R1
+um_save_and_quit(Env) :-
+   env(Env ~ _, _, user_info(Name, _, File), User_Model ~ _),
+   save_user_model(Name, File, User_Model),
+   verify_quit.
+
+/*
+*  Name         :  save_user_model(+Name, +File, +User_Model)
+*  Function     :  does the saving after a peephole by calling save_um
+*  Arguments    :  Name; present user name
+*                  File; filename
+*                  User_Model; present user model
+*/
+
+save_user_model(Name, File, User_Model) :-
+   peephole(save_um, Name),
+   save_um(File, User_Model).
+
+/*
+*  Name         :  save_um(+File, +UM)
+*  Function     :  opens file and writes the appropriate information to it,
+*                  then finally closes file
+*  Arguments    :  File; filename
+*                  UM; present user model
+*/
+
+save_um(File, UM) :-
+   tell(File),                                             %R2
+   write('user_model('), nl,
+   print_um(UM),
+   write(').'), nl,
+   told.                                                   %R2
+
+/*
+*  Name         :  print_um(+um(Left, Root, Right))
+*  Function     :  does the actual writing data to the file and prints a
+*                  if the user model is empty
+*  Arguments    :  um; the user model, in the form of a binary tree with
+*                  pointers to the left and right branches and also present
+*                  object information
+*/
+
+print_um(empty) :- write(empty).
+print_um(um(Left, Root, Right)) :-
+   write('um('), nl,
+   print_um(Left), write(','), nl,
+   writeq(Root), write(','), nl,
+   print_um(Right),
+   write(')'), nl.
+
+/*
+*  Name         :  um_presentation(+Procedure, +User_Model, -Presentation)
+*  Function     :  obtains the functor of the present procedure and the user
+*                  model entry level and level of presentation
+*  Arguments    :  Procedure; present procedure
+*                  User_Model; present user model
+*                  Presentation; level of presentation
+*/
+
+/* um_presentation(_, _, generic) :- !. */               %R3
+um_presentation(Procedure, User_Model, Presentation) :-  %R10
+%   event_key(Procedure,Key),                            %R13
+   um_fetch(Procedure, User_Model, Entry),
+   um_entry_level(Entry, Level),
+   um_presentation_level(Level, Presentation).
+
+/*
+*  Name         :  um_fetch(+Key, ?User_Model, -Entry)
+*  Function     :  fetches the old and new entries in the old and new user
+*                  models for the procedural object key
+*  Arguments    :  Key; procedural object key
+*                  User_Model; old and new user models
+*                  Entry; entry fetched
+*/
+
+um_fetch(Key, User_Model, Entry) :-
+   um_entry(Key, User_Model~User_Model, Entry~Entry).
+
+/*
+*  Name         :  um_entry_level(+Entry, -Level)
+*  Function     :  obtains the entry level from within the entry fetched by
+*                  um_fetch
+*  Arguments    :  Entry; present entry
+*                  Level; user level for present entry
+*/
+
+um_entry_level(entry(_, Level, _), Level).
+
+/*
+*  Name         :  um_presentation_level(+Level, +Presentation)
+*  Function     :  if presentation is 'procedure' checks Level is not lower
+*                  than fine-tuning, if presentation is 'generic' checks Level
+*                  is lower than fine-tuning and higher than recall, and if
+*                  presentation is step checks Level is not higher than recall
+*  Arguments    :  Level; present user level in the particular procedure
+*                  Presentation; catogory of object e.g. procedure, generic or
+*                  step
+*/
+
+um_presentation_level(Level, procedure) :-           %R9
+   um_level_order(recall, Level).
+um_presentation_level(Level, method) :-
+   \+ um_level_order(recall, Level).
+
+
+/*  'remediation' option  */
+
+/*
+*  Name         :  um_remediation(+User_Type, +User_Model, -Weak_Procedures)
+*  Function     :  collects a list of all the procedures in which the present
+*                  user is weak
+*  Arguments    :  User_Type; present user type (nearly always 'user')
+*                  User_Model; present user model
+*                  Weak_Procedures; list of the weak procedures for present
+*                  user
+*/
+
+/* um_remediation(_, _, []) :- !. */                                    %R5
+um_remediation(User_Type, User_Model, Weak_Procedures) :-
+   peephole(weakness, _),
+   bagof1(Procedure, um_weak_procedure(Procedure, User_Type, User_Model), Weak_Procedures).
+
+/*
+*  Name         :  um_weak_procedure(+Procedure, +User_Type, +User_Model)
+*  Function     :  obtains the entry level for the present procedure and the
+*                  present level of the user in the user archetype for that
+*                  procedure and checks that the user level is higher than the
+*                  entry level
+*  Arguments    :  Procedure; present procedure
+*                  User_Type; present user type
+*                  User_Model; present user model which is referenced and
+*                  checked
+*/
+
+um_weak_procedure(Procedure, User_Type, User_Model) :-
+   um_archetype(User_Type, Procedure, Level),
+   functor(Procedure, Functor, _),
+   um_fetch(procedure(Functor), User_Model, Entry),
+   um_entry_level(Entry, Current_Level),
+   um_level_order(Current_Level, Level).
+
+/*     User model is defined as a binary tree of the form:
+
+           um(Left_Branch, Node, Right_Branch)
+
+    where:
+
+           Node = Object/object_info(Last_Seen, Level, Grade)
+
+           Object = object(Obj) | step(Step) | generic(Step) |
+                    library(Step) | conclusion(Step) |
+                    procedure(Procedure)
+
+           Left_Branch = Right_Branch = um(Left_Branch, Node, Right_Branch)
+    Object is used as the key for each node.  The standard ordering of terms
+    is used for ordering the tree.
+*/
+
+/*
+*  Name         :  um_bin_order(+Key1, +Key2)
+*  Function     :  checks whether Key1 is alphabetically less than Key2 so that
+*                  direction of movement in tree is known
+*  Arguments    :  Key1; first object key
+*                  Key2; second object key
+*/
+
+um_bin_order(Key1, Key2) :-
+   ground(Key1),
+   ground(Key2),
+   Key1 @< Key2.
+
+/*
+*  Name         :  um_entry(+Key, +User_Model, -Entry)
+*  Function     :  seeks to find key in user model and returns appropriate
+*                  entry
+*  Arguments    :  Key; key to the present object
+*                  User_Model; present user model
+*                  Entry; the entry to that object
+*/
+
+um_entry(Key, UserModel, Entry) :-                     %R11
+   um_entry1(Key, UserModel, Entry),
+   peephole(found, Key),!.
+um_entry(Key, _, _):-
+   send_message(".ERROR.5"),
+   write('TROUBLE... could not find key in UM: '),
+   writeln(Key),
+   User_Model = UM ~ UM,
+   Entry = could_not_find_key.
+
+/*
+*  Name         :  um_entry1(+Key, +User_Model, -Entry)
+*  Function     :  this tries to match the key within the user model
+*  Arguments    :  as in above predicate
+*/
+
+um_entry1(Key,
+   um(Left, Key/Old_Entry, Right)
+   ~ um(Left, Key/New_Entry, Right),
+   Old_Entry ~ New_Entry).
+um_entry1(Key,
+   um(Old_Left, Node_Key/Node_Info, Right)
+   ~ um(New_Left, Node_Key/Node_Info, Right),
+   Entry) :-
+   um_bin_order(Key, Node_Key),
+   um_entry1(Key, Old_Left ~ New_Left, Entry).
+um_entry1(Key,
+   um(Left, Node_Key/Node_Info, Old_Right)
+   ~ um(Left, Node_Key/Node_Info, New_Right), 
+   Entry) :- 
+   um_bin_order(Node_Key, Key),                                   %R8
+   um_entry1(Key, Old_Right ~ New_Right, Entry).
+
+/*
+*  Name         :  entry(?Entry, -Last_Seen, -Level, -Grade)
+*  Function     :  obtains whether or not the present object has been seen
+*                  before, and the level and grade of the user
+*  Arguments    :  Entry; old and new performance and status of user on
+*                  present object
+*                  Last_Seen; atom telling whether or not the user has seen
+*                  this procedure before
+*                  Level; present user level in this procedure
+*                  Grade; present user grade in this procedure
+*/
+
+entry(entry(Old_Last_Seen, Old_Level, Old_Grade)
+   ~ entry(New_Last_Seen, New_Level, New_Grade),
+   Old_Last_Seen ~ New_Last_Seen,
+   Old_Level ~ New_Level,
+   Old_Grade ~ New_Grade).
+
+/*
+*  Name         :  um_update_grade(+Procedure, +Step, +User_Model,
+*                                                            -Eval_Last_Seen)
+*  Function     :  if the procedure has never been seen this does nothing,
+*                  whereas if it has it finds out when the procedure was last
+*                  seen, updates the grade entry and evaluates the time since
+*                  last seen
+*  Arguments    :  Procedure; present procedure
+*                  Step; present step used to update the grade entry
+*                  User_Model; present user model
+*                  Eval_Last_Seen; shows where the procedure was last seen and
+*                  the time since that occurred
+*/
+
+/* um_update_grade(_, _, _, last_seen(_, never_seen)) :- !. */          %R6
+um_update_grade(Procedure, Step, User_Model, Eval_Last_Seen) :-
+   peephole(update_grade, Step),
+   um_entry(Step, User_Model, Entry),
+   um_update_grade_entry(Entry, Procedure, Last_Seen),
+   um_eval_time(Last_Seen, Eval_Last_Seen).
+
+/*
+*  Name         :  um_update_grade_entry(+Entry, +Procedure, +Old_Last_Seen)
+*  Function     :  obtains the present entry level and user grade, finds when
+*                  it was last seen and updates the level and grade accordingly
+*  Arguments    :  Entry; present entry (user status in this procedure)
+*                  Procedure; present procedure
+*                  Old_Last_Seen; previous time that the procedure was last
+*                  seen
+*/
+
+um_update_grade_entry(Entry, Procedure, Old_Last_Seen) :-
+   entry(Entry, Old_Last_Seen ~ New_Last_Seen, Level, Grade),
+   um_last_seen(Procedure, New_Last_Seen),
+   um_update_level_grade(Level, Grade).
+
+/*  Evaluate time last seen and convert into something more symbolic  */
+
+/*
+*  Name         :  um_eval_time(+Last_Seen, -Eval_Last_Seen)
+*  Function     :  converts the time a procedure was last seen into a more
+*                  useful form e.g. expresses a number of months in terms of
+*                  months rather than milliseconds
+*  Arguments    :  Last_Seen; structure giving a procedure and the time it was
+*                  last seen
+*                  Eval_Last_Seen; the more useful version of the time
+*/
+
+um_eval_time(last_seen(Where, never_seen), last_seen(Where, never_seen)).
+um_eval_time(last_seen(Where, Last_Time), last_seen(Where, Relative_Time)) :-
+   \+ Last_Time = never_seen,
+   get_time(Current_Time),
+   eval_time(Last_Time, Current_Time, Relative_Time).
+
+/*
+*  Name         :  um_last_seen(+Procedure, ?Last_Seen)
+*  Function     :  obtains the time the procedure was last seen
+*  Arguments    :  Procedure; present procedure
+*                  Last_Seen; structure showing where procedure was last seen
+*/
+
+um_last_seen(Procedure, last_seen(Procedure, Time)) :- get_time(Time).
+
+/*
+*  Name         :  um_update_level_grade(?Level, ?Grade)
+*  Function     :  increases the old user grade by 1 and checks to see if this
+*                  causes the user to move up a level
+*  Arguments    :  Level; old and new levels that the user has attained
+*                  Grade; old and new grades within those levels
+*/
+
+um_update_level_grade(Old_Level ~ New_Level, Old_Grade ~ New_Grade) :-
+   um_next_grade(Old_Grade, Grade),
+   um_check_grade_threshold(Old_Level, Grade, New_Level, New_Grade).
+
+/*
+*  Name         :  um_reduce_level(+Standard, +Procedure, +Key, +User_Model)
+*  Function     :  finds when the procedure was last seen and reduces the level
+*                  if necessary
+*  Arguments    :  Standard; present level e.g. recall, recognition
+*                  Procedure; present procedure
+*                  Key; key to the entry for this procedure in the user model
+*                  User_Model; present user model
+*/
+
+/* um_reduce_level(_, _, _, _) :- !. */                                %R7 
+um_reduce_level(Standard, Procedure, Key, User_Model) :-
+   peephole(reduce_level(Standard), Key),
+   peephole(last_seen, Key),
+   um_entry(Key, User_Model, Entry),
+   entry(Entry, _ ~ Last_Seen, Level, Grade),
+   um_last_seen(Procedure, Last_Seen),
+   um_reduce_standard(Standard, Level, Grade).
+
+/*
+*  Name         :  um_reduce_standard(+Standard, ?Level, ?Grade)
+*  Function     :  if standard is the New_Level checks that Old_Level is higher
+*                  than New_Level and if so Grade is set to zero, if Standard
+*                  and New_Level are different succeeds only if Standard is
+*                  higher than Level
+*  Arguments    :  Standard; present standard
+*                  Level; old and new levels
+*                  Grade; old and new grades
+*/
+ 
+um_reduce_standard(Standard, Old_Level ~ Standard, _ ~ Grade) :-
+   um_level_order(Standard, Old_Level),
+   um_start_grade(Grade).
+um_reduce_standard(Standard, Level ~ Level, Grade ~ Grade) :-
+   \+ um_level_order(Standard, Level).
+   
+
+
+/*  move up a level if grade threshold has been reached  */
+
+/*
+*  Name         :  um_check_grade_threshold(+Old_Level,
+*                                           +Old_Grade,
+*                                           +New_Level,
+*                                           +New_Grade)
+*  Function     :  first obtains threshold for the Old_Level then calls
+*                  um_new_level to make appropriate changes (see below)
+*  Arguments    :  Old_Level; old user level
+*                  Old_Grade; old grade within that level
+*                  New_Level; new user level
+*                  New_Level; new grade within that level
+*/
+
+um_check_grade_threshold(Old_Level, Old_Grade, New_Level, New_Grade) :-
+   um_grade_threshold(Old_Level, Threshold),
+   um_new_level(Old_Level, Old_Grade, Threshold, New_Level, New_Grade).
+
+/*
+*  Name         :  um_new_level(+Old_Level,
+*                               +Old_Grade,
+*                               +Threshold,
+*                               ?New_Level,
+*                               ?New_Grade)
+*  Function     :  if Old_Level and New_Level are both fine_tuning and
+*                  New_Grade and Threshold are the same checks that Old_Grade
+*                  is higher than Threshold, if not then checks that Old_Grade
+*                  is higher than Threshold, increases Level to next level and
+*                  puts New_Grade to 0, and finally if New_Level/Grade are the
+*                  same as Old_Level/Grade checks Old_Grade is lower than
+*                  Threshold
+*  Arguments    :  Old_Level; old user level
+*                  Old_Grade; old grade within that level
+*                  Threshold; old level threshold
+*                  New_Level; new user level
+*                  New_Grade; new grade within that level
+*/
+
+um_new_level(fine_tuning, Grade, Threshold, fine_tuning, Threshold) :-
+   um_grade_order(Threshold, Grade).
+um_new_level(Old_Level, Old_Grade, Threshold, New_Level, New_Grade) :-
+   um_grade_order(Threshold, Old_Grade), 
+   um_next_level(Old_Level, New_Level),
+   um_start_grade(New_Grade).
+um_new_level(Old_Level, Old_Grade, Threshold, Old_Level, Old_Grade) :-
+   \+ um_grade_order(Threshold, Old_Grade).
+
+/*
+*  Name         :  um_grade_order(+Low_Grade, +High_Grade)
+*  Function     :  checks that High_Grade is higher than Low_Grade
+*  Arguments    :  Low_Grade; the grade expected to be lower
+*                  High_Grade; the grade expected to be higher
+*/
+
+um_grade_order(Low_Grade, High_Grade) :- Low_Grade < High_Grade.
+
+
+/*  check that Lower_Level is lower than Higher_Level  */
+
+/*
+*  Name         :  um_level_order(+Lower_Level, +Higher_Level)
+*  Function     :  checks that Lower_Level is lower than Higher_Level by 1
+*                  level exactly, if not then obtains the level 1 higher than
+*                  Lower_Level and checks that Higher_Level is 1 higher than
+*                  this i.e. checks Lower_Level is 2 below Higher_Level
+*  Arguments    :  Lower_Level; present lower level
+*                  Higher_Level; present higher level
+*/
+
+um_level_order(Lower_Level, Higher_Level) :-
+   um_next_level(Lower_Level, Higher_Level).
+um_level_order(Lower_Level, Higher_Level) :-
+   um_next_level(Lower_Level, Level),
+   um_level_order(Level, Higher_Level).
+
+
+
+/*      USER  MODEL  DATA  STRUCTURES  */
+
+
+/*  User Model Levels Structure  */
+
+/*  um_next_level(Lower_Level, Higher_Level)  */
+
+/*
+*  Name         :  um_next_level(+Lower_Level, -Higher_Level)
+*  Function     :  obtains the level exactly 1 higher than Lower_Level
+*  Arguments    :  Lower_Level; present lower level
+*                  Higher_Level; level 1 higher than Lower_Level
+*/
+
+um_next_level(exposition, recognition).
+um_next_level(recognition, recall).
+um_next_level(recall, application).
+um_next_level(application, fine_tuning).
+
+
+/*  User Model Levels thresholds  */
+
+/*  um_grade_threshold(Level, Grade_Threshold)  */
+
+/*
+*  Name         :  um_grade_threshold(+Level, -Grade_Threshold)
+*  Function     :  obtains the grade threshold for progression to the level 1
+*                  higher than Level
+*  Arguments    :  Level; present level
+*                  Grade_Threshold; grade needed to move on to the next level
+*/
+
+um_grade_threshold(exposition, 1).
+um_grade_threshold(recognition, 1).         %R14
+um_grade_threshold(recall, 1).              %R14
+um_grade_threshold(application, 1).         %R14
+um_grade_threshold(fine_tuning, 1).
+
+
+/*  start grade  */
+
+/*
+*  Name         :  um_start_grade(-Start_Grade)
+*  Function     :  gives the start grade at any new level
+*  Arguments    :  Start_Grade; grade user starts any new level on
+*/
+
+um_start_grade(0).
+
+
+/*  next grade  */
+
+/*
+*  Name         :  um_next_grade(+Old_Grade, -New_Grade)
+*  Function     :  increases Old_Grade by a fixed increment and returns
+*                  the New_Grade
+*  Arguments    :  Old_Grade; old user grade within present level
+*                  New_Grade; new user grade within present level
+*/
+
+um_next_grade(Old_Grade, New_Grade) :- New_Grade is Old_Grade + 1.
+
+/*  user archetypes */
+
+/*
+*  Name         :  um_archetype(+User_Type, +Procedure, -Level)
+*  Function     :  obtains the original level (a prototype) for the present
+*                  user on this procedure
+*  Arguments    :  User_Type; present user type e.g. user
+*                  Procedure; present procedure
+*                  Level; prototype level
+*/
+
+um_archetype(user, 'use dish',    %R12
+               fine_tuning). %R4
+
+/*um_archetype(user,cabin_pressure_increase_decrease, fine_tuning).
+                                                                          
+um_archetype(user,centrifuge_warning, application).
+um_archetype(user,temp_off_limits, application).
+
+um_archetype(user,activate_br_fc, recognition).
+um_archetype(user,br_switch_on, recall).
+um_archetype(user,br_checkout, recall).
+*/

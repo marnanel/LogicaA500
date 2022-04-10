@@ -1,0 +1,91 @@
+   10 REM > GazDisp1
+   20 REM basic program to display areal unit names
+   30 REM Paul Cunnell (Logica) 18.9.87
+   35 REM Code to spool output to file is REMed out
+   40:
+   50 recsize% = 48              :REM gazetteer record size (bytes)
+   60 maxtypes% = 22             :REM limit for types to display
+   70 hide_invalid_names% = TRUE :REM don't display names which have no
+   80                            :REM valid MAPDATA record
+   90 data_file$ = ":4.ads.r.Gazetteer"
+  100 DIM rec% recsize%
+  110:
+  120 ON ERROR PROCtidy_up : REPORT:PRINT" @ ";ERL:END
+  130:
+  140 PROCenquire
+  150 PROCopen_file
+  160 PROCdisplay_names
+  170 PROCtidy_up
+  180 END
+  190:
+  200 DEF PROCenquire
+  210 PRINT '"GAZETTEER DISPLAY UTILITY ONE"'
+  220 PRINT "This program displays all the areal unit names"
+  230 PRINT " for a named area type from the Gazetteer file."'
+  240 REM INPUT "Output file name : "out$
+  250 INPUT "Areal unit type  : "type$
+  260 ENDPROC
+  270:
+  280 DEF PROCopen_file
+  290 gazhandle% = OPENIN( data_file$ )
+  300 ENDPROC
+  310:
+  320 DEF PROCdisplay_names
+  330 REM find the requested AU type record
+  340 off%=0
+  350 REPEAT
+  360 PROCreadrec(off%)
+  370 off% = off%+recsize%
+  380 UNTIL FNmatch( $(rec%+3),type$ ) OR off% > maxtypes%*recsize%
+  390:
+  400 IF off%>maxtypes%*recsize% THEN PRINT "Areal Unit type not found":PROCtidy_up:END
+  410:
+  420 REM OSCLI "spool "+ out$
+  430 REM display the areal unit type
+  440 PRINT:FOR i=3 TO 32:VDU rec%?i:NEXT:PRINT:PRINT
+  450:
+  460 off%=rec%!36
+  470 num_of_names% = rec%!34 AND &FFFF
+  480:
+  490 FOR i% = 1 TO num_of_names%
+  500 PROCshowname(i%)
+  510 NEXT i%
+  520 REM OSCLI "spool"
+  530 ENDPROC
+  540:
+  550 DEF FNmatch( S1$, S2$ )
+  560 S3$="":S4$=""
+  570 FOR i% = 1 TO 32      : S3$ = S3$ + FNchcase(MID$(S1$,i%,1)):NEXT i%
+  580 FOR i% = 1 TO LEN(S2$): S4$ = S4$ + FNchcase(MID$(S2$,i%,1)):NEXT i%
+  610 IF INSTR( S3$,S4$,0 ) <> 0 = TRUE ELSE = FALSE
+  620:
+  630 DEF FNchcase( ch$ )
+  640 IF (ch$>="A")AND(ch$<="Z") THEN = CHR$( ASC(ch$)+ASC("a")-ASC("A") ) ELSE = ch$
+  650:
+  660 REM this procedure uses the fact that Nth sequential areal
+  670 REM unit name within a block contains the Gazetteer offset
+  680 REM to the name with number N (i.e. the first record has a
+  690 REM pointer to name number 1, etc.)
+  700:
+  710 DEF PROCshowname(num%)
+  720 PROCreadrec( off%+(num%-1)*recsize% )
+  730 new_off% = rec%!42
+  740 PROCreadrec( new_off% )
+  750 IF hide_invalid_names% THEN IF (rec%!46 AND &FFFF) = 0 ENDPROC
+  760 VDU9:PRINTnum%;:VDU9
+  770 FOR i = 3 TO 32: VDU rec%?i : NEXT
+  780 PRINT
+  790 ENDPROC
+  800:
+  810 DEF PROCreadrec( offset% )
+  820 PTR#gazhandle% = offset%
+  830 FOR i = 0 TO recsize%-1
+  840 rec%?i = BGET#gazhandle%
+  850 NEXT
+  860 ENDPROC
+  870:
+  880 DEF PROCtidy_up
+  890 CLOSE#gazhandle%
+  900 REM OSCLI "spool"
+  910 ENDPROC
+  920 

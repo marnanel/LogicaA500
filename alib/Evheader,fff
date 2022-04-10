@@ -1,0 +1,36 @@
+
+GLOBAL $( SetEventHandler:112 $)
+
+MANIFEST
+$( ev.EscapeFlag        = -1;
+   ev.BufferEmpty       = 0;
+   ev.BufferFull        = 1;
+   ev.KB                = 2;
+   ev.ADCComplete       = 3;
+   ev.VSync             = 4;
+   ev.Timer             = 5;
+   ev.Escape            = 6;
+   ev.RS423Error        = 7;
+   ev.NetError          = 8;
+   ev.User              = 9;
+
+   evh.Ignore           = 0;
+   evh.SetFlag          = 1;
+   evh.CallProc         = 2;
+   evh.Buffer           = 3;
+
+   evb.Insertion        = 0;
+   evb.Extraction       = 1;
+   evb.BufferEnd        = 2;
+   evb.Buffer           = 3
+$)
+
+//LET ExtractFromEventBuffer(b) = VALOF
+//$( LET p = b!evb.Extraction;
+//   IF p=b!evb.Insertion THEN RESULTIS FALSE;
+//   result2 := b!(evb.Buffer+p);
+//   p := p+1;
+//   IF p>b!evb.BufferEnd THEN p := 0;
+//   b!evb.Extraction := p
+//   RESULTIS TRUE
+//$)

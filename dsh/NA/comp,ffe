@@ -1,0 +1,6 @@
+*| compile the AREA overlay
+c $.compile area0
+c $.compile area
+c $.compile area2
+c $.compile area3
+c $.compile area4

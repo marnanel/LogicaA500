@@ -1,0 +1,7 @@
+*| link SC cintcode - getact,menu & input removed PAC 24.9.87
+*dir c    
+*remove kernel
+Join graph1 graph2 text1 text2 text3 number -to k1
+Join k1 mouse textlnk icon setfont chart9 sprite -to kernel
+*delete k1
+*dir ^

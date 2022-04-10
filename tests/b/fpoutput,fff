@@ -1,0 +1,147 @@
+SECTION "FPOutput";
+
+GET "LibHdr";
+
+LET WriteF(format, a, b, c, d, e, f, g, h, i, j, k) BE
+{  LET t = @a
+
+   FOR p = 1 TO format%0 DO {
+      LET k = format%p
+
+      TEST k='%' THEN {
+         LET f, arg, n = 0, t!0, 0
+         p := p+1
+         SWITCHON CapitalCh(format%p) INTO
+         {  DEFAULT: WrCh(format%p); ENDCASE
+            CASE 'S': f := WriteS; GOTO l
+            CASE 'T': f := WriteT; GOTO m
+            CASE 'C': f := WrCh; GOTO l
+            CASE 'O': f := WriteOct; GOTO m
+            CASE 'X': f := WriteHex; GOTO m
+            CASE 'I': f := WriteD; GOTO m
+            CASE 'N': f := WriteN; GOTO l
+            CASE 'U': f := WriteU; GOTO m
+            CASE 'F': f := WrFlNum; GOTO l
+
+            m: p := p+1
+               n := format%p
+               n := '0'<=n<='9' -> n-'0',
+                                   n-'A'+10
+
+            l: f(arg, n)
+
+            CASE '$':
+               t := t+StackFrameDirection } }
+
+      ELSE
+         WrCh(k) } }
+
+AND WriteT(s, n) BE {
+   WriteS(s);
+   FOR i = 1 TO n-s%0 DO WrCh('*S') }
+
+AND WriteU(n, d) BE {
+   LET m = (n>>1)/5;
+   IF m~=0 THEN {
+      WriteD(m, d-1)
+      d := 1 };
+   WriteD(n-m*10, d) }
+
+AND WrFlNum(a) BE {
+// The main agony in a floating point print routine is in computing
+// a scaled version of the input (multiplied by a power of 10) without
+// loss of accuracy.
+   LET bx= (a & #X7F800000) >> 23
+   LET dx=(16103*(bx-#X7F)+8051)/53493
+                               // 16103/53493 = log10(2) to about 8 decimals
+   LET n, when, sign = 0, 0, FALSE;
+   LET fpnumbase = 1e9;
+
+   TEST bx=0 THEN // special case with 0.0
+      IF a=0 THEN dx := 0
+   ELSE {
+      IF a#<0.0 THEN sign := TRUE
+      a := #ABS a;
+
+      TEST dx<3 THEN {  // Input number is smallish
+         dx := dx-3; n := -dx
+         UNTIL n<9 DO {
+            a := a#*fpnumbase; n := n-9 }
+         UNTIL n=0 DO {
+            a := a#*10.0; n := n-1 } }
+
+      ELSE TEST dx<6 THEN // up to about a million
+         dx := 0
+
+      ELSE {  // Big numbers
+         dx := dx-3; n := dx
+         UNTIL n<9 DO {
+            a := a#/fpnumbase; n := n-9 }
+         UNTIL n=0 DO {
+            a := a#/10.0; n := n-1 } } };
+
+   n := Truncate(a);
+   a := a#-FLOAT n;
+
+// Now I have split the number into its sign, an integer N that is in
+// the range 100 to 1000000, and a fraction (fpws2). The fraction may
+// occasionally be -ve or >=1.0 here, so adjust for same. I only expect
+// the fraction to be wrong occasionally, and then only by + or -1.
+   WHILE a#<0.0 DO {
+      n := n-1; a := a#+1.0 };
+   WHILE 1.0#<=a DO {
+      n := n+1; a := a#-1.0 };
+
+// Convert number to decimal in FPBuffer
+   {  LET FPBuffer = VEC 24/BytesPerWord;
+      LET p = PackNum(n, FPBuffer, 4);
+      LET howMany = 9;
+
+      dx := dx+p-5
+      FOR i=1 TO 8 DO {
+         a := a#*10.0;
+         n := Truncate(a);
+         a := a#-FLOAT n;
+         FPBuffer%p := n
+         p := p+1 }
+                        
+      IF FPBuffer%(howMany+4) >= 5 THEN {  // Round up - fixed PAC 5.6.87
+         p := howMany+3
+         {  LET d=FPBuffer%p
+            TEST d=9 THEN
+               TEST p=4 THEN {
+                  FPBuffer%p := 1; dx := dx+1; BREAK }
+               ELSE {
+                  FPBuffer%p := 0; p := p-1 }
+            ELSE {
+               FPBuffer%p := d+1; BREAK }
+         } REPEAT }
+
+      WHILE howMany>2 &
+            FPBuffer%(howMany+3)=0 DO
+         howMany := howMany-1
+
+// Print out.
+      IF sign THEN WrCh('-')
+      TEST 0<dx<10 THEN {
+         when := dx; dx := 0
+         IF howMany<when+2 THEN howMany := when+2 }
+      ELSE
+         when := 0
+      FOR i=0 TO howMany-1 DO {
+         WrCh('0'+FPBuffer%(i+4))
+         IF i=when THEN WrCh('.') };
+      IF dx~=0 THEN {
+         WrCh('e')
+         IF dx<0 THEN { WrCh('-'); dx := -dx }
+         WriteN(dx) } } }
+
+AND PackNum(n, buff, offset) = VALOF {
+   IF n>=10 THEN offset := PackNum(n/10, buff, offset)
+   buff%offset := n REM 10
+   RESULTIS offset+1 }
+
+AND Truncate(n) = VALOF {
+// n known to be positive
+   LET i = FIX n;
+   RESULTIS (FLOAT i) #>n -> i-1, i }  // fixed 5.6.87 PAC

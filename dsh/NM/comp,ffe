@@ -1,0 +1,22 @@
+*| compile AES NM parent source
+*|
+c $.compile analyse1
+c $.compile analyse2
+c $.compile analyse3
+c $.compile analyse4
+c $.compile compare1
+c $.compile compare2
+c $.compile dy
+c $.compile frame
+c $.compile key1
+c $.compile key2
+c $.compile load1
+c $.compile load2
+c $.compile map1
+c $.compile map2
+c $.compile map3
+c $.compile process
+c $.compile subsets
+c $.compile unpack
+c $.compile utils
+c $.compile utils2

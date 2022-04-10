@@ -1,0 +1,245 @@
+//  AES SOURCE  6.87
+
+/**
+         NM.RETR4 - RETRIEVE SUB-OPERATION FOR MAPPABLE DATA
+         ---------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         cnmRETR
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         14.04.86 1        D.R.Freed   Initial version
+         ********************************
+         3.7.87      2     DNH      CHANGES FOR UNI   
+         13.7.87     3     DNH      set32 for widen
+         4.8.87      4     DNH      bugfix uniform retrieve
+
+         g.nm.retrieve.values
+**/
+
+section "nmretr4"
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNMhd"
+get ":4.DSH.H.nmhd"
+
+get ":4.DSH.H.nmrehd"
+
+
+/**
+         G.NM.RETRIEVE.VALUES - RETRIEVE VALUES FROM DATA
+         ------------------------------------------------
+
+         Unpacks and retrieves values within the area
+         described by the given grid references.
+
+         The results are all placed in statics used privately by
+         the Retrieve sub-operation.
+
+         INPUTS:
+
+         Bottom left east grid reference
+         Bottom left north grid reference
+         Top right east grid reference (inclusive)
+         Top right north grid reference (inclusive)
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.nm.s!m.sum.total
+         g.nm.s!m.missing
+         g.nm.s!m.area.no
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Only to be used in child overlay cnmRETR
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.nm.retrieve.values [bleast, blnorth, treast, trnorth]
+         --------------------
+
+         increment top treast and trnorth to include them
+         define a temporary area of interest corresponding to
+            bottom left and adjusted top right
+         process the variable over this area using drivers which
+            retrieve the data into g.nm.s statics
+         restore the real area of interest
+**/
+
+let g.nm.retrieve.values (bleast, blnorth, treast, trnorth) be
+$(
+   let   top.bit  = ?
+   and   junk     = ?
+   and   const32  =  vec 1
+   and   gr32     =  vec 1
+
+   // increment the easting by the current resolution, to give a reference
+   // which falls in the next grid square and includes the specified
+   // top right reference
+
+   // strip artificial top bit, add resolution and restore top bit
+   top.bit := treast & #x8000
+   treast := ((treast & #x7fff) + g.context!m.resolution) | top.bit
+
+   // increment the northing - handle it using 32-bit arithmetic in
+   // case of real top bit
+
+   g.ut.set32 (g.context!m.resolution, 0, const32)
+   g.ut.set32 (trnorth, 0, gr32)
+   g.ut.add32 (const32, gr32)
+   trnorth := g.ut.get32 (gr32, @junk)
+
+   // define a temporary area of interest
+   g.nm.init.processor (bleast, blnorth, treast, trnorth)
+
+   // process the variable over this AOI to retrieve the values of the
+   // grid squares in sum.total
+   g.nm.process.variable (uniform.retrieve, fine.retrieve)
+
+   // restore the real area of interest
+   g.nm.init.processor (g.context!m.grbleast, g.context!m.grblnorth,
+                        g.context!m.grtreast, g.context!m.grtrnorth)
+$)
+
+
+/*    Retrieval routines to be used by g.nm.process.variable follow    */
+
+
+/*
+      uniform.retrieve
+
+         retrieves and sums values in a block whose values are
+         all the same, due to index level compression
+
+         for areal data, puts the area number in static
+
+         clears missing flag if non-missing data is encountered
+*/
+
+and uniform.retrieve (record.number, offset, east, north, block.size) be
+$(
+   let value = vec 1
+   and missing32 = vec 1     // used to set value and/or compare with it
+   and num.e, num.n  =  ?, ?
+
+   if (record.number = m.nm.uniform.missing) then
+      RETURN                 // no more to do for missing data
+
+
+   // record number <= 0
+    
+   test (g.nm.s!m.nm.dataset.type = m.nm.areal.mappable.data) then
+
+   $(
+      g.nm.s!m.area.no := - record.number
+      g.ut.mov32 (g.nm.areal +  (- record.number) * m.nm.max.data.size, value)
+   $)
+
+   else
+
+      test g.nm.dual.data.type (g.nm.s!m.nm.raster.data.type) then
+         g.ut.set32 (offset, 0, value)
+      else
+         g.ut.set32 ( - record.number, 0, value)
+
+
+   g.ut.set32 (0, m.nm.max.neg.high, missing32)
+
+   // sum values if not missing
+   if g.ut.cmp32 (value, missing32) ~= m.eq then
+      $(
+         g.nm.s!m.missing := FALSE
+
+         // calculate the number of squares that actually lie within the
+         // area of interest
+
+         num.e :=
+            g.nm.min (east + block.size, g.nm.s!m.nm.grid.sq.top.e) -
+                                 g.nm.max (east, g.nm.s!m.nm.grid.sq.low.e)
+
+         num.n :=
+            g.nm.min (north + block.size, g.nm.s!m.nm.grid.sq.top.n) -
+                                 g.nm.max (north, g.nm.s!m.nm.grid.sq.low.n)
+         // sum values within AOI
+         for i = 1 to g.nm.max (num.e, 0) * g.nm.max (num.n, 0) do
+            g.nm.mpadd (value, g.nm.s + m.sum.total)
+      $)
+$)
+
+
+/*
+      fine.retrieve
+
+         retrieves and sums values in the specified fine block
+
+         for areal data, puts the area number in static
+
+         clears missing flag if non-missing data is encountered
+*/
+
+and fine.retrieve (start.east, start.north) be
+$(
+   let areal.data =  ?
+   and curr.e, curr.n, area, index =  ?, ?, ?, ?
+   and value = vec m.nm.max.data.size
+   and missing32 = vec 1
+
+   g.ut.set32 (0, m.nm.max.neg.high, missing32)
+
+   areal.data := (g.nm.s!m.nm.dataset.type = m.nm.areal.mappable.data)
+
+   // process block
+
+   for north = 1 to m.nm.fine.blocksize do
+
+    for east = 1 to m.nm.fine.blocksize do
+
+    $(square
+
+      curr.e := start.east + east - 1
+      curr.n := start.north + north - 1
+
+      // see if this square is within area of interest;
+
+      if ( (curr.e >= g.nm.s!m.nm.grid.sq.low.e) &
+           (curr.e < g.nm.s!m.nm.grid.sq.top.e) &
+           (curr.n >= g.nm.s!m.nm.grid.sq.low.n) &
+           (curr.n < g.nm.s!m.nm.grid.sq.top.n) )   then
+      $(inside
+         index := ((north-1) * m.nm.fine.blocksize + east) * m.nm.max.data.size
+
+         test areal.data then
+         $(areal
+            // NOTE g.nm.values contains boundary values which are used to
+            //      index areal vector and area names records - all
+            //      boundary values fit into lsw
+
+            g.nm.s!m.area.no := g.nm.values!index
+
+            g.ut.mov32 (g.nm.areal + g.nm.values!index * m.nm.max.data.size,
+                                                                         value)         $)areal
+
+         else
+
+         $(gridsquare
+            g.ut.mov32 (g.nm.values + index, value)
+         $)gridsquare
+
+         // sum value if not missing
+         if g.ut.cmp32 (value, missing32) ~= m.eq then
+         $(
+            g.nm.s!m.missing := FALSE
+            g.nm.mpadd (value, g.nm.s + m.sum.total)
+         $)
+      $)inside
+    $)square
+$)
+
+.

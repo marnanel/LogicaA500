@@ -1,0 +1,57 @@
+*time
+Mon,22 Aug 1988.06:50:06
+*| *dir $.DSH.NA    
+*| c linc
+*dir $.DSH.NC         
+c linc
+*| link the CHART overlay
+*dir c
+*| Join chart0 chart1 chart2 chart3 chart4 -to t1
+Join dummy chart0 chart2 chart3 chart4 -to t1
+dummy       FFFFFF40 EE84FCDA 000007C4
+chart0      FFFFFF40 EE850221 00000B80
+chart2      FFFFFF40 EE85075E 00000DBC
+chart3      FFFFFF40 EE850EB8 00001EF0
+chart4      FFFFFF40 EE851548 000014E0
+
+t1          FFFFFF40 EE84FCDA 000054D4
+Join chart5 chart6 chart7 chart8 -to t2
+chart5      FFFFFF40 EE851CBB 00001F14
+chart6      FFFFFF40 EE8522E5 000015E4
+chart7      FFFFFF40 EE852870 0000102C
+chart8      FFFFFF40 EE852F28 0000196C
+
+t2          FFFFFF40 EE851CBB 00005E94
+Join t1 t2 -to $.DSH.l.chart
+t1          FFFFFF40 EE84FCDA 000054D4
+t2          FFFFFF40 EE851CBB 00005E94
+
+chart       FFFFFF40 EE84FCDA 0000B364
+*back
+*dir $.DSH.NF         
+c linc
+*| link the national find overlay
+*dir C
+*|Join find0 find1 find2 find3 find5 find7 -to $.dsh.l.natfind
+*Join main titles dialogue find1 find2 find3 find5 find7 -to $.dsh.l.natfind
+main        FFFFFF40 EE84DB9F 00000B88
+titles      FFFFFF40 EE84DFE2 00000CA0
+dialogue    FFFFFF40 EE84E571 00000B78
+find1       FFFFFF40 EE84E927 00000974
+find2       FFFFFF40 EE84ED5B 00000E10
+find3       FFFFFF40 EE85CFB2 00000CD0
+find5       FFFFFF40 EE84F4F2 000012B4
+find7       FFFFFF40 EE84F77A 000002E4
+
+natfind     FFFFFF40 EE84DB9F 00005D90
+*back
+*| *dir $.DSH.NM         
+*| c linc
+*| *dir $.DSH.NN         
+*| c linc
+*| *dir $.DSH.NT         
+*| c linc
+*time
+Mon,22 Aug 1988.06:50:13
+*spool
+

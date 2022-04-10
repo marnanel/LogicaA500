@@ -1,0 +1,12 @@
+co diaologue
+ARM BCPL Version 2.4
+Section FIND.dialogue
+Tree size 8313
+Error near line 71: 'm.shaded' not declared
+Error near line 75: 'm.shaded' not declared
+Error near line 75: 'm.shaded' not declared
+Error near line 81: 'm.nf.chart.data.bsize' not declared
+Error near line 102: 'trap' not declared
+Error near line 104: 'trap' not declared
+spool
+

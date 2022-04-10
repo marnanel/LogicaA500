@@ -1,0 +1,869 @@
+// BBC MICRO SYSTEM
+
+// Copyright RICHARDS COMPUTER PRODUCTS LTD 1982
+
+// Root segment of DEBUG - part 1
+
+// Modified from version for CP/M by
+// C Jobson 05/07/82
+// Updated  13/10/82
+// Updated  26/11/82 & 29/11/82 (handling overlays)
+// Updated  14/1/83 (remove U and new S)
+// Updated  24/1/83 (various minor corrections)
+
+SECTION "DEBUG"
+
+GET "LIBHDR"
+GET "SYSHDR"
+GET "RTEHDR"
+GET "DBUGHDR"
+
+MANIFEST $(
+        F.BRK = 2
+        L.JUMP=5; L.PROC=5; L.INSTR=6; L.STATS=7
+         $)
+
+STATIC $( STYLE=0; A=0          // A is current variable
+          INSTR=0; ADDR=0
+          REC.P=0; REC.L=0; HIGHBIT=0; PC=0
+          CURRENTLOADNO=0; CURRFCB=0
+          CURRENTPROT=FALSE     // protection byte of current o/lay
+       $)
+
+
+LET BRK(I,PC) BE
+$( LET INS = 0%PC
+   IF ADDR!I NE 0 THEN XERROR("BREAK %N ALREADY SET", I)
+   0%PC := NOT INS              // check for ROM
+   IF 0%PC = INS THEN XERROR("CAN*'T PUT BREAKPOINT IN ROM")
+   0%PC := INS
+   INSTR!I := INS
+   ADDR!I  := PC
+$)
+
+
+AND CLEARFLAGS() BE
+   FOR I = 0 TO 3 DO SYSINDEX!I.FLAGS!I := FALSE
+
+
+AND COBACKTRACE() BE
+$( LET CPTR = CURRCO
+   LET P = CPTR!0
+   LET Q = P+9
+
+   LET C = COLIST
+   UNTIL C=0 | C=CPTR DO
+      C := C!2
+   IF C=0 THEN XERROR("NO CURRENT STACK")
+
+   WRITEF("*NCOROUTINE %I5 SIZE %I4", CPTR, CPTR!4)
+   UNLESS  -1 <=  CPTR!1 <= 0 DO
+      WRITEF("*NParent%I6", CPTR!1)
+
+   $( LET LEN= CPTR!4
+      LEN := LEN-1  REPEATWHILE CPTR!LEN=0
+      WRITEF("*N%N words of stack used*N", LEN)
+   $)
+
+   FOR I = 1 TO 25 DO
+   $( WRITEF("%I6: ", P)
+      IF P=CPTR DO
+      $( WRITEF(" Base of stack*N")
+         BREAK
+      $)
+
+      UNLESS 0<=P-CPTR<=CPTR!4 DO
+      $( WRITEF(" IMPROPER LINK*N")
+         BREAK
+      $)
+
+      WRITEF(" (return to %B) %A()",P!1,P!2)
+      IF Q>P+7 | Q<P DO Q := P+7
+
+      FOR T = P+3 TO Q-1 DO WRITEF("%A",!T)
+
+      NEWLINE()
+      Q := P
+      P := !P
+      IF CHECKESC() BREAK
+   $)
+$)
+
+
+AND GETFNAME(LOADNO) = VALOF
+   SWITCHON LOADNO INTO
+   $( CASE 5: RESULTIS "TRACE"
+      CASE 6: RESULTIS "INSTR"
+      CASE 7: RESULTIS "STATS"
+      DEFAULT: RESULTIS ""
+   $)
+
+
+AND GETLOAD(L) BE
+$( LET CURRNAME = GETFNAME(CURRENTLOADNO)
+   CURRFCB := CURRENTLOADNO = 0 -> 0, FINDSTFILE(CURRNAME)
+
+   IF CURRFCB = 0 | NOT SFSTATE(CURRFCB, FM.LOAD) THEN
+   $( IF L = CURRENTLOADNO THEN
+         L := 0
+      CURRENTLOADNO := 0                // no current overlay
+   $)
+
+   IF L=CURRENTLOADNO & L NE 0 THEN     // relink current overlay
+   $( UNLESS GLOBIN(CURRFCB) DO
+         XERROR("CANNOT RELINK %S", CURRNAME)
+      IF XNAME NE GLOBWORD DO XNAME(1)
+      RETURN
+   $)
+
+   FREEVEC(DATAVEC)
+   DATAVEC := 0
+
+   UNLESS CURRENTLOADNO=0 DO            // unlink current overlay
+   $( GLOBUNIN(CURRFCB)
+      CURRFCB!(-1) := CURRENTPROT -> CURRFCB!(-1) | #X8000,
+                                     CURRFCB!(-1) & (NOT #X8000)
+   $)
+
+   CURRENTLOADNO := 0
+   IF L=0 RETURN
+
+   CURRNAME := GETFNAME(L)              // link new overlay
+   CURRFCB := LOADSEG(CURRNAME)
+   UNLESS GLOBIN(CURRFCB) DO XERROR("CANNOT LOAD %S",CURRNAME)
+   CURRENTPROT := CURRFCB!(-1) < 0      // save current protection
+   CURRFCB!(-1) := CURRFCB!(-1) | #X8000
+                                        // and make protected
+   CURRENTLOADNO := L
+   IF XNAME NE GLOBWORD
+      UNLESS XNAME(0) DO GETLOAD(0)  // if XNAME returns FALSE tidy up
+$)
+
+
+AND LIMITREP() BE
+$( WRITEF("Low limit %A ", LOWLIMIT)
+   IF HIGHLIMIT = MAXINT THEN WRITEF("no ")
+   WRITEF("highlimit ")
+   IF HIGHLIMIT NE MAXINT THEN WRITEF("%A", HIGHLIMIT)
+   NEWLINE()
+$)
+
+
+AND OUT(A) BE SWITCHON STYLE INTO
+$( DEFAULT:
+   CASE 'D': WRITEF("%I7 ", A); RETURN
+   CASE 'C': OUTC(A); OUTC(A>>8); RETURN
+   CASE 'X': WRITEF("   %X4 ", A); RETURN
+   CASE 'O': WRCH('*S')
+             WROCT(A, 6)
+             WRCH('*S')
+             RETURN
+$)
+
+
+AND OUTC(C) BE
+   WRITEF("  %C ", SPCHAR(C))
+
+
+AND PRADDR(A) BE
+$(  LET GLOBBASE = @MAXGLOB
+    A := A & #X7FFF
+    TEST GLOBBASE<=A<=GLOBBASE+MAXGLOB
+    THEN WRITEF(" G%I3 ", A-GLOBBASE)
+    ELSE TEST VARS<=A<=VARS+9
+         THEN WRITEF(" V%I2  ", A-VARS)
+         ELSE WRITEF("%I6", A)
+    WRITEF(" (%X4):  ", A)  $)
+
+
+AND RCH() BE
+$( CH := CAPCH( RDCH())
+$)
+
+
+AND RDN(RADIX) = VALOF
+$(  LET A, GOODN = 0, FALSE
+
+    $( LET D = -1
+       IF '0'<=CH<='9' DO D := CH-'0'
+       IF 'A'<=CH<='F' DO D := 10+CH-'A'
+       UNLESS 0<=D<RADIX BREAK
+       GOODN := TRUE
+       A := A*RADIX + D
+       RCH()  $) REPEAT
+
+    UNLESS GOODN DO XERROR("BAD NUMBER")
+    RESULTIS A 
+$)
+
+
+AND RSIGCH() = VALOF
+$( WHILE CH='*S' DO RCH()
+   RESULTIS CH
+$)
+
+
+AND RUN() = VALOF
+$( LET PC = SYSINDEX!I.RSTATE!R.PC
+   LET RES = ?
+   LET PAR = 0
+   IF 0%PC = F.BRK THEN
+      FOR I = 0 TO 9 DO
+         IF ADDR!I=PC THEN
+            PAR := INSTR!I
+   RES := CONTPRG(PAR)
+   IF RES = -1 THEN
+   $( WRITEF("*NAbort %N ", ABORTCODE)
+      IF 1000 <= ABORTCODE <= 1255 THEN // BBC error
+      $( TEST ABORTCODE = 1017 THEN     // may be generated by BCPL
+            WRITES("Escape")
+         ELSE
+         $( LET ADDR = ((0%#XFD) | ((0%#XFE) << 8)) + 1
+            UNTIL 0%ADDR = 0 DO
+            $( WRCH(0%ADDR); ADDR := ADDR + 1
+            $)
+         $)
+      $)
+      NEWLINE()
+   $)
+   RESULTIS RES
+$)
+
+
+AND RUNEND() BE
+$( FOR I=0 TO 9 DO
+      IF ADDR!I NE 0 THEN 0%(ADDR!I) := INSTR!I
+$)
+
+
+AND RUNSTART() BE
+$( FOR I=0 TO 9 DO
+      IF ADDR!I NE 0 THEN 0%(ADDR!I) := F.BRK
+$)
+
+
+AND SPCHAR(C) = VALOF
+$( C := C & #X7F
+   IF 32 <= C < 127 THEN
+      RESULTIS C
+   IF C='*C' | C='*N' THEN
+      RESULTIS '**'
+   RESULTIS '.'
+$)
+
+
+AND STOPCHECK() = VALOF
+$( IF CHECKESC() THEN
+   $( RUNEND()
+      WRITEF("RUN STOPPED*N")
+      RUNSTART()
+      RESULTIS TRUE
+   $)
+   RESULTIS FALSE
+$)
+
+
+AND TRAPRETURN(STPCODE) BE
+$( CLEARFLAGS()
+   UNLESS CURRENTLOADNO = 0 DO
+      GLOBUNIN(CURRFCB)
+   STOP(STPCODE)
+$)
+
+
+AND TRAPSTART() BE
+$(  LET A1 = -1
+    LET CODE = -1
+    LET COUNT = ?
+
+    VARS :=  TABLE 0,0,0,0,0,0,0,0,0,0
+    INSTR := TABLE 0,0,0,0,0,0,0,0,0,0
+    ADDR  := TABLE 0,0,0,0,0,0,0,0,0,0
+    REC.P, REC.L := LEVEL(), NXTC
+    UNRDCH()
+    RCH() REPEATUNTIL CH='*N' | CH=ENDSTREAMCH
+    SYSINDEX!I.RSTATE!R.MCST := (SYSINDEX!I.RSTATE!R.MCST) |
+                                (M.TIMED | M.TRAPFLAGS)
+
+// Further initialisation depends on TIDYSTATE. This is 0 if no
+// tidying has been done since last leaving DEBUG - in this case
+// just relink the current overlay. It is 1 if TIDYHEAP was called
+// - i.e. coroutines, SCBs and data areas have been tidied up. In
+// this case get rid of any overlay (its data area, DATAVEC, is no
+// longer valid) but leave breakpoints etc. set. (TIDYHEAP is called
+// when an INIT is done). It is 2 if TIDY was called - this has the
+// same effects as TIDYHEAP but also unlinks everything. In this case
+// re-initialise completely. 
+
+    IF LOWLIMIT = GLOBWORD THEN TIDYSTATE := 2
+                                // in case DEBUG used right after some
+                                // other debugging aid
+    TEST TIDYSTATE NE 0 THEN    // some re-initialisation needed
+    $( IF TIDYSTATE = 2 THEN    // completely reinitialise (except VARS)
+       $( FOR I = 0 TO 9 DO
+             INSTR!I, ADDR!I := 0, 0
+          LOWLIMIT := HEAP
+          HIGHLIMIT := HEAPEND
+          STYLE := 'D'
+          A := 0
+          HIGHBIT := 0
+       $)
+       TIDYSTATE := 0           // reset ready for next time
+       DATAVEC := 0             // it was freed by TIDY(HEAP)
+       GETLOAD(0)               // get rid of current overlay (even if a
+                                // full TIDY was done this is still needed
+                                // to reset protection status)
+    $)
+    ELSE                        // resuming after interruption,
+       GETLOAD(CURRENTLOADNO)   // so restore current overlay
+
+// Start of main loop.
+
+NXTC: ABORTLABEL := ABLAB       // trap aborts
+      ABORTLEVEL := LEVEL()
+      WRITEF("**")
+      A1 := -1  //A1 is used for Breakpoints and Counts
+NXT:  RCH()
+      IF A1=0 THEN A1:= -1
+
+// Prevent carry over of most commands to 0B, 0C, 0F, 0R, 0T.
+
+SW: IF XCASE NE GLOBWORD & XCASE( A, HIGHBIT) GOTO NXT
+SWITCHON CH INTO
+$( DEFAULT: IF CH<32 GOTO NXT
+            XERROR("BAD COMMAND %C", CH)
+
+   CASE ENDSTREAMCH:            // might be reading from command file
+              SELECTINPUT(CNSLINSTR)
+   CASE '*N': GOTO NXTC 
+   CASE '*S': GOTO NXT
+
+   CASE '*'':CASE 'V':CASE 'G':
+         HIGHBIT := 0
+         A := RBEXP()
+         A1 := A
+         GOTO SW
+
+   CASE '#':
+   CASE '0':CASE '1':CASE '2':CASE '3':CASE '4':
+   CASE '5':CASE '6':CASE '7':CASE '8':CASE '9':
+             HIGHBIT := 0
+             A := RBEXP()
+             A1 := A
+             IF CH = 'H'
+                THEN $( HIGHBIT := 1; RCH() $)
+             GOTO SW
+
+   CASE '.':CASE '!':CASE '+':CASE '-':CASE '**':
+   CASE '/':CASE '%':CASE '<':CASE '>':
+   CASE '&':CASE '|':
+            HIGHBIT := 0
+            A := REXP(A)
+            A1 := A
+            GOTO SW
+
+   CASE '$': RCH()
+             UNLESS CH='C' | CH='X' | CH='D' | CH='O' DO
+                    XERROR("BAD STYLE CHAR %C", CH)
+             STYLE := CH
+             GOTO NXT
+
+   CASE '=': OUT(A)
+             NEWLINE()
+             GOTO NXT
+
+   CASE ':': RCH()
+             $( LET N= '0'<=CH<='9' | CH='*#' -> RBEXP()-1, 7
+                FOR I = 0 TO N DO
+                $( IF I REM 8 = 0 DO
+                    $( IF CHECKESC() BREAK
+                       PRADDR(A+I)
+                    $)
+                   OUT(A!I)     // BEWARE:- no '*N's output because BBC
+                $)              // VDU driver does one automatically if
+                NEWLINE()       // last column is written to
+             $)
+             GOTO SW
+
+   CASE '?':
+             FOR I = 0 TO 9 IF ADDR!I NE 0 DO
+             $( WRITEF("Break ")
+                TEST I=0 THEN WRITEF("on return") ELSE WRITEF("%N",I)
+                TEST (ADDR!I & 1) = 0
+                   THEN WRITEF("%A",ADDR!I>>1)
+                   ELSE WRITEF("  %B",ADDR!I)
+                NEWLINE()
+             $)
+             LIMITREP()
+             TRREP()
+             GOTO NXT
+
+   CASE 'B': // 0 B      UNSET ALL BREAK POINTS
+             // 0 BN     UNSET BREAK POINT N
+             // A BN     SET BREAK POINT N AT M/C ADDR A
+   $( LET N = 0
+      RCH()
+
+      IF '1'<=CH<='9' DO $( N := CH-'0'; RCH() $)
+      TEST A1=0 // A1 must have been set 0 this line
+      THEN // clear breakpoints
+      $( FOR I = 1 TO 9 DO 
+           IF I=N | N=0 DO  ADDR!I := 0
+      $)
+      ELSE  // set
+      $( IF N=0 THEN N := 1  // break 1 is default to set
+         PC := (A<<1) + HIGHBIT
+         BRK( N, PC)
+      $)
+      A1 := -1
+      GOTO SW
+   $)
+
+   CASE 'C': CLEARFLAGS()
+             COUNT := A1<0 -> 1,
+                      A1=0 -> 100, A1
+             SYSINDEX!I.FLAGS!F.COUNT := TRUE
+             RUNSTART()
+             $( SYSINDEX!I.FLAGS!F.JPTIME := COUNT
+                CODE := RUN()
+                IF CODE NE 3 ENDCASE
+                TEST A1 NE 0 
+                  THEN BREAK
+                  ELSE IF STOPCHECK() ENDCASE
+             $) REPEAT
+
+             RUNEND()
+             WRITEF("COUNT UP  *N")
+             TRPOS()
+             GOTO NXT
+
+   CASE 'D': RCH()
+             TEST CH = 'I' THEN
+             $( GETLOAD(L.INSTR)
+                XDISPLAY(A, HIGHBIT)
+                A := 0  // allow DIDIDI to sequence
+             $)
+             ELSE
+             $( UNRDCH()
+                COBACKTRACE()
+             $)
+             GOTO NXT
+
+   CASE 'F': CLEARFLAGS()
+             COUNT := A1<=0 -> 1,A1
+             RUNSTART()
+
+              $( FOR I=1 TO COUNT DO
+                 $( CODE := RUN()
+                    IF CODE NE 2 ENDCASE
+                 $)
+                 TEST A1 NE 0
+                    THEN ENDCASE
+                    ELSE IF STOPCHECK() ENDCASE
+              $) REPEAT
+
+   CASE 'I': GETLOAD(L.INSTR)
+             GOTO NXT
+
+   CASE 'J': GETLOAD(L.JUMP)
+             GOTO NXT
+
+   CASE 'K': GETLOAD(L.PROC)
+             GOTO NXT
+
+   CASE 'L':
+             LOWLIMIT := A
+             RCH()
+             A := RBEXP()
+             A := A=0 -> MAXINT,A
+             IF A <= LOWLIMIT THEN XERROR("BAD LIMIT")
+             HIGHLIMIT := A
+             LIMITREP()
+             GOTO SW
+
+   CASE 'M': $( LET P, WORD, MASK, LIM = A, 0, -1, #X7FFF
+                HIGHBIT := 0
+                RCH()
+                IF CH='P' DO
+                $( A := FINDPROC()
+                   RCH()
+                   GOTO MFOUND
+                $)
+                WORD := RBEXP()
+                IF CH=',' DO
+                $( RCH()
+                   MASK := RBEXP()
+                   IF CH=',' DO
+                   $( RCH()
+                      LIM := RBEXP()
+                   $)
+                $)
+                $( UNLESS ((!P NEQV WORD) & MASK) NE 0 |
+                      0< P-TRAPSTACK < TRAPSTACK!4  // NOT IN TRAPSTACK
+                   THEN
+                   $( A := P
+                      GOTO MFOUND
+                   $)
+                   P := P+1
+                   IF !127 < 0 THEN 
+                   $( CHECKESC(); XERROR("SEARCH INTERRUPTED")
+                   $)
+                $) REPEATUNTIL P>=LIM
+                XERROR("WORD NOT FOUND")
+        MFOUND:  WRITEF("= %N*N", A)
+                 GOTO SW
+             $)
+
+   CASE 'N': GETLOAD(L.STATS)
+             GOTO NXT
+
+   CASE 'R': $( LET RETADD = SYSINDEX!I.RSTATE!R.SP!1
+                TEST A1=0 THEN $( ADDR!0 := 0; A1:= -1 $)
+                          ELSE BRK(0, RETADD)
+                GOTO NXT
+             $)
+
+   CASE 'S': $( LET UPDTADDR = ?    // addr to update
+                LET DODISP = ?      // true if doing display
+                LET ISGLB, ISV = FALSE, FALSE
+
+                RCH()
+                UPDTADDR := VALOF SWITCHON RSIGCH() INTO
+                $( DEFAULT: IF '0' <= CH <= '9' | CH = '#' THEN
+                               RESULTIS RBEXP()
+                            XERROR("BAD ADDRESS")
+
+                   CASE 'G': ISGLB := TRUE
+                             RCH()
+                             RESULTIS (@MAXGLOB)+RDN(10)
+
+                   CASE 'V': ISV := TRUE
+                             RCH()
+                             RESULTIS VARS+RDN(10)
+                $)
+                DODISP := RSIGCH() = '*N'
+
+                $( IF ISGLB & UPDTADDR > (@MAXGLOB)+MAXGLOB THEN
+                      XERROR("MAX GLOBAL %N", MAXGLOB)
+                   IF ISV & UPDTADDR > VARS+9 THEN
+                      XERROR("ONLY 10 VARIABLES")
+                   IF RSIGCH() = '*N' THEN
+                      TEST DODISP THEN
+                      $( LET V = !UPDTADDR
+                         PRADDR(UPDTADDR)
+                         WRITEF("%I6 %X4 %C%C :", V, V, SPCHAR(V),
+                                                        SPCHAR(V >> 8)   )
+                         RCH(); RSIGCH()
+                       $)
+                       ELSE
+                         GOTO NXTC
+                   UNLESS CH = '*N' DO
+                      !UPDTADDR := REXP(RBEXP())
+                   UPDTADDR := UPDTADDR + 1
+                $) REPEAT
+             $)              
+
+   CASE 'T': IF XTRACE = GLOBWORD DO GETLOAD(L.JUMP)
+             $( LET TRACEPRINT = TRUE
+                LET REPCOUNT   = 1001 // allowance before STOPCHECK
+                CLEARFLAGS()
+                IF TRACESTART = GLOBWORD DO XERROR("NO TRACESTART")
+                    TRACEPRINT := TRACESTART()
+                RUNSTART()
+                COUNT := A1<=0 -> 1, A1
+                WHILE COUNT > 0 DO
+                $( CODE := RUN()
+                   UNLESS CODE = 3 DO  ENDCASE
+                   IF TRACEPRINT THEN RUNEND()  // prepare for output
+                   COUNT := COUNT - XTRACE()
+                   REPCOUNT := REPCOUNT=0 -> 0,REPCOUNT-1
+                   IF TRACEPRINT THEN RUNSTART()
+                   IF 0%(SYSINDEX!I.RSTATE!R.PC) = F.BRK ENDCASE
+                   IF A1=0 THEN COUNT := 1
+                   IF  A1=0  |           // trace without end
+                       (A1>25 & TRACEPRINT) |  // long traces
+                       REPCOUNT=0   // a long period without output
+                          THEN IF STOPCHECK() BREAK
+                $)
+                RUNEND()
+             $)
+             GOTO NXT
+
+   CASE 'W': GETLOAD(0)  // UNLOAD OVERLAY
+             GOTO NXT
+
+   CASE 'X': TRAPRETURN(0)
+
+$)  // end of switch
+     RUNEND()
+     PC := SYSINDEX!I.RSTATE!R.PC
+     IF PC NE 0 THEN
+     $( FOR I = 1 TO 9 DO
+           IF PC = ADDR!I THEN WRITEF("BREAK NO %N*N", I)
+        IF PC = ADDR!0 THEN WRITEF("BREAK ON RETURN*N")
+     $)
+     TRREP()
+     GOTO NXT
+
+// ABORT handling.
+
+ABLAB:
+   IF ABORTCODE = 1017 THEN
+      $( NEWLINE(); GOTO NXTC $)        // if ESC pressed OK
+   TRAPRETURN(ABORTCODE)                // else tidy up and exit
+
+$)  // end of TRAPSTART
+
+
+AND TRPOS() BE
+$( LET RSTATE = SYSINDEX!I.RSTATE
+   LET PC     = RSTATE!R.PC
+   LET PROC   = RSTATE!R.SP!2
+   LET RPC    = PC - (PROC<<1)
+   LET JINDEX = SYSINDEX!I.JADD
+
+   WRITEF("%A()",PROC)
+   UNLESS RPC=0 DO 
+   $( TEST #X4000 < (PC>>1) < LIBBASE THEN  // in machine code
+         WRITES(" +...")
+      ELSE
+         WRITEF(" +%B =%B", RPC,PC)
+   $)
+   NEWLINE()
+   WRITETIME()
+   WRITEF("Last jump from%B to%B*N", JINDEX!J.FROM, JINDEX!J.TO)
+   WRITEF("Last variable = %N*N",RSTATE!R.A)
+$)
+
+
+AND TRREP() BE
+$( LET CODE = SYSINDEX!I.FLAGS!F.LASTTRAP
+   SWITCHON CODE INTO
+   $(
+
+   CASE -3:  WRITEF("No program to start*N")
+             ENDCASE
+
+   CASE -2:  WRITEF("Fatal trap %S*N",SYSINDEX!I.TRST)
+             TRPOS()
+             ENDCASE
+
+   CASE -1:  WRITEF("Program aborted %N*N", SYSDATA!(SY.RG+0))
+             WRITETIME()
+             ENDCASE
+
+   CASE 0:  WRITEF("Program ended*N")
+            WRITETIME()
+            ENDCASE
+
+   CASE 1:  WRITEF("Initialised to start*N")
+            ENDCASE
+
+   CASE 2:  WRITEF("Break point*N")
+            TRPOS()
+            ENDCASE
+
+   CASE 3:  WRITEF("Requested trap*N")
+            TRPOS()
+            ENDCASE
+
+   CASE 4:  WRITEF("Interrupted*N")
+            TRPOS()
+            ENDCASE
+
+   CASE 5:  WRITEF("%N + store needed*N", LRBASE!LR.VECSZ)
+            TRPOS()
+   $)
+$)
+
+
+AND WRITETIME() BE
+$( WRITES("Count:")
+   WRDB(SYSINDEX!I.TIME)
+   NEWLINE()
+$)
+
+
+AND WRDB(N) BE
+$( TEST N!1=0 THEN WRITED( N!0, 8)
+   ELSE $( WRITED(N!1,4); WRITE4(!N) $)
+$)
+
+
+AND WRITE4(N) BE
+$( LET CHARS = VEC 4
+   FOR I = 3 TO 0 BY -1 DO
+   $( CHARS!I := N REM 10 + '0'
+      N := N/10
+   $)
+   FOR I = 0 TO 3 DO WRCH(CHARS!I)
+$)
+
+
+AND WROCT(N, D) BE
+   FOR I = 1 TO D DO
+      WRCH('0'+( (N >> (3*(D-I))) & 7 ))
+
+
+AND XERROR(S, A) BE
+$(  WRITEF(S, A)
+    NEWLINE()
+    UNRDCH()
+    RCH() REPEATUNTIL CH='*N'
+    LONGJUMP(REC.P, REC.L)
+$)
+.
+
+// BBC MICRO SYSTEM
+
+// Copyright RICHARDS COMPUTER PRODUCTS LTD 1982
+
+// Root segment of DEBUG - part 2
+
+// Modified from version for CP/M by
+// C Jobson 05/07/82
+// Updated 13/10/82
+// Updated 28/11/82
+
+SECTION "DEBUG2"
+
+GET "LIBHDR"
+GET "SYSHDR"
+GET "RTEHDR"
+GET "DBUGHDR"
+
+LET REXP(A) = VALOF
+$(1 SWITCHON CH INTO
+
+    $( DEFAULT:   RESULTIS A
+
+       CASE '.':
+       CASE '!': A := !A;            ENDCASE
+       CASE '+': A := A+RBEXPB();    LOOP
+       CASE '-': A := A-RBEXPB();    LOOP
+       CASE '**':A := A*RBEXPB();    LOOP
+       CASE '/': A := A/RBEXPB();    LOOP
+       CASE '%': A := A REM RBEXPB();LOOP
+       CASE '<': A := A<<1;          ENDCASE
+       CASE '>': A := A>>1;          ENDCASE
+       CASE '&': A := A&RBEXPB();    LOOP
+       CASE '|': A := A|RBEXPB();    LOOP
+    $)
+    CH := CAPCH(RDCH())
+$)1 REPEAT
+
+
+AND RBEXP() = VALOF SWITCHON CH INTO
+$(1 DEFAULT:  XERROR("BAD EXPRESSION")
+
+    CASE '0':CASE '1':CASE '2':CASE '3':CASE '4':
+    CASE '5':CASE '6':CASE '7':CASE '8':CASE '9':
+              RESULTIS RDN(10)
+
+    CASE '*'': $( LET K = RDCH()
+                  RCH()
+                  RESULTIS K
+               $)
+
+    CASE '#': RCH()
+              IF CH='X' DO
+              $( RCH()
+                 RESULTIS RDN(16)
+              $)
+              RESULTIS RDN(8)
+
+    CASE 'G': RCH()
+              UNLESS '0'<=CH<='9' RESULTIS @MAXGLOB
+              $( LET N=RDN(10)
+                 IF N<=MAXGLOB
+                    RESULTIS (@MAXGLOB)!N
+              $)
+              XERROR("MAX GLOBAL %N",MAXGLOB)
+
+    CASE 'V': RCH()
+              UNLESS '0'<=CH<='9' RESULTIS VARS
+              RESULTIS VARS!RDN1()
+
+    CASE '-': RESULTIS -RBEXPB()
+    CASE '+': RESULTIS  RBEXPB()
+$)1
+
+
+AND RBEXPB() = VALOF $( RCH()  REPEATWHILE CH = '*S'
+                   RESULTIS RBEXP()  $)
+
+
+AND RCH() BE CH := CAPCH( RDCH())
+
+
+AND RDN1() = VALOF
+$(1 LET A = CH-'0'
+    UNLESS 0<=A<=9 DO XERROR("BAD NUMBER")
+    RCH()
+    RESULTIS A  $)1
+
+
+AND FINDPROC() = VALOF
+$( LET PTR, RES = STOREFILES, ?
+   LET STR = VEC 8
+
+   // Prepare STR for direct comparison with procedures.
+
+   RDITEM(STR, 8)
+   FOR I = 1 TO 7 DO STR%I := I > STR%0 -> '*S', CAPCH(STR%I)
+   STR%0 := 7
+
+   UNTIL PTR = 0 DO     // search linked files (including system)
+   $( IF SFSTATE(PTR, FM.LINK) THEN
+      $( LET BLOCK = PTR!FC.BLOCK
+         UNTIL BLOCK = 0 DO
+         $( LET HUNK = BLOCK+FB.DATA
+            RES := SCANAREA(HUNK, STR, HUNK + (BLOCK!FB.COUNT >>1))
+            IF RES NE 0 RESULTIS RES
+            BLOCK := BLOCK!FB.CHAIN
+         $)
+      $)
+      PTR := PTR!FC.CHAIN
+   $)
+
+   RES := SCANAREA(LIBBASE, STR, MAXINT)
+   IF RES NE 0 RESULTIS RES
+   XERROR("%S() NOT FOUND", STR)
+$)
+
+
+AND SCANAREA(P, STR, ENDPTR) = VALOF
+$( UNTIL (!P & HUNKBITS) NE T.HUNK | P >= ENDPTR DO
+   $( LET RES = SCANHUNK(STR, P)
+      IF RES NE 0 RESULTIS RES
+      P := P + P!1 + 2
+   $)
+   RESULTIS 0
+$)
+
+
+AND SCANHUNK(STRING, LOC) = VALOF
+$( LET END = LOC + LOC!1 - 4
+   IF (!LOC & GLOBBITS) NE T.HUNK RESULTIS 0
+   STRING := STRING-1   // align pointer for fast check
+   FOR L= LOC TO END DO
+   $( IF !L = ENTRYWORD THEN
+      $( FOR I=1 TO 4 DO
+            IF L!I NE STRING!I GOTO NXT
+         RESULTIS L + 5
+      $)
+NXT:
+   $)
+   RESULTIS 0
+$)
+
+
+AND CHECKESC() = VALOF
+$( IF 0%(#XFF) > 127 THEN
+   $( OPSYS(#X7E)
+      RESULTIS TRUE
+   $)
+   RESULTIS FALSE
+$)
+.
+

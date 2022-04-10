@@ -1,0 +1,29 @@
+
+/* stupid sort example */
+
+dsort(L1,L2) :- permutation(L1,L2), sorted(L2), !.
+
+sorted([]).
+sorted([X]).
+sorted([X,Y|L]) :- order(X,Y), sorted([Y|L]).
+
+order(X,Y) :- X @< Y. 
+
+permutation([],[]).
+permutation(L,[H|T]) :-
+           append(V,[H|U],L),
+           append(V,U,W),
+           permutation(W,T).
+
+append([],L,L).
+append([X|L1],L2,[X|L3]) :- append(L1,L2,L3).
+
+match( List, Pattern, Result ) :-
+           permutation( List, Result ),
+           matches( Patter, Result ).
+
+
+
+
+
+

@@ -1,0 +1,409 @@
+/**
+         TABULAR INPUT EDITOR PRIMITIVES
+         -------------------------------
+
+         This section contains :
+
+            G.ta.parse.data
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         22.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TAheader4"
+
+GET "libhdr"
+GET "syshdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+static $( no.elements = ? max.space = ? work.space = ? multiplier = ? $)
+
+/**
+         G.TA.PARSE.DATA
+         ---------------
+         This routine is called to rescale the data elements and produce
+         an exponent if the file contains a multiplier or divisor.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+         G.ta.buff
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.parse.data[multiplier]
+         ---------------------------
+
+         REPEAT
+            read data element
+            IF operator is multiplier THEN
+               IF data element is largest found THEN
+                  store in safe place
+               ENDIF
+            ELSE IF operator is divisor THEN
+               IF data element is smallest found THEN
+                  store in safe place
+             END IF
+         UNTIL all data elements have been read
+         new exponent = 0
+         REPEAT
+            IF multiplier THEN
+               IF largest data element * multilier gives overflow THEN
+                  new exponent = new exponent + 1
+                  multiplier = multiplier / 10
+                ENDIF
+            ELSE IF divisor THEN
+              IF smallest number / divisor gives underflow THEN
+                 new exponent = new exponent + 1
+                 divisor = divisor / 10
+              ENDIF
+         UNTIL no under or overflow
+         store new exponent
+         IF multiplier THEN
+            multiply all data elements by multiplier
+         ELSE IF divisor THEN
+            divide all data elements by divisor
+**/
+
+let G.ta.parse.data(m) = VALOF
+$(
+   let data.area = g.ta.area + (m.ta.data.area / bytesperword)
+   let datasize = G.ta.area%m.ta.data.size
+   let datasign = G.ta.area%m.ta.data.sign
+   let st.data = g.ta.area + (m.ta.st.data / bytesperword)
+   let num = vec 1
+   let t = vec 1
+   let norm = ?
+   let length = vec 1
+   let r.length = vec 1
+   let st.data = vec 1
+
+   multiplier := m   //set up static multiplier
+   max.space := GETVEC(1)
+   no.elements := GETVEC(1)
+   !max.space, max.space!1 := (MAXVEC() / 4) * 4, 0  // okay for UNI version
+   G.ut.set32(#x7FFF, 0, t)
+   if G.ut.cmp32(max.space, t) = m.gt G.ut.mov32(t, max.space)
+   work.space := GETVEC(G.ut.unpack16(max.space, 0))
+   // calculate number of data elements
+   G.ut.set32(1, 0, no.elements)
+   for i = 0 to G.ta.area%m.ta.no.vars - 1 do
+   $( let no.cats = vec 1
+      G.ut.set32(G.ta.area%(m.ta.var.table + i), 0, no.cats)
+      G.ut.mul32(no.cats, no.elements)
+   $)
+   G.ut.set32(datasize, 0, length)
+   G.ut.mul32(no.elements, length) //get data length in bytes
+   G.ut.set32(G.ut.unpack16(g.ta.area, m.ta.st.data), 0, st.data)
+   G.ut.add32(st.data, length) //add header + etc...
+   G.dh.length(G.context!m.data.handle, r.length)
+   if G.ut.cmp32(length, r.length) = m.gt then
+   $(
+      G.sc.ermess("File is too short")
+      resultis false
+   $)
+   unless get.largest(num) resultis false //if multilier returns largest number
+                    //else if divisor returns smallest number
+   norm := get.exponent(num)
+   unless update.data() resultis false
+   FREEVEC(max.space)
+   FREEVEC(no.elements)
+   FREEVEC(work.space)
+   G.ut.set32(norm, 0, m)  // multiplier becomes new exponent
+   resultis true
+$)
+
+and get.largest(n) = VALOF
+$(
+   let bytes.to.read = vec 1
+   let no.bytes.left = vec 1
+   let f.ptr = vec 1
+   let t = vec 1
+
+   G.ut.set32(0, 0, t)
+   test g.ta.buff!m.ta.M.or.D = 'M' then
+      G.ut.set32( 0, 0, n) // set to smallest number
+   else
+      G.ut.set32(#x7FFF, -1, n) // set to largest number
+   G.ut.mov32(G.ta.area+(m.ta.st.data / bytesperword), f.ptr)
+// calculate number of bytes to read
+   G.ut.set32(G.ta.area%m.ta.data.size, 0, no.bytes.left)
+   G.ut.mul32(no.elements, no.bytes.left)
+   $(
+      test G.ut.cmp32(no.bytes.left, max.space) = m.lt then
+         G.ut.mov32(no.bytes.left, bytes.to.read)
+      else
+         G.ut.mov32(no.bytes.left, max.space)
+      if G.dh.read(G.context!m.data.handle, f.ptr,
+               work.space, G.ut.unpack16(bytes.to.read, 0)) = 0 resultis false
+      G.ut.add32(bytes.to.read, f.ptr) //increment data pointer
+      read.nums(n, G.ut.unpack16(bytes.to.read, 0)) // read data
+      G.ut.sub32(bytes.to.read, no.bytes.left)
+   $) repeatuntil G.ut.cmp32(no.bytes.left, t) = m.eq
+   resultis true
+$)
+
+and read.nums(n, no.bytes) be
+$(
+   let num = vec 1
+   let t = vec 1
+   let count = 0
+
+   G.ut.set32(0, 0, t)
+   $(
+      switchon G.ta.area%m.ta.data.size into
+      $(
+      case 1: G.ut.set32(0, 0, num)
+              num%0 := work.space%count
+              endcase
+      case 2: G.ut.set32(G.ut.unpack16(work.space, count), 0, num)
+              endcase
+      case 4: G.ut.set32(G.ut.unpack16(work.space, count),
+                          G.ut.unpack16(work.space, count+2), num)
+              endcase
+      $)  // end switch
+      correct.value(num)  //convert to correct value
+      $( let neg, neg1 = false, false
+         unless (G.ut.unpack16(num, 2) & #x8000) = 0 then
+         $( neg := true
+            G.ut.set32(-(G.ut.unpack16(num, 0)), -
+                               (G.ut.unpack16(num, 2)) -1, num)
+         $)
+         unless (G.ut.unpack16(n, 2) & #x8000) = 0 then
+         $(
+            neg1 := true
+            G.ut.set32(-(G.ut.unpack16(n, 0)), -
+                               (G.ut.unpack16(n, 2)) -1, n)
+         $)
+         test G.ta.buff!m.ta.M.or.D = 'M' then
+            test G.ut.cmp32(num, n) = m.gt then
+            $(
+               G.ut.mov32(num, n)
+               if neg then
+                  G.ut.set32(-(G.ut.unpack16(n, 0)), -
+                               (G.ut.unpack16(n, 2)) -1, n)
+            $)
+            else if neg1 then
+               G.ut.set32(-(G.ut.unpack16(n, 0)), -
+                               (G.ut.unpack16(n, 2)) -1, n)
+         else if G.ta.buff!m.ta.M.or.D = 'D' then
+            unless G.ut.cmp32(num, t) = m.eq then
+               test G.ut.cmp32(num, n) = m.lt then
+               $(
+                  G.ut.mov32(num, n)
+                  if neg then
+                    G.ut.set32(-(G.ut.unpack16(n, 0)), -
+                               (G.ut.unpack16(n, 2)) -1, n)
+               $)
+               else if neg1 then
+                  G.ut.set32(-(G.ut.unpack16(n, 0)), -
+                               (G.ut.unpack16(n, 2)) -1, n)
+         neg, neg1 := false, false
+      $)
+      count := count + G.ta.area%m.ta.data.size
+   $) repeatuntil count >= no.bytes
+$)
+
+and correct.value(data) be
+$(
+
+   test g.ta.area%m.ta.data.size = 1 then
+      test g.ta.area%m.ta.data.sign = m.ta.false then
+      $(
+         data%1 := 0   // unsigned 1 byte number
+         data%2 := 0
+         data%3 := 0
+      $)
+      else
+         test (data%0 & #x80) = 0 then
+         $(
+            data%1 := 0   // positive 1 byte number
+            data%2 := 0
+            data%3 := 0
+         $)
+         else
+         $(
+            data%1 := -1   // negative 1 byte number
+            data%2 := -1
+            data%3 := -1
+         $)
+   else if g.ta.area%m.ta.data.size = 2 then
+      test g.ta.area%m.ta.data.sign = m.ta.false then
+          G.ut.set32(G.ut.unpack16(data, 0), 0, data)
+                                  // unsigned 1 byte number
+      else
+         test (G.ut.unpack16(data, 0) & #x8000) = 0 then
+         $( data%2 := 0   // positive 2 byte number
+            data%3 := 0
+         $)
+         else
+         $( data%2 := -1   // negative 2 byte number
+            data%3 := -1
+         $)
+$)
+
+and get.exponent(n) = VALOF
+$(
+   let flow = ?
+   let exponent = 0
+   let r = vec 1
+   let num = vec 1
+   let dummy = vec 1
+   let t = vec 1
+
+   unless (G.ut.unpack16(n, 2) & #x8000) = 0 then
+      G.ut.set32(-(G.ut.unpack16(n, 0)),-(G.ut.unpack16.signed(n, 2)) -1, n)
+   test g.ta.buff!m.ta.M.or.D = 'M' then
+   $(  //repeat
+      flow := false
+      G.ut.mov32(multiplier, r)
+      unless G.ut.mul32(n,r) flow := true
+      unless range.check(r) flow := true
+      if flow then
+      $(
+         exponent := exponent + 1
+         G.ut.set32(10, 0, t)
+         G.ut.div32(t, multiplier, dummy)
+      $)
+   $) repeatwhile flow
+   else if g.ta.buff!m.ta.M.or.D = 'D' then
+   $(  //repeat
+      flow := false
+      G.ut.mov32(multiplier, r)
+      G.ut.mov32(n, num)
+      G.ut.div32(r,num, dummy)
+      G.ut.set32(0, 0, t)
+      if G.ut.cmp32(num,t) = m.eq flow := true
+      if flow then
+      $(
+         exponent := exponent - 1
+         G.ut.set32(10, 0, t)
+         G.ut.div32(t, multiplier, dummy)
+         G.ut.set32(0, 0, t)
+         if G.ut.cmp32(t, multiplier) = m.eq then
+            G.ut.set32(1, 0, multiplier)
+      $)
+   $) repeatwhile flow
+   resultis exponent
+$)
+
+and range.check(n) = VALOF
+$( let t = vec 1
+   let t1 = vec 1
+   switchon G.ta.area%m.ta.data.size into
+   $(
+      case 1: test G.ta.area%m.ta.data.sign = m.ta.true then
+              $( G.ut.set32(-129, -1, t)
+                 G.ut.set32(128, 0, t1)
+                 resultis (G.ut.cmp32(n,t) = m.gt) &
+                          (G.ut.cmp32(n,t1) = m.lt)
+              $)
+              else
+              $( G.ut.set32(-1, -1, t)
+                 G.ut.set32(256, 0, t1)
+                 resultis (G.ut.cmp32(n,t) = m.gt) &
+                          (G.ut.cmp32(n,t1) = m.lt)
+              $)
+              endcase
+      case 2: test G.ta.area%m.ta.data.sign = m.ta.true then
+              $( G.ut.set32(-32769, -1, n)
+                 G.ut.set32(32768, 0)
+                 resultis (G.ut.cmp32(n,t) = m.gt) &
+                          (G.ut.cmp32(n,t1) = m.lt)
+              $)
+              else
+              $( G.ut.set32(-1, -1, n)
+                 G.ut.set32(0, 1)
+                 resultis (G.ut.cmp32(n,t) = m.gt) &
+                          (G.ut.cmp32(n,t1) = m.lt) // 65536
+              $)
+              endcase
+   $)
+   resultis true
+$)
+
+and update.data() = VALOF
+$(
+   let bytes.to.read = vec 1
+   let no.bytes.left = vec 1
+   let f.ptr = vec 1
+   let t = vec 1
+
+   G.ut.set32(0, 0, t)
+   G.ut.mov32(G.ta.area+(m.ta.st.data /bytesperword), f.ptr)
+// calculate number of bytes to read
+   G.ut.set32(g.ta.area%m.ta.data.size, 0, no.bytes.left)
+   G.ut.mul32(no.elements, no.bytes.left)
+   $(
+      test G.ut.cmp32(no.bytes.left, max.space) = m.lt then
+         G.ut.mov32(no.bytes.left, bytes.to.read)
+      else
+         G.ut.mov32(max.space, bytes.to.read)
+      if G.dh.read(G.context!m.data.handle, f.ptr,
+               work.space, G.ut.unpack16(bytes.to.read, 0)) = 0 resultis false
+      convert.data(G.ut.unpack16(bytes.to.read, 0)) //multiply data by updated mutiplier
+      if G.dh.write(G.context!m.data.handle, f.ptr,
+               work.space, G.ut.unpack16(bytes.to.read, 0)) = 0 resultis false
+      G.ut.add32(bytes.to.read, f.ptr) //increment data pointer
+      G.ut.sub32(bytes.to.read, no.bytes.left)
+   $) repeatuntil G.ut.cmp32(no.bytes.left, t) = m.eq
+   resultis true
+$)
+
+and convert.data(no.bytes) be
+$(
+   let num = vec 1
+   let dummy = vec 1
+   let count = 0
+
+   $(
+      switchon G.ta.area%m.ta.data.size into
+      $(
+      case 1: test g.ta.buff!m.ta.M.or.D = 'M' then
+                 work.space%count := work.space%count * !multiplier
+              else
+                 work.space%count := work.space%count / !multiplier
+              endcase
+      case 2:
+              test g.ta.buff!m.ta.M.or.D = 'M' then
+                 work.space!(count / bytesperword) :=
+                    work.space!(count /bytesperword) * !multiplier
+              else
+                 work.space!(count / bytesperword) :=
+                          work.space!(count / bytesperword) / !multiplier
+              endcase
+      case 4: test g.ta.buff!m.ta.M.or.D = 'M' then
+                 G.ut.mul32(multiplier, (work.space+(count / bytesperword)))
+              else
+                 G.ut.div32(multiplier, (work.space+(count / bytesperword)),
+                                                                        dummy)
+              endcase
+      $)  // end switch
+      count := count + G.ta.area%m.ta.data.size
+   $) repeatuntil count >= no.bytes
+$)
+.

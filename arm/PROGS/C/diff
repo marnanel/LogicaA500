@@ -1,0 +1,215 @@
+
+/*------------------------------------------------------------------------
+--               Name : DIFF.C
+--          Processor : Acorn ARM
+--              Class : C program
+--      Creation date : 1.8.87
+--             Author : D. Krantz
+--   
+--        Description : File compare and change-bar for text files
+--
+--           Revision : 15.3.88   P.A.Cunnell   (Logica)
+--                      (A500 version)
+--
+--------------------------------------------------------------------------*/
+
+/* File difference utility */
+
+#include <ctype.h>
+#include <stdio.h>
+
+#define OPT_FLAG '-'              /* command line option switch recogniser */
+
+#ifdef VAX11C
+#define MAXLINE 16                /* maximum characters in input line */
+#else
+#define MAXLINE 85
+#endif
+
+#define FORMFEED 'L'-'@'
+
+struct LINE {                     /* structure defining a line internally */
+          int linenum;            /* what line on page                    */
+          int pagenum;            /* what page line is from               */
+          struct LINE *link;      /* linked list pointer                  */
+          char text[ MAXLINE ];   /* text of line                         */
+          char dup[ MAXLINE ];    /* uppercase copy of line text          */
+};
+
+typedef struct LINE *line_ptr;
+
+typedef char *char_ptr;
+
+typedef FILE *FILE_PTR;
+
+struct LINE root[ 3 ];            /* root of internal linked lists         */
+
+FILE_PTR msg;                     /* differences summary file pointer      */
+
+int line_count[ 3 ] = { 1, 1, 1 };   /* file's line counter                */
+int page_count[ 3 ] = { 1, 1, 1 };   /* file's page counter                */
+int command_errors = 0;              /* how many command line errors       */
+char xx1[ 132 ], xx2[ 132 ];         /* space to retain file names         */
+int files = 0;                       /* how many files on command line     */
+char_ptr infile_name[ 3 ] = { NULL, xx1, xx2 };
+char outfile_name[ 132 ];            /* changebarred output filename       */
+FILE_PTR infile[ 3 ];                /* input file pointers                */
+FILE *outfile;                       /* changebarred output file pointer   */
+static line_ptr at[ 3 ] = { NULL, &(root[ 1 ]), &(root[ 2 ]) };
+
+int debug = 0;                       /* trace switch                       */
+int trace_enabled = 0;               /* keyboard tracing switch            */
+int bar_col  = 78;                   /* column where change bar appears    */
+int top_skip = 0;                    /* lines to skip at top of page       */
+int bot_skip = 0;                    /* lines to skip at bottom of page    */
+int page_len = 66;                   /* length of a page                   */
+int up_case  = 0;                    /* boolean - is case significant?     */
+int re_sync  = 5;                    /* lines which must match for re-synch*/
+int output   = 0;                    /* boolean - is there an O/P file     */
+int blanks   = 0;                    /* boolean - blank lines significant? */
+int lookahead = 200;                 /* lines looked at before quitting    */
+int skip1 = 0;                       /* pages of first file to skip        */
+int skip2 = 0;                       /* pages of second file to skip       */
+
+#if 0 /* tracing and other debug functions turned off */
+
+#define trace( x )       callstack( x )
+#define ret              { callpop(); return; }
+#define ret_val( x )     { callpop(); return( x ); }
+#define TRACER_FUNCTIONS
+
+#else
+
+#define trace( x )            /** nothing **/ 
+#define ret                   { return; }
+#define ret_val               { return( x ); }
+
+#endif
+
+/*---------------------------------------------------------------------------*/
+
+main( argc, argv ) 
+   int argc;
+   char *argv[];
+{
+  int i;
+        trace("main");
+        if( argc == 1 )
+                 help();
+        msg = stdout;
+        for( i = 1; i < argc; i++ )
+                 strip_opt( argv[ i ] );
+        if( files < 2  )
+        { 
+                 printf( "\nError: Must specify two files");
+                 exit( 2 );
+        }
+        open_files();
+        if( command_errors )
+                 exit( 2 );
+       page_skip();
+       diff();
+       ret;
+}
+
+/*---------------------------------------------------------------------------
+  DONT_LOOK - Tells us whether or not this line should be considered for
+  comparison or is a filler (e.g. header, blank) line.
+ ---------------------------------------------------------------------------*/
+
+dont_look( line )
+   line_ptr line;
+{
+  int i;
+        trace( "don't look" );
+        if( line == NULL )
+                 ret_val( 0 );
+        if( line->linenum <= top_skip )
+                 ret_val( 1 );
+        if( line->linenum > page_len-bot_skip )
+                 ret_val( 1 ); 
+        if( !blanks )
+        {
+                 for( i = 0; i < MAXLINE; i++ )
+                          switch( line->text[ i ] )
+                          {
+                              case '\0':
+                              case '\n':
+                                       ret_val( 1 );
+                              case '\t':
+                              case ' ' : 
+                                       break;
+                              default  :
+                                       ret_val( 0 );
+                          }
+
+        }
+        ret_val( 0 );    
+}
+
+/*---------------------------------------------------------------------------
+  EQUAL - tells us if the pointers 'a' and 'b' point to line buffers
+  containing equivalent text or not.
+ ---------------------------------------------------------------------------*/
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+
+
+
+/*---------------------------------------------------------------------------
+
+ ---------------------------------------------------------------------------*/
+

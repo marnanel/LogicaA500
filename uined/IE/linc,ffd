@@ -1,0 +1,6 @@
+|*  join all the top level overlay code
+join c.top0 c.top c.top2 c.top3 c.top4 c.top5 -to top1
+join c.help c.system c.helplnk -to top2
+join top1 top2 -to :4.UINED.l.top
+*delete top1
+*delete top2

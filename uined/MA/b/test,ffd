@@ -1,0 +1,145 @@
+
+SECTION "test"
+
+GET "LIBHDR"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+$$DEBUG
+
+LET start() BE
+$(
+   LET i, option = ?, ?
+   LET cat.table = ?
+   LET no.vars = ?
+   LET no.bytes = ?
+   LET sign = FALSE
+   LET ch = ?
+
+   writef ("*P*NEnter category table details ")
+   writef ("*NEnter no of variables :")
+   no.vars := READN ()
+   RDCH ()      // first char after numbers is <CR> ???
+
+   cat.table := GETVEC (no.vars)
+   writef ("*NEnter number of categories for each variable ")
+   FOR i = 1 TO no.vars DO
+   $(
+      writef ("*NVariable %N : ", i)
+      cat.table%(i-1) := READN ()
+      rdch ()
+   $)
+   writef ("*NEnter size of data values (1, 2 or 4 bytes) :")
+   no.bytes := readn ()
+   rdch ()
+   writef ("*NSigned data values (Y/N) :")
+   ch := rdch ()
+   rdch ()
+   TEST ch = 'y' | ch = 'Y' THEN sign := TRUE
+   ELSE sign := FALSE
+   writef ("*NInsert cat (I), Delete cat (D), Remove var (R), Quit (Q)")
+   writef ("*NEnter option :")
+   option := rdch ()
+
+   WHILE (option ~= 'q') & (option ~= 'Q') DO
+   $(
+      SWITCHON option INTO
+      $(
+         CASE 'i' :
+         CASE 'I' : insert (cat.table, no.vars, no.bytes, sign)
+                    ENDCASE
+         CASE 'd' :
+         CASE 'D' : delete (cat.table, no.vars, no.bytes, sign)
+                    ENDCASE
+         CASE 'r' :
+         CASE 'R' : remove (cat.table, no.vars, no.bytes, sign)
+                    ENDCASE
+       $)
+
+      writef ("*NInsert cat (I), Delete cat (D), Remove var (R), Quit (Q)")
+      writef ("*NEnter option :")
+      option := rdch ()
+   $)
+   freevec (cat.table)
+$)
+
+and insert (cat.table, no.vars, no.bytes, sign) BE
+$(
+   LET cat.num = ?
+   LET var.num = ?
+
+   writef ("*NEnter variable number (1 - %n) : ", no.vars)
+   var.num := readn ()
+   writef ("*NEnter category to insert (1 - %n) : ",(cat.table%(var.num-1)+1))
+   cat.num := readn ()
+   writef ("*P")
+   g.sc.mode (1)
+   g.sc.mess ("Inserting category...")
+   TEST g.ma.insert.cat (cat.num, var.num, cat.table, no.vars,
+                                                          no.bytes, sign) THEN
+   $(
+      g.sc.mode (3)
+      writef ("*NInsert cat OK")
+      cat.table%(var.num - 1) := cat.table%(var.num - 1) + 1
+   $)
+   ELSE
+   $(
+      g.sc.mode (3)
+      writef ("*NInsert cat failed")
+   $)
+$)
+
+
+and delete (cat.table, no.vars, no.bytes, sign) BE
+$(
+   LET cat.num = ?
+   LET var.num = ?
+
+   writef ("*NEnter variable number (1 - %n) : ", no.vars)
+   var.num := readn ()
+   writef ("*NEnter category to delete (1 - %n) : ", cat.table%(var.num-1) )
+   cat.num := readn ()
+   writef ("*P")
+   g.sc.mode (1)
+   g.sc.mess ("Deleting category...")
+   TEST g.ma.delete.cat (cat.num, var.num, cat.table, no.vars,
+                                                          no.bytes, sign) THEN
+   $(
+      g.sc.mode (3)
+      writef ("*NDelete cat OK")
+      cat.table%(var.num - 1) := cat.table%(var.num - 1) - 1
+   $)
+   ELSE
+   $(
+      g.sc.mode (3)
+      writef ("*NDelete cat failed")
+   $)
+$)
+
+and remove (cat.table, no.vars, no.bytes, sign) BE
+$(
+   LET var.num = ?
+
+   writef ("*NEnter variable number (1 - %n) : ", no.vars)
+   var.num := readn ()
+   writef ("*P")
+   g.sc.mode (1)
+   g.sc.mess ("Removing variable ...")
+   TEST g.ma.remove.var (var.num, cat.table, no.vars, no.bytes, sign) THEN
+   $(
+      g.sc.mode (3)
+      writef ("*NRemove variable OK")
+      cat.table%(var.num - 1) := 0
+   $)
+   ELSE
+   $(
+      g.sc.mode (3)
+      writef ("*NRemove variable failed")
+   $)
+$)
+.
+
+
+
+
+
+

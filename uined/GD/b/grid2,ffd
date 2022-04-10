@@ -1,0 +1,247 @@
+SECTION "Grid2"
+
+/**
+         GRID HEADER INITIALISATION
+         --------------------------
+
+         This module contains
+
+         G.gr.inith
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.gridH
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       17.06.87   1        SA          Initial version
+       17.06.87   2        SRY         Added data load
+       22.06.87   3        SA          Menu bar control modified
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+GET ":4.UINED.gh.glGRhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.kdhd"
+get ":4.UINED.h.dhhd"
+GET ":4.UINED.h.grhhd"
+
+/**
+         G.GR.INITH - ENTER GRID HEADER AT TOP LEVEL
+         -------------------------------------------
+
+         Grid header initialisation and reselect
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.gd.buff including:
+         g.context!m.justselected
+         g.context!m.data.type
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Initialise data buffer variables for old or new data
+         Display the menu bar if altered
+         Turn mouse pointer off
+         Display screen
+         Turn mouse pointer on
+         show initial values
+         Set 'justselected' false
+**/
+
+LET G.gr.inith() BE
+$(
+   manifest $( indoff = 152 $)   // byte value
+
+   LET boxes = VEC 5
+   LET ranges = g.gd.buff+m.gd.ranges
+   LET mouse = ?
+   let datoff = ?
+   let units = G.gd.buff+m.gd.units
+   let handle = G.context!m.data.handle
+   let norm = 0
+   let def = m.gd.num.of.ranges - 1
+   let dtype = m.gd.unknown
+   let res = 1
+   let zero = vec 1
+   let offset = vec 1
+   let buff = getvec((indoff+6)/bytesperword)
+   boxes!0, boxes!1, boxes!2 := m.sd.act, m.sd.wBlank, m.sd.act
+   boxes!3, boxes!4, boxes!5 := m.sd.act, m.sd.act, m.sd.act
+
+// Variables not dependent on existing or new data
+   g.gd.buff!m.gd.box         := m.gd.unknown
+   g.gd.buff!m.gd.screenstate := m.gd.unknown
+   g.gd.buff!m.gd.last.box    := m.gd.unknown
+   g.gd.buff!m.gd.boxtype     := m.gd.unknown
+   g.gd.buff!m.gd.datatype    := m.gd.unknown
+   g.gd.buff!m.gd.cycol       := m.gd.unknown
+   g.gd.buff!m.gd.status      := m.gd.on
+   g.gd.buff!m.gd.intervals.changed := false
+   g.gd.buff!m.gd.cycstr      := false
+   g.gd.buff!m.gd.readreply   := false
+   g.gd.buff!m.gd.ranges.set  := true
+   g.gd.buff!m.gd.entry.mode  := false
+   g.gd.buff!m.gd.firstincid  := true
+   g.gd.buff!m.gd.incid       := 0
+   g.gd.buff!m.gd.reply       := 0
+
+   g.ut.set32(0, 0, zero)
+   TEST g.context!m.oldfile
+   THEN $( let subs = ?
+           if G.dh.read(handle, zero, buff, indoff+6) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+           g.ut.movebytes(buff, 68, units, 0, 40)
+           units%0 := 0
+           for i = 39 to 1 by -1
+              unless units%i = '*S'
+              $( units%0 := i
+                 break
+              $)
+           unless check.string (units)
+           $( g.sc.ermess ("Unprintable character in Units string")
+              g.key := -m.st.inputed
+              goto exit
+           $)
+           dtype := g.ut.unpack16(buff, indoff-4)
+           subs := g.ut.unpack16(buff, indoff-2)
+           unless subs = 1
+           $( G.sc.ermess("Invalid number of datasets: %N", subs)
+              G.key := - m.st.inputed
+              goto exit
+           $)
+           res := G.ut.unpack16(buff, indoff)
+           unless 1 <= res <= 10
+           $( G.sc.ermess("Invalid resolution: %n", res)
+              G.key := - m.st.inputed
+              goto exit
+           $)
+           datoff := g.ut.unpack16(buff, indoff+4) +  
+                     (g.ut.unpack16(buff, indoff+2)*
+                                           (m.dh.bytes.per.frame/bytesperword))
+           G.ut.set32(datoff*2, 0, offset)
+           if G.dh.read(handle, offset, buff, 34) = 0
+           $( G.key := - m.st.inputed
+              goto exit
+           $)
+
+           // Buff now starts at datoff
+           G.gd.buff!m.gd.data.rec := G.ut.unpack16(buff, 0)
+           norm := g.ut.unpack16.signed(buff, 12)
+           unless -99 <= norm <= 99
+           $( G.sc.ermess("Invalid normalising factor: %n", norm)
+              G.key := - m.st.inputed
+              goto exit
+           $)
+           convert.(norm) // convert to string
+           G.gd.buff!m.gd.data.size := buff%16
+           def := buff%17
+           unless 1 <= def <= 4
+           $( G.sc.ermess("Invalid no. of default ranges: %n", def)
+              G.key := - m.st.inputed
+              goto exit
+           $)
+           g.ut.movebytes (buff, 18, ranges, 0, 4)
+           g.ut.movebytes (buff, 22, ranges, 8, 4)
+           g.ut.movebytes (buff, 26, ranges, 16, 4)
+           g.ut.movebytes (buff, 30, ranges, 24, 4)
+
+           // If the number of default ranges is less than four then the
+           // spare 2 word areas in the ranges region must be filled with
+           // the highest of the existing ranges.
+
+           for i = def+1 to 4 move(ranges + (def-1)*2, ranges + ((i-1)*2), 2)
+        $)
+   ELSE $( LET nul = vec 1
+
+           g.ut.set32(0, 0, nul)
+           units%0 := 0
+           for i = 1 to 39 units%i := '*S'
+           g.gd.buff%(m.gd.nfac*bytesperword) := 1
+           g.gd.buff%(m.gd.nfac*bytesperword+1) := '0'
+
+           MOVE (nul, ranges, 2)
+           MOVE (ranges, ranges+1, 7)
+        $)
+
+   g.gd.buff!m.gd.datatype := dtype
+   g.context!m.data.type := dtype
+   g.gd.buff!m.gd.default.ranges := def
+   g.gd.buff!m.gd.norm := norm
+   g.gd.buff!m.gd.raster.size := res
+   G.context!m.resolution := res
+
+   mouse := G.sc.pointer(m.sd.off)
+   G.sc.menu(boxes)
+   G.sc.clear(m.sd.message)
+   G.sc.clear(m.sd.display)
+   $( let g = g.key
+      g.key := m.kd.noact
+      g.gd.cycle (m.gd.raster, m.sd.cyan)
+      g.gd.buff!m.gd.cycstr  := false
+      g.gd.buff!m.gd.cycol   := m.gd.unknown
+      g.gd.cycle (m.gd.data, m.sd.cyan)
+      G.key := g
+      g.gd.highlight (m.gd.units, m.sd.blue, m.sd.yellow)
+      g.gd.highlight (m.gd.nfac,  m.sd.blue, m.sd.yellow)
+   $)
+   G.sc.movea(m.sd.display, m.gd.posX, m.gd.unitsY+m.sd.linW)
+   G.sc.odrop("Units:")
+   G.sc.movea(m.sd.display, m.gd.posX, m.gd.dataY+m.sd.linW)
+   G.sc.odrop("Data type:")
+   G.sc.movea(m.sd.display, m.gd.posX, m.gd.rasterY+m.sd.linW)
+   G.sc.odrop("Raster Size (km):")
+   G.sc.movea(m.sd.display, m.gd.posX, m.gd.nfacY+m.sd.linW)
+   G.sc.odrop("Normalising Factor:")
+   G.sc.movea(m.sd.display, m.gd.posX, m.gd.nfacY-m.sd.linW)
+   G.sc.odrop("10")
+   G.sc.pointer (mouse)
+
+exit:
+   G.context!m.justselected   := FALSE
+   freevec(buff)
+$)
+
+// convert integer into +/- and 1 or 2 digits
+and convert.(n) be
+$( let l = 0
+   let b = G.gd.buff + m.gd.nfac
+   if n < 0
+   $( l := 1
+      b%1 := '-'
+      n := - n
+   $)
+   test n < 10
+   then $( b%0 := l+1
+           b%(l+1) := '0' + n 
+        $)
+   else $( b%(l+1) := '0' + n/10
+           b%(l+2) := '0' + (n rem 10)
+           b%0 := l+2
+        $)
+$)
+
+and check.string (string) = valof
+$( for x = 1 to string%0 do
+      unless g.ut.printingchar (string%x) resultis false
+   resultis true
+$)
+.

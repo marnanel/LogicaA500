@@ -1,0 +1,267 @@
+/**
+         SIDEWAYS RAM INITIALISATION
+         ---------------------------
+
+         This section contains :
+
+            G.df.init.index
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.DFinitidx
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         09.03.87 1        MH          initial version
+         19.03.87 2        MH          SRAM initialisation -> DFinitram
+          3.08.87 3        SRY         Changed m.ut.eq to m.eq
+         27.11.87 4        MH          Updated for unified version
+**/
+
+SECTION "indexing"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.uthd"
+GET ":4.format.h.dfhd"
+
+/**
+         G.DF.INIT.INDEX
+         ---------------
+
+         Sets up a skeleton data structure in sideways ram for the raster
+         size index.
+
+         INPUTS:
+
+         n : number of raster blocks north to south
+         w : number of raster blocks east to west
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         SPECIAL NOTES FOR CALLERS:
+
+         The start address of the data structure is #X0501 in sideways ram
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.init.index [w, n]
+         ---------------
+
+            if n out of range then error
+            if w out of range then error
+            clear 32*32 data area
+            clear 8*8 data area
+**/
+let G.df.init.index(w, n) be //initialise sideways ram for use
+$( let sr.pos = vec 1  //used for the calculation of unsigned 16 bit address
+                       //sideways ram
+   let clear = vec (63/bytesperword) //set up 8*8 data block
+   let blocks = w * n
+   let t = vec 0
+   let t1 = vec 0
+   let t2 = vec 1
+
+   !t := 0
+   !t1 := -1
+   for i = 0 to 31 do    //increment by 16 bit word length   
+      test (i & #x0001) = 0 then //byte offset = i * 2
+         G.ut.movebytes(t, 0, clear, i*2, 2) // rno = 0
+      else
+         G.ut.movebytes(t1, 0, clear, i*2, 2)  //offset = -1
+   G.ut.srmove(m.ut.to.SRAM, m.df.sram.start, 4, clear , 0)
+$<debug
+   unless 1 <= w <= m.df.max.ew then
+   $( G.df.ermess("W out of range: %n", w)
+      return
+   $)
+   unless 1 <= n <= m.df.max.ns then
+   $( G.df.ermess("N out of range: %n", n)
+      return
+   $)
+$>debug
+   G.ut.set32(m.df.sram.start, 0, sr.pos) //point to 1st free byte in sram
+   G.ut.set32(w, n, G.df+m.df.val)
+   G.ut.srmove(m.ut.to.SRAM, !sr.pos, 4, (G.df+m.df.val), 0)
+   !sr.pos := !sr.pos + 4 // point to 1st free byte in sram
+   if (blocks &  #x0001) = 1  then
+   $( G.ut.srmove(m.ut.to.SRAM, !sr.pos, 4, clear, 0)
+      !sr.pos := !sr.pos + 4
+   $)
+   unless blocks = 1 then
+     for i=1 to blocks>>1 do   // 32*32 block initialisation
+     $( G.ut.srmove(m.ut.to.SRAM, !sr.pos, 8, clear, 0)
+        !sr.pos := !sr.pos + 8
+     $)
+   G.ut.set32(64, 0, t2)
+   for i=1 to blocks do  //8*8 block initialisation
+   $( G.ut.srmove(m.ut.to.SRAM, !sr.pos, 64, clear, 0)
+      G.ut.add32(t2,sr.pos)
+   $)
+$)
+
+/**
+         G.DF.COARSE.INDEX
+         -----------------
+
+         Reads or writes the raster record number and offset to/from the
+         32*32 block data area.
+
+         INPUTS:
+
+         32*32 data block to be accessed in sideways ram.
+         Record number and offset values.
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         SPECIAL NOTES FOR CALLERS:
+
+         For a read operation from the sideways ram the record number should
+         set to -1 and the offset value should zero.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.coarse.index [block32, rno, offset]
+         ---------------
+
+            if block32 not in 32*32 block area then error
+            calculate address in sideways ram of data block
+            if rno amd offset are both zero then
+                read data from 32*32 block area
+                if returned rno and offset are both zero then error
+            else
+               write data to 32*32 block data area
+            return
+
+**/
+and G.df.coarse.index(block32,rno,offset) be
+$(
+   let n.w = vec 1
+   let sr.pos, opcode = ?, ?
+   let t = vec 1
+
+   G.ut.set32(0, -1, t)
+   G.ut.srmove(m.ut.from.SRAM, m.df.sram.start, 4, n.w, 0)
+$<debug
+   unless 1 <= block32 <= (G.ut.unpack16(n.w, 0) * G.ut.unpack16(n.w, 2)) then
+   $( G.df.ermess("32x32 block out of range: %n", block32)
+      return
+   $)
+$>debug
+   sr.pos := m.df.sram.start+4+(4*(block32-1)) //get location in sram
+   test rno = 0 & offset = -1 then
+   opcode := m.ut.from.SRAM
+   else
+   $( G.ut.set32(rno, offset, G.df+m.df.val)
+      opcode := m.ut.to.SRAM
+   $)
+   G.ut.srmove(opcode,sr.pos,4,(G.df+m.df.val),0)
+$<debug
+   if opcode = m.ut.from.SRAM then
+      if G.ut.cmp32(t, G.df+m.df.val) = m.eq then
+      $( G.df.ermess("Empty 32x32 block: %n", block32)
+         return
+      $)
+$>debug
+$)
+
+/**
+         G.DF.FINE.INDEX
+         -----------------
+
+         Reads or writes the raster record number and offset to/from an
+         8*8 data block which is within a 32*32 block data area.
+
+         INPUTS:
+
+         32*32 data block to be accessed in sideways ram.
+         8*8 data block area to be accessed in sideways ram.
+         Record number and offset values.
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         SPECIAL NOTES FOR CALLERS:
+
+         For a read operation from the sideways ram the record number should
+         be set to -1 and the offset value should zero.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.coarse.index [block32, block8, rno, offset]
+         ---------------
+
+            if block32 not in 32*32 block area then error
+            if block8 not in 8*8 block area then error
+            calculate address in sideways ram of data block
+            if rno amd offset are both zero then
+                read data from 8*8 block area
+                if returned rno and offset are both zero then error
+            else
+               write data to 8*8 block data area
+            return
+
+**/
+and G.df.fine.index(block32,block8,rno,offset) be
+$(
+   let n.w = vec 1
+   let sr.pos = vec 1
+   let opcode = ?
+   let t = vec 1
+
+   G.ut.srmove(m.ut.from.SRAM,m.df.sram.start,4,n.w,0) //read north west value
+$<debug
+   unless 1 <= block32 <= (G.ut.unpack16(n.w, 0) * G.ut.unpack16(n.w, 2)) then
+   $( G.df.ermess("32x32 block out of range: %n", block32)
+      return
+   $)
+   unless 1 <= block8 <= 16 then
+   $( G.df.ermess("8x8 block out of range: %n", block8)
+      return
+   $)
+$>debug
+   //get location in sram
+   //location in ram = m.df.sram.start + 4 + (4 * ew * ns) + (4 * (block32-1) * 16) + (4 * (block8 - 1))
+   sr.pos!1 := 0 //clear top word
+   G.ut.set32((m.df.sram.start + 4 * ((G.ut.unpack16(n.w, 0) * 
+                  G.ut.unpack16(n.w, 2)) + block8)), 0, sr.pos)
+   G.ut.set32(block32-1, 0, n.w) //n.w is used as a temporary store location
+   G.ut.set32(64, 0, t)
+   G.ut.mul32(t, n.w)
+   G.ut.add32(n.w, sr.pos)
+   test rno = 0 & offset = -1 then
+   opcode := m.ut.from.SRAM
+   else
+   $( G.ut.set32(rno, offset, G.df+m.df.val)
+      opcode := m.ut.to.SRAM
+   $)
+   G.ut.srmove(opcode,!sr.pos,4,(G.df+m.df.val),0)
+$<debug
+   G.ut.set32(0, -1, t)
+   if opcode = m.ut.from.SRAM &
+      G.ut.cmp32(t, G.df+m.df.val) = m.eq then
+      $( G.df.ermess("Empty 8x8 block: %n", block8)
+         return
+      $)
+$>debug
+$)
+.

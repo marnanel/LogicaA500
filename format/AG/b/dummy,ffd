@@ -1,0 +1,27 @@
+ summary.data(buffer, datoff+18+(no.def*4))
+
+ summary.data(bp, bp.off) be
+$( let t = vec 1
+   G.ut.set32(0, #x8000, t)
+   buff.ptr := bp
+   for i = 0 to 2 G.ut.movebytes(t, 0, buff.ptr, bp.off+(i*4), 4)
+                                                 // Min, max, average
+   sd(3) // Equal-4
+   sd(4) // Equal-5
+   sd(5) // Equal-6
+   sd(3) // Nested means
+   sd(3) // Quartiles
+   sd(4) // Quintiles
+   sd(5) // Sextiles
+   sd(3) // Signed Chi-squared
+$)
+
+and sd(n) be // summary data block with n missing cells
+$( buff.ptr!0 := n
+   buff.ptr := buff.ptr + 1
+   for i = 1 to n
+   $( buff.ptr!0 := 0
+      buff.ptr!1 := #x8000
+      buff.ptr := buff.ptr + 2
+   $)
+$)

@@ -1,0 +1,537 @@
+/**
+         TABULAR INPUT EDITOR PRIMITIVES
+         -------------------------------
+
+         This section contains :
+
+            G.ta.I.or.D
+            G.ta.prompt
+            G.ta.prompt1
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         08.09.87 3        MH          Update to G.ta.I.or.D
+**/
+
+SECTION "TAprim1"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+GET ":4.UINED.h.kdhd"
+
+/**
+         G.TA.I.OR.D
+         -----------
+         This routine determine if a lable is to be deleted.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.I.or.D[]
+         ----------------
+
+         IF 1st.time THEN
+            write prompt
+            1st.time=false
+            local.state=I.or.D
+            return
+         END IF
+
+         IF G.key is printing char THEN
+            display char
+         END IF
+
+         CASE OF capch(G.key)
+         'D': IF v.or.c=variables THEN
+                 delete variable and associated categories from labels
+                 decrement no.variables
+              ELSE
+                 delete category
+              END IF
+              update no.labels
+              update variable table
+              redraw display
+              local.state=inactive
+              ENDCASE
+         'I': operation=input
+              1st.time=true
+              readlabel()
+              ENDCASE
+         DEFAULT: G.sc.beep()
+                  redisplay prompt
+                  ENDCASE
+         END OF CASE
+**/
+let G.ta.I.or.D() = VALOF
+$(
+   let prompt="Remove or insert variable (R/I)?*s"
+   let prompt1="Delete or insert category (D/I)?*s"
+   let non.add.er="Non-additive data: cannot remove variable"
+   let cat.er="Cannot have fewer than 2 categories"
+   let dummy=g.ta.area+(m.ta.temp.label / bytesperword)
+   let n.lab=g.ta.area%m.ta.v.or.c=m.ta.v -> g.ta.area%m.ta.no.vars,
+               g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1)
+
+   test g.ta.area%m.ta.1st.time=m.ta.true then
+   $( g.ta.area%m.ta.1st.time:=m.ta.false
+      g.ta.area%m.ta.l.st:=m.ta.I.or.D
+      g.ta.area%m.ta.lock:=m.ta.false
+      G.ta.box(m.sd.off)
+      dummy%0:=0
+      test g.ta.area%m.ta.v.or.c = m.ta.v then
+      $( G.sc.mess(prompt)
+         G.sc.movea(m.sd.message, G.sc.width(prompt)+8, m.sd.mesYtex)
+      $)
+      else
+      $( G.sc.mess(prompt1)
+         G.sc.movea(m.sd.message, G.sc.width(prompt1)+8, m.sd.mesYtex)
+      $)
+      G.key:=m.kd.noact
+      G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+   $)
+   else
+   $( if G.ut.printingchar(G.key)|G.key=m.kd.action |
+         G.key=m.kd.delete|(m.kd.fkey1 <= G.key <= m.kd.fkey6) then
+         unless dummy%0=0 & G.key=m.kd.action then
+            G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+      test ((G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6)) &
+             dummy%0 > 0 then
+         switchon capch(dummy%1) into
+         $(
+         case 'D': test g.ta.area%m.ta.v.or.c = m.ta.c then
+                   $(
+                      test g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var - 1) = 2 &
+                           g.ta.buff!m.ta.no.data = false then
+                      $(
+                         G.sc.ermess(cat.er)
+                         g.ta.area%m.ta.l.st := m.ta.INACTIVE
+                         dehighlight()
+                         message1()
+                         G.ta.box(m.sd.on)
+                      $)
+                      else
+                      $(
+                         g.ta.area%m.ta.op:=m.ta.delete
+                         test g.ta.buff!m.ta.no.data then
+                            G.ta.delete()
+                         else
+                         $(
+                            test g.ta.area%(m.ta.var.table +
+                                 g.ta.area%m.ta.sel.var - 1) = 1 then
+                               G.ta.delete()
+                            else
+                            $( G.sc.mess("")
+                               g.ta.area%m.ta.1st.time := m.ta.true
+                               G.ta.prompt()
+                            $)
+                         $)
+                      $)
+                   $)
+                   else
+                      invalid.(dummy)
+                   endcase
+         case 'R': test g.ta.area%m.ta.v.or.c = m.ta.v then
+                   $(
+                      G.sc.mess("")
+                      test g.ta.area%(m.ta.var.table + g.ta.area%m.ta.sel.var -1 ) <= 1 |
+                          g.ta.buff!m.ta.no.data then
+                      $(
+                         g.ta.area%m.ta.op:=m.ta.delete
+                         G.ta.delete() //delete labels
+                      $)
+                      else test g.ta.area%(m.ta.add.table + g.ta.area%m.ta.sel.var - 1) =
+                            m.ta.true then
+                      $(
+                         g.ta.area%m.ta.1st.time := m.ta.true
+                         G.ta.prompt()
+                      $)
+                      else
+                      $(
+                         G.sc.ermess(non.add.er)
+                         g.ta.area%m.ta.l.st := m.ta.INACTIVE
+                         message()
+                         G.ta.box(m.sd.on)
+                      $)
+                   $)
+                   else
+                      invalid.(dummy)
+                   endcase
+         case 'I': test (g.ta.area%m.ta.no.labels >= G.ta.max.labels()|n.lab >= m.ta.v.max) &
+                       g.ta.area%m.ta.base.l ~= 0 then
+                   $(
+                      test g.ta.area%m.ta.v.or.c=m.ta.v then
+                      $(
+                         G.sc.ermess("No more space for variable labels")
+                         message()
+                      $)
+                      else
+                      $(
+                         G.sc.ermess("No more category labels space for this variable")
+                         dehighlight()
+                         message1()
+                      $)
+                      G.ta.box(m.sd.on)
+                      g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+                   $)
+                   else
+                   $( g.ta.area%m.ta.op:=m.ta.insert
+                      g.ta.area%m.ta.1st.time:=m.ta.true
+                      G.sc.mess("")       // ##
+                      test g.ta.area%m.ta.v.or.c=m.ta.v then
+                         G.ta.hi(m.sd.cyan,m.ta.d.both)
+                      else test g.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE then
+                         G.ta.hic(m.sd.blue,true)
+                      else
+                         G.ta.hic(m.sd.blue,false)
+                      g.ta.area%m.ta.do:=m.ta.true    // moved from line above ##
+                      G.ta.readlabel()
+                   $)
+                   endcase
+         default:  unless G.key=m.kd.noact invalid.(dummy)
+                   endcase
+         $)
+      else if G.key = m.kd.action & dummy%0 = 0 then
+      $(
+        test g.ta.area%m.ta.v.or.c=m.ta.v then
+           message()
+        else
+        $(
+            dehighlight()
+            message1()
+        $)
+        G.ta.box(m.sd.on)
+        g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+      $)
+   $)
+   if G.key = m.kd.action G.key := m.kd.noact
+   resultis true
+$)
+
+and message() be
+   test g.ta.area%m.ta.no.vars = m.ta.v.max |
+        g.ta.area%m.ta.no.labels = G.ta.max.labels()
+   then g.sc.mess("Select variable")
+   else g.sc.mess("Select variable, or New")
+
+
+and message1() be
+   test g.ta.area%m.ta.no.vars =m.ta.v.max |
+        g.ta.area%m.ta.no.labels = G.ta.max.labels()
+   then g.sc.mess("Select category")
+   else g.sc.mess("Select category, or New")
+
+and invalid.(dummy) be
+$( let temp = G.key
+   G.sc.beep()
+   G.key := m.kd.delete
+   G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+   G.key := temp
+$)
+
+
+/**
+         G.TA.PROMPT
+         -----------
+         This routine determines if the user wishes to delete the
+         label and the data associated with it.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.prompt[]
+         -------------
+
+         IF 1st.time THEN
+            write prompt
+            1st.time=false
+            local.state=prompt
+            return
+         END IF
+
+         IF G.key is printing char THEN
+            display char
+         END IF
+
+         CASE OF capch(G.key)
+         'Y': IF v.or.c=variables THEN
+                 delete variable and associated categories from labels
+                 decrement no.variables
+              ELSE
+                 delete category
+              END IF
+              update no.labels
+              update variable table
+              redraw display
+              local.state=inactive
+              ENDCASE
+         'N': local.state = INACTIVE
+              ENDCASE
+         DEFAULT: G.sc.beep()
+                  redisplay prompt
+                  ENDCASE
+         END OF CASE
+**/
+and G.ta.prompt() = VALOF
+$(
+   let prompt="Remove variable and data (Y/N)?*s"
+   let prompt1="Delete category and data (Y/N)?*s"
+   let dummy=g.ta.area+(m.ta.temp.label / bytesperword)
+   let n.lab=g.ta.area%m.ta.v.or.c=m.ta.v -> g.ta.area%m.ta.no.vars,
+               g.ta.area%(m.ta.var.table+g.ta.area%m.ta.sel.var-1)
+
+   test g.ta.area%m.ta.1st.time=m.ta.true then
+   $( g.ta.area%m.ta.1st.time:=m.ta.false
+      g.ta.area%m.ta.l.st:=m.ta.prompt
+      g.ta.area%m.ta.lock:=m.ta.false
+      dummy%0:=0
+      test g.ta.area%m.ta.v.or.c = m.ta.v then
+      $( G.sc.mess(prompt)
+         G.sc.movea(m.sd.message, G.sc.width(prompt)+8, m.sd.mesYtex)
+      $)
+      else
+      $( G.sc.mess(prompt1)
+         G.sc.movea(m.sd.message, G.sc.width(prompt1)+8, m.sd.mesYtex)
+      $)
+      G.key:=m.kd.noact
+      G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+   $)
+   else
+   $( if G.ut.printingchar(G.key)|G.key=m.kd.action |
+         G.key=m.kd.delete|(m.kd.fkey1 <= G.key <= m.kd.fkey6) then
+         unless dummy%0=0 & G.key=m.kd.action then
+            G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+      if ((G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6)) &
+            dummy%0 = 0 $( dummy%1 := 0; dummy%0 := 1 $)
+      if ((G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6)) &
+            dummy%0 > 0 then
+         switchon capch(dummy%1) into
+         $(
+         case 'Y': g.ta.area%m.ta.op:=m.ta.delete
+                   G.sc.mess("")
+                   unless G.ta.delete() resultis false//delete labels
+                   endcase
+         case 'N':
+         default :
+                   test g.ta.area%m.ta.v.or.c = m.ta.v then
+                      message()
+                   else
+                   $(
+                   dehighlight()
+                   message1()
+                   $)
+                   G.ta.box(m.sd.on)
+                   g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+                   endcase
+         $)
+   $)
+   if G.key = m.kd.action G.key := m.kd.noact
+   resultis true
+$)
+
+and dehighlight() be
+$(
+   let xy=g.ta.area+(m.ta.xco / bytesperword)
+   let sel = g.ta.area%m.ta.sel.cat = m.ta.INACTIVE -> g.ta.area%m.ta.c.l,g.ta.area%m.ta.sel.cat
+   let l.pos=g.ta.area%m.ta.pg=2 -> sel-m.ta.lines, sel
+   let y=m.ta.ystart+m.sd.linw-(l.pos * m.sd.linw)
+
+   test g.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE then
+      test (m.sd.disx0+(2*m.sd.charwidth) <= G.xpoint <= (40*m.sd.charwidth)) &
+                (y >= G.ypoint >= y-m.sd.linw) then
+      $( g.ta.area%m.ta.do:=m.ta.true
+         G.ta.hic(m.sd.blue, true) //high light box in blue
+         g.ta.area%m.ta.do:=m.ta.false
+      $)
+      else
+         g.ta.area%m.ta.do:=m.ta.true
+   else
+      test (m.sd.disx0 <= G.xpoint <= m.sd.charwidth) &
+             (y >= G.ypoint >= y-m.sd.linw) then
+      $( g.ta.area%m.ta.do:=m.ta.true
+         G.ta.hic(m.sd.blue,false) //highlight box in blue
+      $)
+      else
+         g.ta.area%m.ta.do:=m.ta.true
+   !xy:=G.xpoint
+   xy!1:=G.ypoint
+$)
+
+
+/**
+         G.TA.PROMPT1
+         ------------
+         This routine determines if the user wishes to make a variable
+         additive or non-additive.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.prompt1[]
+         -------------
+
+         IF 1st.time THEN
+            write prompt
+            1st.time=false
+            local.state=prompt1
+            return
+         END IF
+
+         IF G.key is printing char THEN
+            display char
+         END IF
+
+         CASE OF capch(G.key)
+         'A': update add.table to additive
+              print 'A'
+              local state = INACTIVE
+              ENDCASE
+         'N': update add.table to non-additive
+              print 'N'
+              local state = INACTIVE
+              ENDCASE
+         DEFAULT: G.sc.beep()
+                  redisplay prompt
+                  ENDCASE
+         END OF CASE
+**/
+and G.ta.prompt1() = VALOF
+$(
+   let prompt="Additive or non-additive variable (A/N)?*s"
+   let dummy=g.ta.area+(m.ta.temp.label / bytesperword)
+   let n.lab=g.ta.area%m.ta.no.vars
+
+   test g.ta.area%m.ta.1st.time=m.ta.true then
+   $( g.ta.area%m.ta.1st.time:=m.ta.false
+      g.ta.area%m.ta.l.st:=m.ta.prompt1
+      g.ta.area%m.ta.lock:=m.ta.false
+      dummy%0:=0
+      G.sc.mess(prompt)
+      G.sc.movea(m.sd.message, G.sc.width(prompt)+8, m.sd.mesYtex)
+      G.key:=m.kd.noact
+      G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+   $)
+   else
+   $( if G.ut.printingchar(G.key)|G.key=m.kd.action |
+         G.key=m.kd.delete|(m.kd.fkey1 <= G.key <= m.kd.fkey6) then
+         unless dummy%0=0 & G.key=m.kd.action then
+            G.sc.input(dummy,m.sd.blue,m.sd.cyan,1)
+      if ((G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6)) &
+            dummy%0 = 0 then
+         test (g.ta.area%m.ta.op=m.ta.new | g.ta.area%m.ta.op=m.ta.insert) &
+                G.key = m.kd.action then
+            G.sc.beep()
+         else
+            $( dummy%1:=g.ta.area%(m.ta.add.table+g.ta.area%m.ta.sel.var-1)=m.ta.true ->
+               'A', 'N'
+               dummy%0 := 1
+            $)
+      if ((G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6)) &
+            dummy%0 > 0 then
+         switchon capch(dummy%1) into
+         $(
+         case 'A': G.ta.hi(m.sd.black,m.ta.d.add)
+                   g.ta.area%(m.ta.add.table + g.ta.area%m.ta.sel.var - 1) := m.ta.true
+//write char to screen
+                   draw()
+                   endcase
+         case 'N':
+                   G.ta.hi(m.sd.black,m.ta.d.add)
+                   unless dummy%1 = m.kd.action then
+                      g.ta.area%(m.ta.add.table + g.ta.area%m.ta.sel.var - 1) := m.ta.false
+//write char to screen
+                   draw()
+                   endcase
+         default:  unless G.key=m.kd.noact invalid.(dummy)
+                   endcase
+         $)
+   $)
+   if g.ta.area%m.ta.l.st = m.ta.INACTIVE G.ta.box(m.sd.on)
+
+   if G.key = m.kd.action G.key := m.kd.noact
+   resultis true
+$)
+
+and draw() be
+$(
+    let t = g.ta.area%m.ta.op
+    message()
+    g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+    g.ta.area%m.ta.op:=m.ta.INACTIVE
+    if G.key = m.kd.action then
+    $( let pos = m.ta.ystart-(g.ta.area%m.ta.sel.var*m.sd.linw)
+       test pos <= G.ypoint <= pos+m.sd.linw then
+       $( test t = m.ta.new then
+          $(
+             G.ta.hi(m.sd.cyan,m.ta.d.both)
+             g.ta.area%m.ta.sel.var := m.ta.INACTIVE
+          $)
+          else
+             G.ta.hi(m.sd.yellow,m.ta.d.both)
+       $)
+       else
+       $(
+          G.ta.hi(m.sd.cyan,m.ta.d.both)
+          g.ta.area%m.ta.sel.var := m.ta.INACTIVE
+       $)
+       G.key := m.kd.noact
+    $)
+    if G.key=m.kd.fkey4 g.ta.area%m.ta.lock := m.ta.true
+$)
+.

@@ -1,0 +1,11 @@
+*| BUILDSYS Version 2 15.07.86
+*| build the system
+*| note that this file inserts
+*| function keys into the buffer to do the build
+*|
+*spool $.UINED.scratch.build
+c $.UINED.utils.compsys
+c $.UINED.utils.linkmods
+c $.UINED.utils.linkov
+c $.UINED.utils.linkernel
+*KEY6*spool

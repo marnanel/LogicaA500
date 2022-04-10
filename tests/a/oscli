@@ -1,0 +1,180 @@
+
+
+ GlobDef 101,OSCLI
+
+ ; oscli command
+ ; command is a BCPL string (so needs conversion)
+ ; Returns False if the command fails, True otherwise
+ ; If the base of this program is not 8000, then it
+ ; tries to run the command as a sub-program.
+
+        STMEA   rts!, {r14}
+        MOV     r1, a1, ASL #2
+        MOV     r2, #0
+        BL      crterm
+        MOV     r0, r1
+        LDR     r4, osclixp
+        SUBS    r5, pc, r4
+        BEQ     oscli_no_subp
+
+osclix  STMEA   rts!, {r14}
+        STMEA   rts!, {r0 - r3, r6, r7, rg}
+
+        ADR     r0, oscli_exit
+        ADD     r1, r5, #&1000     ; new memory limit
+        MOV     r2, #0 ; no change to real memory end
+        MVN     r3, #1 ;           or local buffering
+        MOV     r4, #0
+        MOV     r5, #0
+        MOV     r6, #0
+        MOV     r7, #0
+        SWI     KSetEnv
+
+        ADR     r14, cli_save
+        STMIA   r14!, {r0 - r7}
+        LDMEA   rts!, {r6, r7, rg}
+
+        MOV     r0, #0
+        MOV     r1, #0
+        SWI     KCallBack
+        STMIA   r14!, {r0, r1}
+
+        MOV     r0, #0
+        MOV     r1, #0
+        MOV     r2, #0
+        MOV     r3, #0
+        SWI     KControl
+        STMIA   r14!, {r0 - r3}
+
+        MOV     r2, #&40
+        LDR     r0, SWIBranch
+FindSWIBranch
+        LDR     r1, [r2], #+4
+        CMPS    r1, r0
+        BNE     FindSWIBranch
+
+        LDR     r1, [r2, #KControl*4]
+        ADR     r3, MyControlHandler
+        STR     r3, [r2, #KControl*4]
+        STMIA   r14!, {r1, r2}
+
+        ADR     r0, return_code
+        STR     r0, HisEventHandler
+
+        LDMEA   rts!, {r0 - r3}
+        ADR     r14, R1_to_r13_save
+        STMIA   r14!, {r1 - r13}
+        SWI     KCLI
+        MVN     r0, #0
+        MOVVS   r0, #0
+        B       oscli_exit_2
+
+oscli_exit
+        MVN     r0, #0
+oscli_exit_2
+        STR     r0, cli_status        ; return value from OsCli
+        ADR     r0, return_code
+        STR     r0, HisEventHandler
+        TSTP    pc, #0                ; back to user mode
+        MOVNV   r0, r0                ; dummy instruction
+
+     ;   ADR     r0, aft_str
+     ;   SWI     KWrite0
+
+        ADR     r14, R1_to_r13_save
+        LDMIA   r14, {r1 - r13}
+        LDMEA   rts!, {r14}
+        STMEA   rts!, {r1 - r3, r6, r7}
+        ADR     r5, OriginalControl
+        LDMIA   r5, {r1, r2}
+        STR     r1, [r2, #KControl*4]
+
+   ;     ADR     r0, aft_str2
+   ;     SWI     KWrite0
+
+        ADR     r5, cli_save
+        LDMIA   r5, {r0 - r7}
+        SWI     KSetEnv
+        ADR     r5, cli_save+32
+        LDMIA   r5!, {r0, r1}
+        SWI     KCallBack
+        LDMIA   r5!, {r0 - r3}
+        SWI     KControl
+        LDMEA   rts!, {r1 - r3, r6, r7}
+
+   ;     ADR     r0, aft_str3
+   ;     SWI     KWrite0
+
+        LDR     r0, cli_status
+        B       afterosf
+
+oscli_no_subp
+        SWI     KCLI
+        MVN     r0, #0
+        MOVVS   r0, #0
+        B       afterosf
+
+SWIBranch
+        LDR     pc, [rp, r11, LSL #2]
+
+osclixp & osclix+&8000
+
+cli_save
+        % 14*4
+OriginalControl
+        % 2*4
+R1_to_r13_save
+        % 13*4
+cli_status & 0
+
+HisEventHandler
+        Address return_code
+
+return_code
+        MOV     pc, r14
+
+MyControlHandler
+        MOV     r2, #0
+        CMPS    r3, #0
+        STRNE   r3, HisEventHandler
+        MOV     r3, #0
+        LDR     pc, OriginalControl
+
+afterosf
+        CMPS    r2, #0          ; r2 non-zero means an argument string needs
+        MOVEQ   a1, r0          ; shuffling up again
+        LDMEQEA rts!, {pc}^
+ ; r3 points to the last byte of the string as was, now its
+ ; terminating CR.  r1 points to the first byte (was the
+ ; length). r2 is the length.
+osfc2
+        LDRB    r4, [r3, #-1]
+        STRB    r4, [r3], #-1
+        CMPS    r3, r1
+        BGT     osfc2
+        STRB    r2, [r3]
+        MOV     a1, r0
+        LDMEA   rts!, {pc}^
+
+crterm
+        LDRB    r2, [r1, #0]    ; length of filename
+        AND     r3, r2, #3
+        CMPS    r3, #3
+        BEQ     osfdown
+        MOV     r3, #&0D        ; if there's room, add a terminating
+        ADD     r1, r1, #1      ; CR on the end of the string
+        STRB    r3, [r1, r2]
+        MOV     r2, #0
+        MOV     pc, r14
+
+osfdown                         ; otherwise, shuffle the string down
+        MOV     r3, r1          ; one byte (remembering the length) and plant
+        ADD     r5, r1, r2      ; a CR at the end
+osfcopy
+        LDRB    r4, [r3, #1]
+        STRB    r4, [r3], #1
+        CMPS    r3, r5
+        BLT     osfcopy
+        MOV     r5, #&0D
+        STRB    r5, [r3]
+        MOV     pc, r14

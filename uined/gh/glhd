@@ -1,0 +1,260 @@
+// /**
+//       GLHDR - GLOBALS HEADER
+//       ----------------------
+//
+//       This is the master system Global definition file
+//       Every module should "GET" this header file to ensure no
+//       clashes of global variables. No globals may be declared
+//       anywhere else in the system. (except gl2hdr, gl3hdr...)
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       5.10.87     1       MH        CREATED FOR UNI SYSTEM
+//       13.10.87    2       MH        ut 16/32 bit UT unifiation routines
+//                                     added
+// **/
+
+ $$debug    // SYSTEM WIDE DEBUG FLAG FOR CONDITIONAL COMPILATION
+
+MANIFEST $(
+FG=FIRSTFREEGLOBAL
+
+//  OFFSETs for G.Context
+
+m.state     = 0  // Current state
+m.laststate = 1  // Previous state
+m.discid    = 2  // Videodisc identifier
+m.stackptr  = 3  // stack pointer for exit stack
+m.leveltype = 4  // level and type, see On Disc Data Structures
+m.grbleast  = 5  // grid ref, bottom left Easting
+m.grblnorth = 6  // grid ref, bottom left Northing
+m.grtreast  = 7  // grid ref, top right Easting
+m.grtrnorth = 8  // grid ref, top right Northing
+m.frame.no  = 9  // video disc frame number
+m.resolution=13  // 1-10km resolution of dataset,
+m.maxstates  =39 // number of states in state table
+m.justselected=40// flag if pending state change used
+// m.maprecord  =41 // map record for community disc
+m.exitstack  =42 // Stack of exits from special state changes
+                 // i.e HELP, Forced AREA and ITEM examination
+m.constack   = 4 // Size of context exit stack - n.b. no extra space now
+
+m.oldfile    = 46  // Indicates file already exists
+m.data.handle = 47 // Handle of open dataset
+// m.itemselected=48 // item examination entry flag
+
+m.xpos = 49      // used by G.SC.INPUT - xpos of box start
+m.curpos = 50    // ditto - pos of cursor along string
+m.map.no = 51    // Frame number of current map
+m.data.type = 52     // Data type for mappable data
+m.contextsize = 53 // Size of this area.
+
+// offsets from g.menubar
+// these contain the box status (active,inactive,clear,etc.)
+m.box1 =0  // menu bar box1
+m.box2 =1  // menu bar box2
+m.box3 =2  // menu bar box3
+m.box4 =3  // menu bar box4
+m.box5 =4  // menu bar box5
+m.box6 =5  // menu bar box6
+m.menubarsize = 5 // Size of this area
+
+// These were in UTHDR
+m.lt = -1  // results of G.ut.cmp32
+m.eq = 0
+m.gt = 1
+$)
+
+GLOBAL $(
+
+//********** state tables ************
+
+G.stover    :FG+0
+G.stactr    :FG+1
+G.sttran    :FG+2
+G.stinit    :FG+3
+G.stmenu    :FG+4
+
+//************ system data areas ************
+
+G.menuwords :FG+5   // array of menu words
+G.menubar   :FG+6   // pointer to menu bar box data
+G.menuon    :FG+7   // menu bar status (true=on/false=off)
+G.redraw    :FG+8   // redraw menu bar flag (true=redraw)
+G.screen    :FG+9   // domesday co-ord system (menu,display or message)
+G.key       :FG+10  // last keypress
+G.xpoint    :FG+11  // last X position
+G.ypoint    :FG+12  // last Y position
+G.Context   :FG+13  // pointer to context data area
+
+//************ top level control **************
+
+G.dy.Init   :FG+14  // Dynamic routines, redefine throughout system
+G.dy.Free   :FG+15
+G.dy.action :FG+16
+
+G.ov.cntrl  :FG+17
+G.ov.unload :FG+18
+G.ov.load   :FG+19
+
+G.si.start  :FG+20  // State table initialisation routine
+G.si.cont   :FG+21  // Continue state table initialisation
+G.in.start  :FG+22  // General initialisation routine
+G.ie.main   :FG+23  // Main action routine for top level Input Editor
+G.ie.init   :FG+24  // init for top level
+G.ie.buff   :FG+25  // buffer area
+
+//************ primitives *************
+
+
+G.dh.close   :FG+26
+G.dh.length  :FG+27
+G.dh.fstype  :FG+28
+G.dh.open    :FG+29
+G.dh.read    :FG+30
+G.dh.ensure  :FG+31
+G.dh.reset   :FG+32
+G.dh.discid  :FG+33
+G.dh.space   :FG+34
+G.dh.open.if.can :FG+35
+G.dh.delete.file:FG+36 // added for input ed.
+G.dh.select.disc:FG+37 // eject disc and initialise another
+G.dh.write      :FG+38
+G.dh.open.update :FG+39
+
+G.vh.frame   :FG+40
+G.vh.video   :FG+41
+G.vh.reset   :FG+42
+G.vh.audio   :FG+43
+G.vh.send.fcode:FG+44
+G.vh.word.asc:FG+45   // strictly private conversion routine
+G.vh.call.oscli:FG+46 // send a command to operating system
+G.vh.poll   :FG+47    // player status poll
+
+G.sc.btod    :FG+48  // BBC->Domesday co-ords
+G.sc.dtob    :FG+49  // Domesday->BBC co-ords
+G.sc.movea   :FG+50  // move absolute
+G.sc.mover   :FG+51  // move relative
+G.sc.linea   :FG+52  // draw line absolute
+G.sc.liner   :FG+53  // draw line relative
+G.sc.rect    :FG+54  // filled rectangle
+G.sc.physical.colour:FG+55
+G.sc.moveptr   :FG+56 // move mouse pointer
+G.sc.XOR.selcol:FG+57 // select colour in XOR mode
+G.sc.setpal  :FG+58  // set palette to a predefined mix
+G.sc.selcol  :FG+59  // select a colour
+G.sc.getact  :FG+60  // get action - temporary global to aid testing
+G.sc.mouse   :FG+61  // mouse handler - temporary
+G.sc.savcur  :FG+62  // save cursor position
+G.sc.rescur  :FG+63  // restore cursor position
+G.sc.oprop   :FG+64  // output string proportionally spaced
+G.sc.mess    :FG+65  // output a message
+G.sc.ermess  :FG+66  // output an error message
+G.sc.odrop   :FG+67  // output text with drop shadow
+G.sc.clear   :FG+68  // clear selected screen area
+G.sc.menu    :FG+69  // draw a menu bar
+G.sc.pointer :FG+70  // turn mouse pointer on/off
+G.sc.ofstr   :FG+71  // output string with formatting
+G.sc.beep    :FG+72  // make a beep
+G.sc.input   :FG+73  // text input primitive
+G.sc.triangle:FG+74  // draw a filled triangle
+G.sc.width   :FG+75  // inquire width of PS string
+G.sc.palette :FG+76  // change a single palette colour
+G.sc.defwin  :FG+77  // select default graphics window
+G.sc.setwin  :FG+78  // set a graphics window
+G.sc.opnum   :FG+79  // output a real number
+G.sc.mode    :FG+80  // set screen mode
+G.sc.next.colour :FG+81
+G.sc.findmode  :FG+82  // inquire screen mode
+G.sc.cachemess :FG+83  // cache/restore message area
+G.sc.keyboard.flush:FG+84 // flush the keyboard buffer
+G.sc.spacing:FG+85  // pointer to proportional spacing lookup table
+
+
+G.ut.abort  :FG+86  // file handle for trap to write to
+G.ut.trap   :FG+87  // trap invalid parameter
+G.ut.get.ermess :FG+88  // get error message text from IO processor
+G.ut.videodisc.error :FG+89   // handle fatal error from disc
+G.ut.wait   :FG+90    // delay routine
+G.ut.printingchar:FG+91    // test for printable char
+G.ut.srmove: FG+92  // SRAM move block operation
+G.ut.grid.region:FG+93
+G.ut.grid.trim:FG+94
+
+// globals for CALC32 package
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!         !!                               !!
+// !!         !! If these globals are changed  !!
+// !! WARNING !! then the definitions at the   !!
+// !! WARNING !! start of UT.CALC32 and        !!
+// !!         !! UT.CALC32B must also          !!
+// !!         !! be changed to agree with them !!
+// !!         !!                               !!
+// !!         !! NN.a.classify must also be    !!
+// !!         !! changed if g.ut.cmp32 is      !!
+// !!         !! changed                       !!
+// !!         !!                               !!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+G.ut.add32  :FG+95  // 32 bit addition
+G.ut.sub32  :FG+96  // 32 bit subtraction
+G.ut.mul32  :FG+97  // multiply
+G.ut.div32  :FG+98  // divide
+G.ut.cmp32  :FG+99  // compare
+
+//unification modules
+G.ut.align    :FG+100
+G.ut.movebytes:FG+101
+G.ut.unpack16 :FG+102
+G.ut.unpack16.signed:FG+103
+G.ut.unpack32 :FG+104
+G.ut.mov32    :FG+105
+G.ut.set32    :FG+106
+G.ut.get32    :FG+107
+G.ut.diag     :FG+108
+
+G.ie.highlight:FG+109
+G.ie.char.input:FG+110
+G.ie.end:FG+111
+G.ie.file.type:FG+112
+G.ie.create.file:FG+113
+
+G.help      :FG+114
+$)
+
+MANIFEST
+$(
+   // overlaid globals start here
+
+   FOG = FG+115
+   FGAR = FOG
+   FGCM = FGAR+19
+   FGGD = FGCM+42
+   FGGR = FGGD+13
+   FGHE = FGGR+26
+   FGTA = FGHE+27
+   FGDY = FGTA+70
+   last.global = FGDY+15
+$)
+GLOBAL
+$(
+   G.dummy:last.global
+   G.ov.helpexit:last.global+1   //These are not meant to be here!
+   G.ov.exit:last.global+2
+   G.ov.boot:last.global+3
+   G.ov.general:last.global+4
+   G.overbay:last.global+5
+   G.sc.sprite.area:last.global+5
+   G.sc.initialise.mouse:last.global+6
+   G.ar.read.gaz:last.global+7
+   G.cachevec:last.global+8
+$)
+//   ***  The End  ***
+
+
+
+
+
+

@@ -1,0 +1,38 @@
+// /**
+//       GLGDHDR - GLOBALS HEADER
+//       ------------------------
+//
+//       This is the master system Global definition file
+//       Reserved for state, routine and data globals
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       6.10.87     1       MH        ADOPTED FOR UNI
+// **/
+
+// $$debug    // SYSTEM WIDE DEBUG FLAG FOR CONDITIONAL COMPILATION
+
+GLOBAL
+$(
+
+g.gd.buff:FGGD+0
+
+// GD routines
+
+g.gd.page: FGGD+1
+g.gd.save: FGGD+2
+g.gd.cycle:FGGD+3
+g.gd.valid:FGGD+4
+g.gd.ranges:FGGD+5
+g.gd.highlight:FGGD+6
+g.gd.incidence:FGGD+7
+g.gd.char.input:FGGD+8
+g.gd.display.box:FGGD+9
+g.gd.display.key:FGGD+10
+g.gd.string.to.num:FGGD+11
+g.gd.check.class.intervals:FGGD+12
+
+$)
+
+//   ***  The End  ***

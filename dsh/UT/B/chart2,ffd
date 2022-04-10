@@ -1,0 +1,334 @@
+//  PUK SOURCE  6.87
+
+/**
+         NATIONAL CHART INITIALISATION
+         -----------------------------
+
+         This module contains
+            G.nc.chartini
+            G.nc.replot
+            G.nc.rescale.chart
+            G.nc.next.group
+            g.nc.no.cats
+            G.nc.pr
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.chart
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR      DETAILS OF CHANGE
+         12.11.86  7        SRY         Additive init
+         19.11.86  8        SRY         Minor regroup bug
+*******************************************************************************
+          2.06.87  9        SRY         Changes for UNI
+         12.08.87  10       SRY         Modified for DataMerge
+         14.08.87  11       SRY         Added G.nc.pr
+         14.09.87  12       SRY         Allows BtoB & MTSLG as default
+         04.01.88  13       MH          Update to g.nc.no.cats
+         11.04.88  14       SA          ADOPTED FOR DISH
+         15.04.88  15       SA          incorporated chartini
+         20.04.88  16       SA          incorporated g.sc.replot
+**/
+
+section "chart2"
+
+GET "libhdr"
+GET "$.DSH.GH.glhd"
+GET "$.DSH.GH.glNChd"
+GET "$.DSH.H.sthd"
+GET "$.DSH.H.wmhd"
+GET "$.DSH.H.sdhd"
+GET "$.DSH.H.nchd"
+
+/**
+         G.NC.CHARTINI - ENTER CHART AT TOP LEVEL
+         ----------------------------------------
+
+         Display default chart & initialise data buffers
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.nc.area
+         G.menubar
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.nc.chartini []
+         ----------------
+
+         See Retrieval software
+**/
+
+LET window.for( state ) = G.states!(state*m.st.esize + m.st.whandle)     
+
+AND G.nc.chartini() BE
+$( LET ch, sv = ?, ?
+   LET handle = window.for( m.st.chart.main )
+
+   // open the change categories window
+   g.wm.set.to.front( window.for( m.st.categories ) )
+
+   // reset the mouse rectangle to whole screen
+   G.wm.Mouse.Rectangle( m.wm.screen.Xmin,
+                         m.wm.screen.Ymin,
+                         m.wm.screen.Xmax,
+                         m.wm.screen.Ymax )
+
+   // G.sc.clear(m.sd.display)     SA 15.04.88
+   // G.sc.clear(m.sd.message)     SA 15.04.88
+   init.data.buffer() // Make it all defaults
+   ch := G.nc.area!m.nc.cc
+   sv := G.nc.area!m.nc.sv
+   // No palettes set for DISH     SA 15.04.88
+   // FOR n = 0 TO 2
+   // $( LET col = G.nc.area%(m.nc.colset + n)
+   //    // G.ut.trap("NC",8,FALSE,3,col,1,7)
+   //    G.sc.palette(n+1, col)
+   // $)
+   UNLESS ((ch=m.nc.bar) | (ch=m.nc.STSLG) | (ch=m.nc.BtoB) |
+           (ch=m.nc.pie) | (ch=m.nc.MTSLG) | (ch=m.nc.looping)) &(~t.m.t.p())
+   $( G.nc.area!m.nc.cc := m.nc.bar
+      ch := m.nc.bar
+      G.nc.area!m.nc.sv := m.nc.unknown
+   $)
+   IF ch = m.nc.looping G.nc.area!m.nc.sv := m.nc.unknown
+
+   G.nc.replot()
+   display.title.icon( handle )
+
+   IF ch = m.nc.looping G.nc.area!m.nc.sv := sv
+$)
+
+/**
+         G.NC.REPLOT
+         -----------
+
+         Replot chart
+**/
+
+// SA 20.04.88
+AND G.nc.replot() BE
+$(
+   LET name = "chart" * BYTESPERWORD + 1   // machine address
+
+   G.nc.draw.chart(1)
+   G.sc.Get.User.Sprite( name, 0, m.nc.origx - 100,     m.nc.origy - 100,
+                                  m.nc.origx + m.nc.cw, m.nc.origy + m.nc.cd )
+   // G.nc.varkey()
+   // G.nc.chartkey()
+$)
+
+AND display.title.icon( window.handle ) BE
+$(
+   LET min.x       = VEC 3/BYTESPERWORD
+   LET min.y       = VEC 3/BYTESPERWORD
+   LET max.x       = VEC 3/BYTESPERWORD
+   LET max.y       = VEC 3/BYTESPERWORD
+   LET flags       = VEC 3/BYTESPERWORD
+   LET text.ptr    = VEC 3/BYTESPERWORD
+   LET data2       = VEC 3/BYTESPERWORD
+   LET data3       = VEC 3/BYTESPERWORD
+   LET title.str   = g.nc.area+m.nc.labels.b/BYTESPERWORD
+   LET icon.handle = ?
+
+   g.wm.Get.Icon.Info( window.handle, m.nc.main.title.icon )
+   !min.x    := G.wm.q!2
+   !min.y    := G.wm.q!3
+   !max.x    := G.wm.q!4
+   !max.y    := G.wm.q!5
+   !flags    := G.wm.q!6
+   !text.ptr := G.wm.q!7
+   !data2    := G.wm.q!8
+   !data3    := G.wm.q!9
+
+   // insert title string & terminate it with null character
+   // N.B. text.ptr holds the machine address to the text buffer
+   //
+   g.ut.movebytes( title.str, 1, !text.ptr/4, (!text.ptr REM 4), title.str%0 )
+   (!text.ptr/4)%( (!text.ptr REM 4) + title.str%0 ) := 0
+
+   g.wm.Delete.Icon( window.handle, m.nc.main.title.icon )
+   icon.handle := g.wm.Create.Icon( window.handle, min.x, min.y, max.x, max.y,
+                                     flags, text.ptr, data2, data3 )
+$)
+
+/**
+         G.NC.RESCALE.CHART
+         ------------------
+
+         Rescale Y-axis of chart
+**/
+
+AND G.nc.rescale.chart() BE
+$( LET cc = G.nc.area!m.nc.cc
+   IF ((cc = m.nc.bar) | (cc = m.nc.BtoB) | (cc = m.nc.looping)) &
+      (G.menubar!m.box3 = m.sd.wBlank)
+   $( G.nc.area!m.nc.lc := m.nc.unknown
+      G.nc.draw.chart(0)
+   $)
+$)
+
+/**
+         G.NC.NEXT.GROUP
+         ---------------
+
+         GET next group of a variable
+**/
+
+and g.nc.next.group(v) = valof
+$( let vp = vpr(v)
+   let c.gr, s, b = (!vp) & #xff, #xff, #xff
+AND notall = ?
+   for i = 1 to g.nc.area%v
+   $( let g = (vp!i) & #xff
+      unless ((vp!i) & #x8000) = 0 loop
+      if (g > c.gr) & (g < (b & #xff)) b := vp!i
+      if g < (s & #xff) s := vp!i
+   $)
+   if b = #xff
+   $( 
+      notall := (vp!0 = m.nc.all)|(g.nc.area%m.nc.add = 2)|(g.nc.area%v > 24)
+      b := notall -> s, m.nc.all
+   $) 
+
+   !vp := b
+   resultis b
+$)
+
+and vpr(v) = g.nc.area + m.nc.gcats + (v*m.nc.gpwords)
+
+/**
+         g.nc.no.cats
+         ---------
+
+         Return number of categories for variable
+**/
+
+and g.nc.no.cats(v) = valof
+$( let c = g.nc.area%v
+   let OR.flag =  bytesperword = 2 -> #xFF00, #xFFFFFF00 // Unified 04.01.88 MH
+   if v = 1
+      test c = 1
+      then resultis 1
+      else goto error
+   if G.nc.area%m.nc.add ~= 4     // old-style dataset
+      test 2 <= c <= 24
+      then resultis c
+      else goto error
+   if c > 24 c := - (c | OR.flag)  // non-additive variable
+   if 2 <= c <= 24 resultis c
+
+error:
+   G.sc.ermess("Invalid number of categories: %n", c)
+   G.nc.area!m.nc.l.s := m.nc.error
+   resultis 0
+$)
+
+
+/**
+         G.NC.PR
+         -------
+
+         Print truncated narrow string
+**/
+
+and g.nc.pr(string, chars) be
+$( let l = string%0
+   if l > chars string%0 := chars
+   g.sc.ofstr(string)  // g.sc.narrow(string)   SA 11.04.88
+   string%0 := l
+$)
+
+//////////////////////////////////////////////////////////////////////////////
+//                                                                          //
+//          Utility Routines used by G.nc.chartini only                     //
+//                                                                          //
+//////////////////////////////////////////////////////////////////////////////
+
+
+AND init.data.buffer() BE // Initialise data areas
+$( let minus.one = vec 1
+   G.ut.set32(#XFFFF, #XFFFF, minus.one)
+   G.nc.area!m.nc.bv := 2
+   G.nc.area!m.nc.lc := m.nc.unknown
+   G.nc.area!m.nc.string := m.nc.unknown
+   G.nc.area!m.nc.l.s := m.nc.main
+   FOR i=m.box1 TO m.box6 G.menubar!i := m.sd.act
+   G.menubar!m.box3 := m.sd.wBlank  // Initially no Replot
+   if G.ut.cmp32(G.context+m.itemaddress, minus.one) = m.eq
+      G.menubar!m.box6 := m.sd.wBlank // No Text
+   IF G.context!m.justselected // could come from Regroup
+   $( LET defg = ?
+      G.nc.area!m.nc.cv := 2
+      G.nc.area!m.nc.h := m.nc.unknown
+      G.nc.area!m.nc.cc := G.nc.area%m.nc.defdis
+      test ((g.nc.area!m.nc.cc=m.nc.BtoB) | (g.nc.area!m.nc.cc=m.nc.MTSLG)) &
+            (g.nc.area%m.nc.vars > 2)
+      then g.nc.area!m.nc.sv := 3
+      else g.nc.area!m.nc.sv := m.nc.unknown
+      // G.ut.trap("NC",2,FALSE,3,G.nc.area!m.nc.cc,1,10)
+      G.context!m.justselected := FALSE
+      unless G.nc.area%m.nc.add = 2 groupname(1, "All", 'A')
+      FOR i = 2 TO m.nc.maxnames groupname(i, (TABLE 0), ' ')
+      FOR n = 2 TO G.nc.area%m.nc.vars
+      $( let c = g.nc.area%n
+         test c > 24 // non-additive var.
+         then $( defg := 1
+                 c := g.nc.no.cats(n)
+              $)
+         else defg := (g.nc.area%m.nc.add = 2) -> 1, m.nc.all
+         group(n, G.nc.area%n, defg)
+      $)
+   $)
+   // FOR i = m.box1 TO m.box6 DO (G.nc.area+m.nc.menu)!i := G.menubar!i
+   move(g.menubar, g.nc.area+m.nc.menu, 6)
+   // G.sc.menu(G.menubar)    SA 15.04.88
+$)
+
+AND group(var, numcats, defg) BE
+$( LET varptr = vpr(var)
+   !varptr := defg
+   FOR i=1 TO numcats varptr!i := i
+   varptr!m.nc.incg := numcats
+$)
+
+AND groupname(number, name, ab) BE
+$( LET gb = number*m.nc.olsize.b
+   G.ut.movebytes(name, 0, G.nc.area+m.nc.gname, gb, name%0+1)
+   (G.nc.area+m.nc.gname)%(gb+m.nc.oaoff) := ab
+$)
+
+AND t.m.t.p() = VALOF
+$( LET cv = G.nc.area!m.nc.cv
+   LET sv = G.nc.area!m.nc.sv
+   LET ic = (vpr(cv))!m.nc.incg
+   LET is = (vpr(sv))!m.nc.incg
+   IF sv = cv RESULTIS TRUE
+   SWITCHON G.nc.area!m.nc.cc INTO
+   $( CASE m.nc.MTSLG: RESULTIS is > 4
+      CASE m.nc.pie: RESULTIS ic > 12
+      CASE m.nc.Looping: RESULTIS sv = m.nc.unknown
+      CASE m.nc.BtoB:
+         IF (is*ic > 24) | (sv = m.nc.unknown) RESULTIS TRUE
+         IF is > ic
+         $( G.nc.area!m.nc.cv := sv
+            G.nc.area!m.nc.sv := cv
+         $)
+   $)
+   RESULTIS FALSE
+$)
+.

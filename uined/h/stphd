@@ -1,0 +1,11 @@
+//  STPHDR  for UNI system
+//     14.10.87
+//  special globals header for STINIT: the standalone state
+//  table generator.  See b.stinit.
+
+GLOBAL
+$(
+G.st.rinput:  700
+
+G.st.sinput:  701
+$)

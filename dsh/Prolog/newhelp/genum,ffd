@@ -1,0 +1,112 @@
+/*  generate user model.
+    modified  gen_keys 08/12/87 for WP3300 in order to build new user model
+    according to the structure of the pkbs defined in WP1300 specification.
+*/
+
+genum(File) :-
+   gen_keys(Keys),
+   write('generated keys'),nl,
+   sort(Keys, Sorted_Keys),
+   write('sorted keys'),nl,
+   build_um(Sorted_Keys, User_Model),
+   write('built user model'),nl,
+   save_um(File, User_Model),
+   write('saved user model in file '),write('"'),write(File),write('"'),nl.
+
+gen_keys(Keys):-
+   basic_method_keys(Keys1),
+   conclusion_keys(Keys2),
+   generic_keys(Keys3),
+   library_keys(Keys4),
+   procedure_keys(Keys5),
+   append(Keys4,Keys5,L1),
+   append(Keys3,L1,L2),
+   append(Keys2,L2,L3),
+   append(Keys1,L3,Keys).
+
+basic_method_keys(Keys):-
+   bagof(basic_method(Key),basic_method(Key),Keys).
+
+conclusion_keys([]).
+
+generic_keys(Keys):-
+   bagof(generic(Key),Proc^Steps^gen_key(Proc,Key,Steps),Keys).
+
+library_keys(Keys):-
+   bagof(library(Key),Steps^lib_key(Key,Steps),Keys1),
+   bagof(library(Key),Steps^Object^pkb(library,Key:Object,Steps),Keys2),
+   append(Keys1,Keys2,Keys).
+
+procedure_keys(Keys):-
+   bagof(procedure(Key),Steps^pkb(Key,root,Steps),Keys).
+
+gen_key(Proc,Key,Steps):-
+   pkb(Proc,Key,Steps),
+   \+(Key=root),
+   \+(Proc=library).
+
+lib_key(Key,Steps):-
+   pkb(library,Key,Steps),
+   functor(Key,Key,_).
+
+append([], L, L).
+append([H|L1], L2, [H|L3]):-
+   append(L1, L2, L3).
+
+list([]).
+list([_|_]).
+
+build_um([], empty).
+build_um(Nodes, um(Left, Root/entry(last_seen(empty, never_seen), exposition, 4),
+                   Right)) :-
+        half_nodes(Nodes, Left_Nodes, Root, Right_Nodes),
+        build_um(Left_Nodes, Left),
+        build_um(Right_Nodes, Right).
+
+half_nodes(Nodes, Left_Nodes, Root, Right_Nodes) :-
+        length(Nodes, Length),
+        Left_Num is Length/2,
+        split_nodes(Left_Num, Nodes, Left_Nodes, Root, Right_Nodes).
+
+split_nodes(0, [Root|Right_Nodes], [], Root, Right_Nodes).
+split_nodes(Num, [Node|Nodes], [Node|Left_Nodes], Root, Right_Nodes) :-
+        Num > 0,
+        Num1 is Num - 1,
+        split_nodes(Num1, Nodes, Left_Nodes, Root, Right_Nodes).
+
+save_um(File, UM) :-
+        tell(File),
+        write('user_model('), nl,
+        print_um(UM),
+        write(').'), nl,
+        told.
+
+print_um(empty) :- write(empty).
+print_um(um(Left, Root, Right)) :-
+        write('um('), nl,
+        print_um(Left), write(','), nl,
+        writeq(Root), write(','), nl,
+        print_um(Right),
+        write(')'), nl.
+
+/*  things in the skb that ought to be in user model  */
+
+crud([object(cooler_rack), object(100), object(200), object(300), object(400), object(500),
+        object(incubator_rack), object(300), object(400), object(500), object(600), object(700),
+                object(100), object(200),
+        object(incubator), object(inc_rack), object(incubator_door), object(inc_cont),
+        object(cooler), object(cool_rack), object(cool_door),
+        object(freezer), object(freezer_door), object(freezer_stowage),
+        object(epsp), object(dc_1), object(dc_2), object(dc_3), object(dc_4), object(ac_1), object(ac_2),
+                object(dc_utility), object(epsp_indicator),
+        object(br_unit), object(br_unit_epsp), object(br_unit_rau_access), object(incubator_b),
+                object(glove_box), object(incubator_a), object(br_unit_cooler),
+                object(br_unit_freezer), object(gppf_bio_incubator_mvi), object(p_h_c),
+                object(gppf_bio_inc_mvi_epsp), object(g_b_i_m_rau_access),
+                object(g_t_r), object(m_e), object(g_r), object(g_c_r), object(g_c), object(g_vtrg),
+                object(g_vtrf), object(msb), object(cube_subt),
+        object(rack_stowage), object(panel(1)), object(panel(2)), object(stow_mde), object(stoe_fes),
+                object(stow_spe), object(left), object(right), object(panel(3)), object(panel(4)),
+                object(panel(5)), object(panel(6)),
+        object(lab_port), object(rack(11)) ,object(rack(9)), object(rack(7)), object(rack(5)),
+                object(rack(3)), object(rack(1))]).

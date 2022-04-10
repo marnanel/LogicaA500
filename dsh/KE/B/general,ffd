@@ -1,0 +1,327 @@
+
+//  AES SOURCE  4.87
+
+/**
+         GENERAL - STATE SETTING AND SPECIAL EXITS
+         -----------------------------------------
+
+         G.ov.general()
+         G.ov.boot()
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         24.9.87  1        PAC      Initial DISH version
+          1.4.88  2        PAC      Fix clear.windows
+                                    add help.requested
+**/
+
+SECTION "general"
+
+GET"LIBHDR"
+GET":4.DSH.GH.glhd"
+GET":4.DSH.GH.gldyhd"
+GET":4.DSH.H.sthd"
+GET":4.DSH.H.sdhd"
+GET":4.DSH.H.kdhd"
+GET":4.DSH.H.dhhd"
+GET":4.DSH.H.ovhd"
+GET":4.DSH.H.uthd"
+GET":4.DSH.H.wmhd"
+
+/**
+         G.OV.GENERAL - HANDLE GENERAL ACTIONS
+         -------------------------------------
+
+         This routine copes with the state changes
+
+         INPUTS: state of global G.key
+
+         OUTPUTS: none
+
+         GLOBALS MODIFIED:
+
+         G.dy.action, g.dy.init, g.dy.free, etc.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ov.general []
+         ---------------
+
+
+**/
+
+LET G.ov.General() BE
+$(
+   let icon.offset = ?
+   let icon.record = ?
+   let found = FALSE
+   let init.routine = ?
+   let act.routine  = ?
+   let new.op     = ?
+   let new.state  = ?
+   let new.window = ?
+
+   IF G.context!m.key    = m.kd.noact |
+      G.context!m.icon   = m.wm.invalid.handle |
+      G.context!m.window = m.wm.invalid.handle 
+   THEN RETURN // nothing selected - so do nothing
+
+   // find icon record for given icon (g.key)
+   // and state (g.context!m.state)
+
+   icon.offset := G.states!(G.context!m.state * m.st.esize + m.st.icons) 
+   icon.record := G.states + icon.offset - m.st.isize
+
+   $(
+      icon.record := icon.record + m.st.isize   
+      found := (icon.record!m.st.icon.no = G.context!m.icon)    
+   $) 
+      repeatuntil found | (icon.record!m.st.icon.no = m.st.invalid)
+
+   UNLESS found DO 
+   $( G.wm.Message("Icon %n not found",G.context!m.icon);w.(); RETURN $)
+
+   new.state    := icon.record!m.st.next.st
+   new.op       := (G.states!(new.state * m.st.esize + m.st.op))
+   init.routine := !(icon.record!m.st.initr + @G0)
+   act.routine  := !(G.states!(new.state * m.st.esize + m.st.actr) + @G0)
+   new.window   := G.states!(new.state * m.st.esize + m.st.whandle)
+
+   IF new.state = m.st.help THEN            // added 1.4.88 PAC
+   $( G.wm.Message("Help requested")
+      G.context!m.help.requested := TRUE
+      RETURN
+   $)
+
+   IF act.routine = G0 THEN
+   $( G.wm.Message("State %n not defined",new.state);w.(); RETURN $)
+
+   IF new.window = m.wm.invalid.handle THEN
+   $( G.wm.Message("No window for state %n",new.state);w.(); RETURN $)
+
+   setstate( new.op, new.state, new.window, act.routine, init.routine )
+$)
+
+AND w.() BE $( VDU("7"); G.ut.wait(100) $)
+
+AND setstate( op, state, window, actr, initr ) BE
+$(
+   // highlight the button that was pressed if state is changing
+   //
+   UNLESS state = G.context!m.state DO
+      G.wm.highlight( G.context!m.window, G.context!m.icon )
+
+   UNLESS op = G.context!m.current.op DO change.op( op )
+
+   G.context!m.laststate := G.context!m.state   
+   G.context!m.state     := state
+   G.dy.action           := actr
+
+   initr()
+
+   G.ov.add.to.window.list( window )
+   G.wm.Set.to.Front( window )
+$)
+
+AND change.op( new.op ) BE
+$(
+   G.dy.free() // release work area for current operation, and cache context
+
+      SWITCHON new.op INTO
+      $( 
+//         CASE m.st.top.op : 
+//         G.dy.init, G.dy.free := G.PL.dy.init, G.PL.dy.free
+//         ENDCASE
+
+         CASE m.st.find.op : 
+         G.dy.init, G.dy.free := G.NF.dy.init, G.NF.dy.free
+         ENDCASE
+
+         CASE m.st.contents.op :
+         G.dy.init, G.dy.free := G.NT.dy.init, G.NT.dy.free
+         ENDCASE
+
+         CASE m.st.chart.op :
+         G.dy.init, G.dy.free := G.NC.dy.init, G.NC.dy.free
+         ENDCASE
+
+         CASE m.st.maps.op :
+         G.dy.init, G.dy.free := G.NM.dy.init, G.NM.dy.free  
+         ENDCASE
+      $)
+
+$<debug
+//    G.dy.init,G.dy.free := G.Dummy,G.Dummy
+$>debug
+
+   G.context!m.current.op := new.op
+
+   close.current.windows()
+
+   G.dy.init()
+$)
+
+AND G.ov.add.to.window.list( window ) BE
+$(
+   LET lptr = G.Windows!0
+
+   FOR i = (lptr-1) to 1 by -1 if G.windows!i = window return
+
+   G.windows!lptr := window  // push the window
+   G.windows!0    := lptr+1  // inc. pointer
+
+   IF lptr > m.wm.maxwindows G.ut.abort(m.ut.root.abort+5)
+$)
+
+// shut all currently active windows
+//
+AND close.current.windows() BE
+$(
+   LET lptr = G.windows!0
+
+   FOR i = lptr-1 TO 1 BY -1 DO
+   $( LET win = G.windows!i
+      IF (i ~= m.wm.invalid.handle) DO G.wm.close( win )
+   $)
+
+   G.Windows!0 := 1 // reset pointer
+$)
+
+/**
+         G.DUMMY - DUMMY PROCEDURE
+         -------------------------
+
+         This procedure does nothing.
+
+         It is used for dummy init routines, etc. by the state
+         machine.
+
+         INPUTS: none
+
+         OUTPUTS: none
+
+         GLOBALS MODIFIED: none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.dummy[]
+         -------
+         Return to caller
+**/
+
+AND G.Dummy() BE RETURN
+
+/**
+         G.OV.BOOT
+         ---------
+
+         *************
+
+**/
+
+AND g.ov.boot() BE
+$(
+   let action.routine.addr = ?
+
+   Fillwords( G.context, m.contextsize, 0 )
+
+   G.context!m.window   := m.wm.invalid.handle
+   G.context!m.icon     := m.wm.invalid.handle
+   G.context!m.menu     := m.wm.invalid.handle
+   G.context!m.dialogue := m.wm.invalid.handle
+   G.context!m.key      := m.kd.noact
+
+/***********************************
+
+   G.sc.addspace := FALSE
+   G.redraw      := TRUE
+   G.menuon      := TRUE
+
+   // next 4 statements changed 4.9.86 PAC
+
+   G.key := m.kd.stop        // signal that Help must switch screens
+   G.dy.free()               // Get rid of current overlay
+   G.key := m.kd.noact       // reset G.key
+
+   // clear menu bar, as Help will have mucked it up
+   G.sc.clear( m.sd.menu )
+
+$<debug
+   G.Context!m.state := G.dh.reset()  // return CMOS location 30, use as
+                                      // starting state for time being
+$>debug
+   G.Context!m.laststate := m.st.startstop
+
+************************************/
+
+$<debug
+   // test for video player before issue call to VFS
+   TEST G.dh.fstype() = m.dh.vfs
+   THEN
+$>debug
+       G.Context!m.discid := G.dh.discid()
+$<debug
+   ELSE G.Context!m.discid := m.dh.NatA
+$>debug
+   G.Context!m.grblnorth  := -1
+   G.Context!m.grtrnorth  := -1
+   G.Context!m.areal.unit := -1
+   G.Context!m.resolution := -1
+   G.Context!m.name.AOI   := -1
+   G.Context!m.type.AOI   := -1
+
+$<debug
+   IF G.context!m.discid = m.dh.NatA DO
+   $(
+   G.Context!m.grblnorth  := 930
+   G.Context!m.grbleast   := 5120
+   G.Context!m.grtrnorth  := 2030
+   G.Context!m.grtreast   := 6720
+   G.Context!m.areal.unit := -1
+   G.Context!m.resolution := -1
+   G.Context!m.name.AOI   := 29
+   G.Context!m.type.AOI   := 14
+   $)
+$>debug
+
+   G.Context!m.justselected := TRUE   // Start is like a pending state change
+
+$<debug
+//   IF (G.Context!m.state < 1) | (G.Context!m.state > G.Context!m.maxstates)
+//   THEN
+$>debug
+       TEST G.Context!m.discid = m.dh.NatA
+       THEN G.Context!m.state := m.st.top.level
+       ELSE G.Context!m.state := m.st.top.level // ??? frig for DISH
+
+// old bits in boot - may need to modify these !
+
+// G.sc.setpal(m.sd.defpal) // added 4.9.86  PAC
+   G.ov.setup.sram()  // initialise sideways RAM and reset the cache flags
+// G.overbay := G.ov.load(@G.menuwords!(G.stover!(G.Context!m.state)),G.overbay)// G.dy.init()
+
+   G.context!m.state     := m.st.top.level
+   G.context!m.laststate := m.st.start.stop
+
+   $( let offset = G.context!m.state*m.st.esize
+      let window = ?
+
+      G.dy.action := !(G.states!(offset + m.st.actr) + @G0)
+
+      window := G.states!(offset + m.st.whandle)
+
+      G.wm.Set.To.Front( window )
+
+      G.ov.add.to.window.list( window )
+   $)
+
+// dnh   G.vh.video( m.vh.superimpose ) // default mode 12.8.86 PAC
+$)
+.

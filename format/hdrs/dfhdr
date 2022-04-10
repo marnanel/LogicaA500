@@ -1,0 +1,84 @@
+// /**
+//       DFHDR - Header for Data Formatter (User Data)
+//       ---------------------------------------------
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//      1.03.87   1        SRY         Initial version
+//     21.04.87   2        SRY         Added sram.start
+// **/
+
+manifest $(
+
+m.df.max.ew  = 22         // Max 32x32 east-west
+m.df.max.ns  = 35         // Max 32x32 north-south
+m.df.record.bytes = 6144
+m.df.record.words = 3072
+m.df.fine.index.size = 32 // Number of words in a fine index
+m.df.32size = 3088        // words needed for max 32x32 block of data
+m.df.sram.start = #X501   // start of usage of SRAM for Grid index
+
+// Constants for type of dataset - used in G.df.counter
+m.df.chart = -1
+m.df.areal = -2
+m.df.grid = -3
+m.df.agg  = -4
+
+// Offsets in G.df
+
+m.df.err      = 0  // Error flag (true or false)
+m.df.eof      = 1  // End of file flag (true or false)
+m.df.val      = 2  // Two words for 32-bit value return from read.num
+m.df.valHI    = 3
+m.df.dummy    = 4  // Flag indicating dummy run for sizing
+m.df.datasize = 5  // Data size: 1, 2 or 4 bytes
+m.df.raster   = 6  // Current raster size
+m.df.gridbl   = 7  // 2 words AOI bottom left GR
+m.df.gridblHI = 8
+m.df.gridtr   = 9  // 2 words ditto top left
+m.df.gridtrHI = 10
+m.df.record   = 11 // Current record (frame) number offset (0 ->)
+m.df.offset   = 12 // Current word offset (0 ->)
+m.df.base.32  = 13 // 2 words GR of base of current 32x32
+m.df.base.32HI = 14
+m.df.base     = 15 // 2 words Grid reference of base of first 32x32 block
+                   // NB: will probably be outside area of interest
+m.df.baseHI   = 16
+m.df.opt      = 17 // flag whether to compress data size
+m.df.base.8   = 18 // 2 words GR of base of current 8x8
+m.df.base.8HI = 19
+m.df.top      = 20 // 2 words GR of base of 1st 32x32 not used
+m.df.topHI    = 21
+m.df.gref     = 22 // 2 words current GR
+m.df.grefHI   = 23
+m.df.rastoffs = 24 // 10 words for record numbers of sub-datasets
+m.df.digits   = 34 // Number of digits in number last read
+m.df.gvals    = 35 // Space for 64 values (an 8x8 grid block) - 128 words
+
+m.df.buffsize = 163 // size of G.df
+
+// Offsets for Aggregate - most can be overlaid
+m.df.buffer = 5      // Holds an old 32x32 block of values
+m.df.xaligned = 11  // True if new 32x32 blocks are aligned to start
+                    // of dataset - 50% chance of being true for double!
+m.df.yaligned = 12  // ditto y
+m.df.incidence = 13 // Is dataset incidence ?
+m.df.oldsize = 14   // Original datasize
+m.df.length = 17    // Pointer to 32-bit length of file
+m.df.lengthHI = 18
+m.df.newsize = 19   // New data size
+m.df.rastoff = 24   // Record number of dataset
+m.df.wold =  25     // old w
+m.df.nold = 26      // old n
+m.df.first = 27     // offset to 32x32 data
+m.df.firstHI = 28
+m.df.index = 29     // pointer to fine index
+m.df.w = 30         // blocks east-west
+m.df.n = 31         // blocks north-south
+$)
+
+
+
+
+

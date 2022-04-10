@@ -1,0 +1,8 @@
+|* compile the kernel(s)
+co kernel1
+co kernel2
+|* compile root (becomes part of kernel)
+co root
+co general
+|* compile the system initialiser
+co init

@@ -1,0 +1,16 @@
+*| compile all SC source
+co graph1
+c1 graph2
+c1 text1
+c1 text2
+c1 text3
+c1 textlnk
+*| c1 getact
+*| c1 menu
+*| c1 input
+c1 mouse
+c1 number
+c1 icon
+c1 setfont
+c1 chart9
+c1 sprite

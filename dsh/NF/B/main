@@ -1,0 +1,336 @@
+/**
+         NATIONAL FIND
+         -------------
+
+         NF.FIND0 - MAIN ACTION ROUTINES
+         -------------------------------
+
+         Contains:
+           Overlay initialisation & free routines
+           initialisation & action routines for find window
+           initialisation & action routines for the hitlist review window
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR      DETAILS OF CHANGE
+         11.10.87  1        PAC         Adopted for DISH system
+         1.4.88    2        PAC         updates for BICI
+         05.04.88  3        SA          update for review state
+         05.04.88  4        SA          changes to rev.action
+         07.03.88  5        SA          action routine for old query 
+                                        not needed
+         11.05.88  6        SA          update window list when closing window
+**/
+
+Section "FIND.main"
+
+GET "LIBHDR"  
+    
+GET ":4.DSH.gh.glhd"
+GET ":4.DSH.gh.gldyhd"
+GET ":4.DSH.gh.glnfhd"
+GET ":4.DSH.H.vhhd"
+GET ":4.DSH.H.kdhd"
+GET ":4.DSH.H.sdhd"
+GET ":4.DSH.H.sthd"
+GET ":4.DSH.H.iohd"
+GET ":4.DSH.H.wmhd"
+GET ":4.DSH.H.nfhd"
+GET ":4.DSH.H.dhphd"  // SA crashtest
+
+static
+$( 
+   query.done = FALSE
+$)
+
+manifest $( 
+
+// icon numbers
+m.query.box  = 2
+m.old.query  = 13 // old query button
+m.prev.box   = 20 // previous query box
+m.copy.query = 16 // copy query button   
+m.reviewbox  = 20 // special box for review state
+
+m.max.query.size = 80 // chars
+
+// icon flags
+m.shaded   = 1<<22   // bit 22 set
+m.selected = 1<<21
+$)
+
+LET g.nf.dy.init() be
+$(
+    g.nf.p := GETVEC(m.nf.datasize)
+    unless g.ut.restore(g.nf.p,m.nf.datasize,m.io.nfcache) do
+    $(  g.nf.p!c.state := s.unset
+        g.nf.p!c.good.query := false
+        (g.nf.p+p.oldq)%0 := 0
+        g.nf.p!c.titlenumber := 0 // -1 means there is a previous item name
+        g.nf.p!c.termcount := 0
+        g.nf.p!c.titles := 0 // needed for deleting icons   SA 05.04.88
+        for i = 0 to 4 do g.nf.p!(c.include+i) := true
+    $)
+    g.nf.p!c.index := OSfind( m.osfind.open.read.op, "INDEX" )
+     //g.dh.open("INDEX")
+    g.nf.p!c.names := OSfind( m.osfind.open.read.op, "NAMES" )
+     //g.dh.open("NAMES")
+//    g.nf.p!c.names := g.dh.open("-adfs-:5.NNAMES")
+    $(  let wsize = MAXVEC()
+        IF wsize > m.nf.max.wsize do wsize := m.nf.max.wsize
+        g.nf.p!c.ws := GETVEC(wsize) // establish workspace area
+        g.nf.p!c.wssize := wsize+1    // exact number of words in this area
+    $)
+$)
+
+AND g.nf.dy.free() be
+$(
+    g.dh.close(g.nf.p!c.index)
+    g.dh.close(g.nf.p!c.names)
+    FREEVEC(g.nf.p!c.ws)
+    g.ut.cache(g.nf.p,m.nf.datasize,m.io.nfcache)
+    FREEVEC(g.nf.p)
+$)
+
+AND window.for( state ) = G.states!(state*m.st.esize + m.st.whandle)     
+
+AND g.nf.checkbox() BE   
+$(
+   // convert the icon number into an index
+   //
+   let n = valof switchon G.context!m.icon into
+           $( case 6 : resultis 2
+              case 7 : resultis 3
+              case 8 : resultis 4
+              default: resultis 0
+           $)
+
+   TEST g.nf.p!(c.include + n) then
+   $( let count = 0
+      for i = 2 to 4 do IF g.nf.p!(c.include + i) count := count + 1
+      TEST count <= 1 
+      THEN $( G.sc.ermess("Cannot omit all types")
+              G.wm.Set.Icon.State( G.context!m.window,
+                                   G.context!m.icon,
+                                   m.selected, 0 ) // reselect it
+           $)
+      ELSE g.nf.p!(c.include + n) := false   
+   $)
+   ELSE g.nf.p!(c.include + n) := true
+$)
+
+AND get.query(query.addr) BE
+$(
+   Let str = G.wm.Iconaddr( window.for( m.st.find ), m.query.box )/bytesperword
+
+   $( let l = 0
+      while (str%l ~= '*C') do $( query.addr%(l+1) := str%l; l := l+1 $)
+      query.addr%0 := l
+   $)
+$)
+
+AND g.nf.handle.keys() BE
+$(
+   Let query = G.nf.p+p.q
+
+   get.query(query)
+
+//   UNLESS G.context!m.key = m.kd.return RETURN
+
+   G.wm.message("Handle keys: query is %S",query )
+
+   unless g.nf.makequery(g.nf.p) return
+
+   g.nf.runquery(g.nf.p)
+
+   update.box ( query, m.prev.box )
+
+   G.ut.movebytes( query, 0, g.nf.p+p.oldq, 0, query%0+1 )
+   g.nf.p!c.good.query := true
+   G.wm.set.icon.state( window.for( m.st.find ), m.old.query, 0, m.shaded )
+
+   query.done := TRUE
+$)
+
+
+// copy current query to old query
+//
+AND update.box ( string, box ) BE
+$(
+   Let window = window.for( m.st.find )
+   Let addr   = G.wm.Iconaddr( window, box )
+
+   G.ut.movebytes( string, 1, 0, addr, string%0 )
+   0%(addr+string%0) := '*C'
+   G.wm.set.icon.state( window, box,0,0 )
+$)
+
+AND g.nf.findini() BE 
+$(
+   Let old.query = G.nf.p+p.oldq
+   Let shade     = 0
+   Let null.str  = ""
+
+   query.done := FALSE
+   update.box( old.query, m.prev.box )
+   update.box( null.str,  m.query.box )
+
+   G.nf.writepc(0)
+   G.nf.writepm(0)
+
+   (G.nf.p+p.q)%0 := 0 // query is null
+
+   IF (g.nf.p+p.oldq)%0 = 0 | // g.nf.p!c.state = s.unset | 
+        (g.nf.p!c.good.query = false) 
+   do shade := m.shaded
+
+   G.wm.set.icon.state( window.for( m.st.find ), m.old.query, shade, m.shaded )
+
+/**********************
+//    for  some strange reason, this section appears to 
+//    crash the BICI code - we'll leave it out for now !!!
+
+   $(
+      let pb = VEC 10
+
+      for i = 1 to 10 pb!i := 0
+
+      pb!0,pb!1,pb!4,pb!5 := window.for( m.st.find ), m.query.box, -1, 0
+
+      OsWimpS( m.wm.Set.Caret.Position, pb )
+   $)
+*************************/
+
+   g.nf.p!c.state := s.outsidebox
+
+   // restrict mouse to find dialogue box
+   restrict.mouse( window.for( m.st.find ) )
+$)
+
+AND g.nf.copy.query() BE 
+$(
+   Let query = G.nf.p+p.q
+   Let oldq  = G.nf.p+p.oldq
+
+   get.query(query)
+
+   TEST (query%0 + oldq%0) > m.max.query.size THEN G.sc.beep()
+   or
+   $(
+      G.ut.movebytes( oldq, 1, query, query%0+1, oldq%0 )
+      query%0 := query%0 + oldq%0
+      update.box( query, m.query.box )
+   $)
+$)
+
+AND g.nf.find() BE 
+$( 
+   IF query.done THEN 
+   $(
+      G.context!m.window := window.for( m.st.find )
+      G.context!m.icon   := m.reviewbox // force a change into review state
+      G.context!m.key    := 2
+   $)
+$)
+
+// AND g.nf.old.query() BE RETURN    // not needed SA 07.03.88
+
+AND g.nf.revini() BE
+$(
+   // restrict mouse to find review dialogue box
+   restrict.mouse( window.for( m.st.find.review ) )
+$)
+
+AND g.nf.rev.action() BE 
+$(
+   IF G.context!m.window = window.for( m.st.find.review )
+   THEN
+   $(
+      IF (G.context!m.key = 1) | (G.context!m.key = 4)
+      THEN
+      $(
+         IF ( m.nf.dummy.icon <=
+              G.context!m.icon <= 
+              g.nf.p!c.titles+m.nf.dummy.icon)
+         THEN 
+         $(
+            // find record offset in p.t area for selected item
+            LET t.buff = g.nf.p + p.t
+            LET byte.offset = (G.context!m.icon - m.nf.dummy.icon) * m.tbsize
+            LET type = ?
+
+            // move info on selected data title to context area
+            //
+            // title string
+            g.ut.movebytes(t.buff, byte.offset + 8, 
+                           g.context+m.itemrecord, 0, m.names.rec.bsize)
+            // restore length byte of the title string
+            (g.context+m.itemrecord)%0 := t.buff%(byte.offset + 45)
+            // address offset in data file
+            g.ut.unpack32(t.buff, byte.offset + 8 + 32,
+                           g.context+m.itemaddress)
+
+            type := t.buff%( byte.offset + 44 )
+            g.nf.p!s.type := type
+
+            // force change to find dialogue state
+            G.context!m.icon := 104
+         $)
+
+         IF (G.context!m.icon = 2) // the cancel icon !!!
+         THEN
+         $(
+            G.wm.close( G.context!m.window ) // close the dialogue box
+            G.windows!0 := G.windows!0 - 1   // decrement window list pointer
+                                             // SA 11.05.88
+         $)
+      $)
+   $)
+$)
+
+AND g.nf.highlight() BE RETURN
+
+AND restrict.mouse( window.handle ) BE
+$(
+   LET flags = ?
+
+   G.wm.Get.Window.State( window.handle )
+   flags := G.wm.q!(32/BYTESPERWORD)
+
+   // Allow for scroll & title bars SA 07.04.88
+   TEST (flags & m.wm.NewForm) ~= 0
+   THEN
+   $(
+      IF (flags & m.wm.NewForm.VScroll) ~= 0
+      THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+      IF (flags & m.wm.NewForm.HScroll) ~= 0
+      THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+      IF (flags & m.wm.NewForm.Titlebar) ~= 0
+      THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+   $)
+   ELSE
+   $(
+      IF (flags & m.wm.VScroll) ~= 0
+      THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+      IF (flags & m.wm.HScroll) ~= 0
+      THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+      IF (flags & m.wm.Titlebar) ~= 0
+      THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+   $)
+
+   G.wm.Mouse.Rectangle( G.wm.q!m.wm.X0, 
+                         G.wm.q!m.wm.Y0, 
+                         G.wm.q!m.wm.X1, 
+                         G.wm.q!m.wm.Y1 )
+
+   G.context!m.dialogue := window.handle
+$)
+.

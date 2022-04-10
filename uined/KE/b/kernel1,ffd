@@ -1,0 +1,53 @@
+//  UNI SOURCE  4.87
+
+/**
+         B.KERNEL1 - SPECIALLY WRITTEN BCPL CODE FOR KERNEL
+         --------------------------------------------------
+
+         This module only contains g.dummy.  It used to contain
+         the BCPL Start() procedure, which has now moved to
+         root, where it used to be called g.ov.cntrl.
+
+         LOCATION OF RUNNABLE CODE:
+
+         s.kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         6.10.87     1       MH        ADOPTED FOR UNI
+**/
+
+SECTION "b.Kernel1"
+
+GET "LIBHDR"
+GET "SYSHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.h.kehd"
+
+
+/**
+         G.DUMMY - DUMMY PROCEDURE
+         -------------------------
+
+         This procedure does nothing.
+
+         It is used for dummy init routines, etc. by the state
+         machine. Included from OV.B.root1 on 23.4.87
+
+         INPUTS: none
+
+         OUTPUTS: none
+
+         GLOBALS MODIFIED: none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.dummy[]
+         -------
+         Return to caller
+**/
+LET G.Dummy() BE RETURN
+.

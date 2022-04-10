@@ -1,0 +1,93 @@
+section "he"
+
+/**
+         CM.B.HE - Help text for Grid User data
+         --------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       11.06.87   1        SRY         Initial version
+       17.08.87   2        SA          Text added
+        9.09.87   3        SRY         Kick pointer up on exit
+
+         GLOBALS DEFINED:
+
+         G.help
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.sihd"
+
+static $( save.cur = ? $)
+
+/**
+   This routine either draws the help page or restores the previous state
+   of the screen according to the setting of the first menu bar entry.
+**/
+
+let G.help() be
+$( let t = G.sc.pointer(m.sd.off)
+   test G.menubar!m.box1 = m.wExit
+   then $( G.sc.mode(1)  // exit from help
+           G.menubar!m.box1 := m.sd.act
+           G.redraw := true
+           G.sc.rescur(save.cur)
+           if G.screen = m.sd.menu
+              G.sc.moveptr( G.xpoint, G.sc.dtob(m.sd.display,4) )
+           freevec(save.cur)
+        $)
+   else $( save.cur := getvec(3)
+           G.sc.savcur(save.cur)
+           G.sc.mode(129)
+           G.sc.selcol(m.sd.blue)
+           G.sc.movea(m.sd.message, 0, 0)
+           G.sc.rect(m.sd.plot, m.sd.mesW-1, m.sd.mesH-1)
+           G.sc.movea(m.sd.message, m.sd.propXtex, m.sd.mesYtex)
+           G.sc.selcol(m.sd.yellow)
+           G.sc.oprop("Help with Grid Mappable Data Entry")
+           G.sc.clear(m.sd.display)
+           G.sc.selcol(m.sd.cyan)
+
+           oline( 2, "To enter general information about the dataset,")
+           oline( 3, "activate the fields by moving the pointer.  The")
+           oline( 4, "blue entry boxes are for typing in dataset")
+           oline( 5, "details which are entered by pressing ACTION.")
+           oline( 6, "The Data Type and Raster Size can be altered")
+           oline( 7, "by pressing CHANGE over the activated field.")
+           oline( 8, "The User Guide contains a full description of")
+           oline( 9, "the meaning of each field.")
+
+           oline(11, "To enter class interval values use the Ranges")
+           oline(12, "option on the menu bar. A class interval box is")
+           oline(13, "activated by pressing ACTION with the pointer")
+           oline(14, "over it.  Enter a number and then press ACTION")
+           oline(15, "a second time.  To return to the original screen")
+           oline(16, "select Clear from the menu bar.")
+
+           oline(18, "If you enter the initial screen with a new file")
+           oline(19, "all the options will be available and the fields")
+           oline(20, "will contain default values.  If you are editing")
+           oline(21, "an existing data set you will not be able to")
+           oline(22, "change the Raster Size.")
+
+           G.menubar!m.box1 := m.wExit
+           for i = m.box2 to m.box6 G.menubar!i := m.wBlank
+           G.sc.menu(G.menubar)
+        $)
+   G.sc.pointer(t)
+$)
+
+and oline(line.no, text) be
+$( G.sc.movea(m.sd.display, 0, m.sd.disH-(line.no-1)*m.sd.linW)
+   G.sc.oprop(text)
+$)
+.

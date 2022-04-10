@@ -1,0 +1,214 @@
+/* otherwise used in P->;C constructs for clarity
+*/
+otherwise.
+
+/*  useful pieces of code  */
+
+forall(X,Y):-
+   call(X),
+   test(Y),
+   fail. 
+forall(_,_).
+
+test(Y):-
+   call(Y),
+   !.
+
+append([], List, List).
+append([Head|Tail1], List, [Head|Tail2]) :- append(Tail1, List, Tail2).
+
+member(Item, [Item|_]).
+member(Item, [_|List]) :- member(Item, List).
+
+find_member(1, [Head|_], Head).
+find_member(N, [_|Tail], Member):-
+   M is N-1, 
+   find_member(M, Tail, Member).
+
+reverse(List,ReverseList):-            %R3  SA 18.03.88
+   reverse(List,[],ReverseList).
+
+reverse([], L, L).
+reverse([A|L1], L2, L3):-
+   reverse(L1, [A|L2], L3).
+
+prefix([],_).
+prefix([H|T1],[H|T2]):-
+   prefix(T1,T2).
+
+subtract_prefix([],String,String).
+subtract_prefix([H|PrefixTail],[H|StringTail],Substring):-
+   subtract_prefix(PrefixTail,StringTail,Substring).
+
+replace_character(_,_,[],[]).
+replace_character(any,[NewChar],[_|Tail],[NewChar|NewTail]):-
+   replace_character(any,[NewChar],Tail,NewTail).
+replace_character([Char],[NewChar],[Char|Tail],[NewChar|NewTail]):-
+   replace_character([Char],[NewChar],Tail,NewTail).
+replace_character([Char],[NewChar],[H|Tail],[H|NewTail]):-
+   replace_character([Char],[NewChar],Tail,NewTail).
+
+select([Item | Tail], Item, Tail).
+select([Head | List], Item, [Head | Rest]) :- select(List, Item, Rest).
+
+
+/* deterministic versions of bagof and setof which always succeed */
+
+bagof1(Element, Test, Bag) :- bagof(Element, Test, Bag), !.
+bagof1(_, _, []).
+
+setof1(Element, Test, Set) :- setof(Element, Test, Set), !.
+setof1(_, _, []).
+
+
+minus(List1,List2, Result) :-
+   bagof1(Element,
+          (member(Element, List1), \+ member(Element, List2)),
+          Result).
+
+select_items(List, [Item|Items], Rest) :-
+   select(List, Item, Remaining_List),
+   select_items(Remaining_List, Items, Rest).
+select_items(List, [Item|Items], Rest) :-
+   \+ select(List, Item, _),
+   select_items(List, Items, Rest).
+select_items(Rest, [], Rest).
+
+/*
+intersection(List1, List2, Intersection) :-
+   bagof1(Element,
+   (member(Element, List1), member(Element, List2)),
+   Intersection).
+*/
+
+intersection([], _, []).
+intersection([Item|Items], List, [Item|Intersection]) :-
+   member(Item, List),
+   intersection(Items, List, Intersection).
+intersection([Rogue|Items], List, Intersection) :-
+   \+ member(Rogue, List),
+   intersection(Items, List, Intersection).
+
+split_list([], [], []).
+split_list([Head|Tail], Head, Tail).
+
+add_types_to_list([], Types, Types).
+add_types_to_list([Type|Next_Types], Past_Types, New_Types) :-
+   \+ member(Type, Past_Types),
+   add_types_to_list(Next_Types, [Type|Past_Types], New_Types).
+add_types_to_list([Type|Types], Past_Types, New_Types) :-
+   member(Type, Past_Types),
+   add_types_to_list(Types, Past_Types, New_Types).
+
+merge_items([], List, List).
+merge_items([Item|Items], Old_List, List) :-
+   add_item(Item, Old_List, New_List),  %returns items backwards
+   merge_items(Items, New_List, List).
+
+   add_item(Var, List, List) :- var(Var).
+   add_item(Item, Old_List, [Item|Old_List]).
+
+gt(Upper, Lower) :- Upper > Lower.
+
+abs_diff(Num1, Num2, Diff) :- 
+   Num1 < Num2, 
+   Diff is Num2 - Num1. 
+abs_diff(Num1, Num2, Diff) :-
+   Num1 >= Num2,
+   Diff is Num1 - Num2.
+
+map(Fn, [InH | InT], [OutH | OutT]) :-
+   apply(Fn, [InH, OutH]),
+   map(Fn, InT, OutT).
+map(_, [], []).
+
+map(Fn, [Arg | Args]) :-
+   apply(Fn, [Arg]),
+   map(Fn, Args).
+map(_, []).
+
+apply(Fn, Args, Result) :-
+   append(Args, [Result], AllArgs), !,
+   apply(Fn, AllArgs).
+apply(Fn, Args) :-
+   Fn =.. L1,
+   append(L1, Args, L2),
+   Goal =.. L2,
+   !,
+   call(Goal).
+   
+ground(Term) :- numbervars(Term, 0, 0).
+
+/* processing time
+*/
+time_reached(whenever).
+time_reached(Desired_Time) :-
+   \+ Desired_Time = whenever,
+   get_time(Desired_Time).
+
+eval_time(time(Year1, _, _, _, _, _),
+   time(Year2, _, _, _, _, _), Time) :-
+   compare_time(Year1, Year2, year, Time).
+eval_time(time(Year, Month1, _, _, _, _),
+   time(Year, Month2, _, _, _, _), Time) :-
+   compare_time(Month1, Month2, month, Time).
+eval_time(time(Year, Month, Day1, _, _, _),
+   time(Year, Month, Day2, _, _, _), Time) :-
+   compare_time(Day1, Day2, day, Time).
+
+%R2  SA 18.03.88
+
+eval_time(time(Year, Month, Day, Hour1, Minute1, _),
+   time(Year, Month, Day, Hour2, Minute2, _), Time) :-
+   abs_diff(Hour1,Hour2,1),
+   compare(>,Hour1,Hour2),
+   compare(<,Minute1,Minute2),
+   (NewMinute1 is Minute1 + 60),
+   compare_time(NewMinute1, Minute2, minute, Time).
+eval_time(time(Year, Month, Day, Hour1, Minute1, _),
+   time(Year, Month, Day, Hour2, Minute2, _), Time) :-
+   abs_diff(Hour1,Hour2,1),
+   compare(>,Hour2,Hour1),
+   compare(<,Minute2,Minute1),
+   (NewMinute2 is Minute2 + 60),
+   compare_time(Minute1, NewMinute2, minute, Time).
+
+eval_time(time(Year, Month, Day, Hour1, _, _),
+   time(Year, Month, Day, Hour2, _, _), Time) :-
+   compare_time(Hour1, Hour2, hour, Time).
+
+eval_time(time(Year, Month, Day, Hour, Minute1, _),
+   time(Year, Month, Day, Hour, Minute2, _), Time) :-
+   compare_time(Minute1, Minute2, minute, Time).
+eval_time(time(Year, Month, Day, Hour, Minute, Second1),
+   time(Year, Month, Day, Hour, Minute, Second2), Time) :-
+   compare_time(Second1, Second2, second, Time).
+
+
+compare_time(Time1, Time2, Time_Type, Rel_Time) :-
+   abs_diff(Time1, Time2, Diff),
+   relative_time(Diff, Time_Type, Rel_Time).
+
+relative_time(1, second, 'Arthur_cant_be_this_fast').
+relative_time(_, second, just_now).                    %R1 SA 18.03.88
+relative_time(1, minute, just_now).
+relative_time(1, hour, ago(hour, 1)).
+relative_time(1, day, yesterday).
+relative_time(1, month, last_month).
+relative_time(1, year, last_year).
+relative_time(Diff, Time_Type, ago(Time_Type, Diff)) :- Diff > 1.
+
+plural(Singular, Plural) :-
+   append(Singular,"s",Plural).
+
+tail([Last], [], Last).
+tail([Head|Tail], [Head|Rest], Last) :-
+   tail(Tail, Rest, Last).
+
+/* used by dm_state_selection to reduce the size of the done list
+   SA 23.03.88
+*/
+prune_list([],Match,[Match]).
+prune_list([Match|_],Match,[Match]).
+prune_list([Head|Tail],Match,[Head|PrunedList]):-
+   prune_list(Tail,Match,PrunedList).

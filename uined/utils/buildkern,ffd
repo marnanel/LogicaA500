@@ -1,0 +1,9 @@
+*spool :4.uined.scratch.buildkern
+*| BUILDKERN Version 1 24.09.86
+*| build the kernel
+*| note that this file inserts
+*| function keys into the buffer to do the build
+c compkernel
+c linkmods
+c linkernel
+*spool

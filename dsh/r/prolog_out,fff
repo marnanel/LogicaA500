@@ -1,0 +1,484 @@
+Syntax Error:  incorrect position for culprit
+Culprit:  atom
+Context:  SEND <<here>>. COM . | Current options are : | . NL . NL . NL . | HELP - advice on meaning of options | . NL . NL . | SUMMARY - summary of status of current procedure | . NL . NL . | STACK - breakdown of current and pending steps / procedures | . NL . NL . | REMEDIATION - procedures requiring remediation | . NL . NL . | QUIT - end session | . NL . NL . | EXIT - return to Domesday | . NL . NL . | WHY - explanation of current step | . NL .ver_seen ) , exposition , 4 ) , um ( um ( empty , basic_method ( decide ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( decide when to stop ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) , basic_method ( down load data onto disc ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( empty , basic_method ( finish editing the chart ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( finish regrouping operations ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( finish using the special menu ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , basic_method ( go_to_bookmark ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( load_bookmark ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) ) , basic_method ( look_at ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( um ( empty , basic_method ( map_operations ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( move_mouse ) / entry ( last_seen ( use dish , time ( 88 , 8 , 23 , 19 , 21 , 20 ) ) , exposition , 5 ) , empty ) , basic_method ( position_cursor ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , basic_method ( press_mouse ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( press_return ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) , basic_method ( read ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( empty , basic_method ( regroup variables so that there are fewer than 24 ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( reinclude ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( release_mouse ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , basic_method ( save_bookmark ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , basic_method ( set_bookmark ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) ) ) , basic_method ( type_in ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( um ( um ( empty , generic ( carry out chart operations ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( carry out map operations ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( carry out regrouping operations ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , generic ( change chart ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( choose new chart type ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) , generic ( choose second variable ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( empty , generic ( combine ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( down load data onto disc ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( edit chart ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , generic ( edit name or choose another method ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( examine dataset ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) ) , generic ( finish chart operations ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( um ( empty , generic ( finish editing the chart ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( finish using the special menu ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( go to a book mark ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , generic ( inspect current variable ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( load a book mark ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) , generic ( omit ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( um ( empty , generic ( regroup variables so that there are fewer than 24 ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( reinclude ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( retrieve values from a bar chart ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , um ( um ( empty , generic ( retrieve values from a line graph ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) , generic ( retrieve values from a pie chart ) / entry ( last_seen ( empty , never_seen ) , exposition , 4 ) , empty ) ) ) ) ) , generic ( retrieve values frory(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+um(
+um(
+empty,
+generic( <<here>>save a book mark )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( see text about chart )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+empty,
+generic( select category from pop up menu )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+generic( select category to regroup )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic( select from contents page )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( select from hitlist )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+generic( select new variable )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+generic( select variable to regroup )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( set a book mark )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic(split)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic( submit a query to the system )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( type in dataset title )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+,
+generic( use contents option )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+empty,
+generic( use find option to retrieve specific dataset )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( use find option with keyword housing tenure , educational opportunity , local government grants , local government expenditure , cipfa )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( use find option with keywords banking , mortgages , housing tenure , insurance , building societies )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+generic( use find option with keywords mortality , births , accidents , social security , health services , cipfa )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+generic( use find option with keywords ownership , consumption , super profiles , amenities )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+library( carry out special operations )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+library( change categories and variables of chart display )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( choose dataset )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( choose new dataset )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library( clarify that you want to quit )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(click)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+)
+,
+library(click_mouse)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+um(
+empty,
+library(click_mouse_in)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(click_mouse_over)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( display text about the chart )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library(drag)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(draw_box)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+library(edit)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+library( enter a named dataset )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( enter find option )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( expand variable name )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library(pop_up)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(position_cursor_in)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+)
+,
+library(position_cursor_over)/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+um(
+empty,
+library(pull_down)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( quit find option )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( regroup data )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+library(scroll)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library(select)/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+)
+,
+library( select dataset )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+um(
+empty,
+library( select from data list )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( select from summary )/entry(last_seen(empty,never_seen),exposition,4),
+empty)
+,
+library( use find option to enter a topic )/entry(last_seen(empty,never_seen),exposition,4),
+um(
+um(
+empty,
+libra                    %R8
+   um_entry1(Key, Old_Right ~ New_Right, Entry).
+
+/*
+*  Name         :  entry(?Entry, -Last_Seen, -Level, -Grade)
+*  Function     :  obtains whether or not the present object has been seen
+*                  before, and the level and grade of the user
+*  Arguments    :  Entry; old and new performance and status of user on
+*                  present object
+*                  Last_Seen; atom telling whether or not the user has seen
+*                  this procedure before
+*                  Level; present user level in this procedure
+*                  Grade; present user grade in this procedure
+*/
+
+entry(entry(Old_Last_Seen, Old_Level, Old_Grade)
+   ~ entry(New_Last_Seen, New_Level, New_Grade),
+   Old_Last_Seen ~ New_Last_Seen,
+   Old_Level ~ New_Level,
+   Old_Grade ~ New_Grade).
+
+/*
+*  Name         :  um_update_grade(+Procedure, +Step, +User_Model,
+*                                                            -Eval_Last_Seen)
+*  Function     :  if the procedure has never been seen this does nothing,
+*                  whereas if it has it finds out when the procedure was last
+*                  seen, updates the grade entry and evaluates the time since
+*                  last seen
+*  Arguments    :  Procedure; present procedure
+*                  Step; present step used to update the grade entry
+*                  User_Model; present user model
+*                  Eval_Last_Seen; shows where the procedure was last seen and
+*                  the time since that occurred
+*/
+
+/* um_update_grade(_, _, _, last_seen(_, never_seen)) :- !. */          %R6
+um_update_grade(Procedure, Step, User_Model, Eval_Last_Seen) :-
+   peephole(update_grade, Step),
+   um_entry(Step, User_Model, Entry),
+   um_update_grade_entry(Entry, Procedure, Last_Seen),
+   um_eval_time(Last_Seen, Eval_Last_Seen).
+
+/*
+*  Name         :  um_update_grade_entry(+Entry, +Procedure, +Old_Last_Seen)
+*  Function     :  obtains the present entry level and user grade, finds when
+*                  it was last seen and updates the level and grade accordingly
+*  Arguments    :  Entry; present entry (user status in this procedure)
+*                  Procedure; present procedure
+*                  Old_Last_Seen; previous time that the procedure was last
+*                  seen
+*/
+
+um_update_grade_entry(Entry, Procedure, Old_Last_Seen) :-
+   entry(Entry, Old_Last_Seen ~ New_Last_Seen, Level, Grade),
+   um_last_seen(Procedure, New_Last_Seen),
+   um_update_level_grade(Level, Grade).
+
+/*  Evaluate time last seen and convert into something more symbolic  */
+
+/*
+*  Name         :  um_eval_time(+Last_Seen, -Eval_Last_Seen)
+*  Function     :  converts the time a procedure was last seen into a more
+*                  useful form e.g. expresses a number of months in terms of
+*                  months rather than milliseconds
+*  Arguments    :  Last_Seen; structure giving a procedure and the time it was
+*                  last seen
+*                  Eval_Last_Seen; the more useful version of the time
+*/
+
+um_eval_time(last_seen(Where, never_seen), last_seen(Where, never_seen)).
+um_eval_time(last_seen(Where, Last_Time), last_seen(Where, Relative_Time)) :-
+   \+ Last_Time = never_seen,
+   get_time(Current_Time),
+   eval_time(Last_Time, Current_Time, Relative_Time).
+
+/*
+*  Name         :  um_last_seen(+Procedure, ?Last_Seen)
+*  Function     :  obtains the time the procedure was last seen
+*  Arguments    :  Procedure; present procedure
+*                  Last_Seen; structure showing where procedure was last seen
+*/
+
+um_last_seen(Procedure, last_seen(Procedure, Time)) :- get_time(Time).
+
+/*
+*  Name         :  um_update_level_grade(?Level, ?Grade)
+*  Function     :  increases the old user grade by 1 and checks to see if this
+*                  causes the user to move up a level
+*  Arguments    :  Level; old and new levels that the user has attained
+*                  Grade; old and new grades within those levels
+*/
+
+um_update_level_grade(Old_Level ~ New_Level, Old_Grade ~ New_Grade) :-
+   um_next_grade(Old_Grade, Grade),
+   um_check_grade_threshold(Old_Level, Grade, New_Level, New_Grade).
+
+/*
+*  Name         :  um_reduce_level(+Standard, +Procedure, +Key, +User_Model)
+*  Function     :  finds when the procedure was last seen and reduces the level
+*                  if necessary
+*  Arguments    :  Standard; present level e.g. recall, recognition
+*                  Procedure; present procedure
+*                  Key; key to the entry for this procedure in the user model
+*                  User_Model; present user model
+*/
+
+/* um_reduce_level(_, _, _, _) :- !. */                                %R7 
+um_reduce_level(Standard, Procedure, Key, User_Model) :-
+   peephole(reduce_level(Standard), Key),
+   peephole(last_seen, Key),
+   um_entry(Key, User_Model, Entry),
+   entry(Entry, _ ~ Last_Seen, Level, Grade),
+   um_last_seen(Procedure, Last_Seen),
+   um_reduce_standard(Standard, Level, Grade).
+
+/*
+*  Name         :  um_reduce_standard(+Standard, ?Level, ?Grade)
+*  Function     :  if standard is the New_Level checks that Old_Level is higher
+*                  than New_Level and if so Grade is set to zero, if Standard
+*                  and New_Level are different succeeds only if Standard is
+*                  higher than Level
+*  Arguments    :  Standard; present standard
+*                  Level; old and new levels
+*                  Grade; old and new grades
+*/
+ 
+um_reduce_standard(Standard, Old_Level ~ Standard, _ ~ Grade) :-
+   um_level_order(Standard, Old_Level),
+   um_start_grade(Grade).
+um_reduce_standard(Standard, Level ~ Level, Grade ~ Grade) :-
+   \+ um_level_order(Standard, Level).
+   
+
+
+/*  move up a level if grade threshold has been reached  */
+
+/*
+*  Name         :  um_check_grade_threshold(+Old_Level,
+*                                           +Old_Grade,
+*                                           +New_Level,
+*                                           +New_Grade)
+*  Function     :  first obtains threshold for the Old_Level then calls
+*                  um_new_level to make appropriate changes (see below)
+*  Arguments    :  Old_Level; old user level
+*                  Old_Grade; old grade within that level
+*                  New_Level; new user level
+*                  New_Level; new grade within that level
+*/
+
+um_check_grade_threshold(Old_Level, Old_Grade, New_Level, New_Grade) :-
+   um_grade_threshold(Old_Level, Threshold),
+   um_new_level(Old_Level, Old_Grade, Threshold, New_Level, New_Grade).
+
+/*
+*  Name         :  um_new_level(+Old_Level,
+*                               +Old_Grade,
+*                               +Threshold,
+*                               ?New_Level,
+*                               ?New_Grade)
+*  Function     :  if Old_Level and New_Level are both fine_tuning and
+*                  New_Grade and Threshold are the same checks that Old_Grade
+*                  is higher than Threshold, if not then checks that Old_Grade
+*                  is higher than Threshold, increases Level to next level and
+*                  puts New_Grade to 0, and finally if New_Level/Grade are the
+*                  same as Old_Level/Grade checks Old_Grade is lower than
+*                  Threshold
+*  Arguments    :  Old_Level; old user level
+*                  Old_Grade; old grade within that level
+*                  Threshold; old level threshold
+*                  New_Level; new user level
+*                  New_Grade; new grade within that level
+*/
+
+um_new_level(fine_tuning, Grade, Threshold, fine_tuning, Threshold) :-
+   um_grade_order(Threshold, Grade).
+um_new_level(Old_Level, Old_Grade, Threshold, New_Level, New_Grade) :-
+   um_grade_order(Threshold, Old_Grade), 
+   um_next_level(Old_Level, New_Level),
+   um_start_grade(New_Grade).
+um_new_level(Old_Level, Old_Grade, Threshold, Old_Level, Old_Grade) :-
+   \+ um_grade_order(Threshold, Old_Grade).
+
+/*
+*  Name         :  um_grade_order(+Low_Grade, +High_Grade)
+*  Function     :  checks that High_Grade is higher than Low_Grade
+*  Arguments    :  Low_Grade; the grade expected to be lower
+*                  High_Grade; the grade expected to be higher
+*/
+
+um_grade_order(Low_Grade, High_Grade) :- Low_Grade < High_Grade.
+
+
+/*  check that Lower_Level is lower than Higher_Level  */
+
+/*
+*  Name         :  um_level_order(+Lower_Level, +Higher_Level)
+*  Function     :  checks that Lower_Level is lower than Higher_Level by 1
+*                  level exactly, if not then obtains the level 1 higher than
+*                  Lower_Level and checks that Higher_Level is 1 higher than
+*                  this i.e. checks Lower_Level is 2 below Higher_Level
+*  Arguments    :  Lower_Level; present lower level
+*                  Higher_Level; present higher level
+*/
+
+um_level_order(Lower_Level, Higher_Level) :-
+   um_next_level(Lower_Level, Higher_Level).
+um_level_order(Lower_Level, Higher_Level) :-
+   um_next_level(Lower_Level, Level),
+   um_level_order(Level, Higher_Level).
+
+
+
+/*      USER  MODEL  DATA  STRUCTURES  */
+
+
+/*  User Model Levels Structure  */
+
+/*  um_next_level(Lower_Level, Higher_Level)  */
+
+/*
+*  Name         :  um_next_level(+Lower_Level, -Higher_Level)
+*  Function     :  obtains the level exactly 1 higher than Lower_Level
+*  Arguments    :  Lower_Level; present lower level
+*                  Higher_Level; level 1 higher than Lower_Level
+*/
+
+um_next_level(exposition, recognition).
+um_next_level(recognition, recall).
+um_next_level(recall, application).
+um_next_level(application, fine_tuning).
+
+
+/*  User Model Levels thresholds  */
+
+/*  um_grade_threshold(Level, Grade_Threshold)  */
+
+/*
+*  Name         :  um_grade_threshold(+Level, -Grade_Threshold)
+*  Function     :  obtains the grade threshold for progression to the level 1
+*                  higher than Level
+*  Arguments    :  Level; present level
+*                  Grade_Threshold; grade needed to move on to the next level
+*/
+
+um_grade_threshold(exposition, 5).
+um_grade_threshold(recognition, 3).         %R14
+um_grade_threshold(recall, 3).              %R14
+um_grade_threshold(application, 5).
+um_grade_threshold(fine_tuning, 5).
+
+
+/*  start grade  */
+
+/*
+*  Name         :  um_start_grade(-Start_Grade)
+*  Function     :  gives the start grade at any new level
+*  Arguments    :  Start_Grade; grade user starts any new level on
+*/
+
+um_start_grade(0).
+
+
+/*  next grade  */
+
+/*
+*  Name         :  um_next_grade(+Old_Grade, -New_Grade)
+*  Function     :  increases Old_Grade by a fixed increment and returns
+*                  the New_Grade
+*  Arguments    :  Old_Grade; old user grade within present level
+*                  New_Grade; new user grade within present level
+*/
+
+um_next_grade(Old_Grade, New_Grade) :- New_Grade is Old_Grade + 1.
+
+/*  user archetypes */
+
+/*
+*  Name         :  um_archetype(+User_Type, +Procedure, -Level)
+*  Function     :  obtains the original level (a prototype) for the present
+*                  user on this procedure
+*  Arguments    :  User_Type; present user type e.g. user
+*                  Procedure; present procedure
+*                  Level; prototype level
+*/
+
+um_archetype(user, 'use dish',    %R12
+               fine_tuning). %R4
+
+/*um_archetype(user,cabin_pressure_increase_decrease, fine_tuning).
+                                                                          
+um_archetype(user,centrifuge_warning, application).
+um_archetype(user,temp_off_limits, application).
+
+um_archetype(user,activate_br_fc, recognition).
+um_archetype(user,br_switch_on, recall).
+um_archetype(user,br_checkout, recall).
+*/
+            

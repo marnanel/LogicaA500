@@ -1,0 +1,46 @@
+// /**
+//       GLHDR - GLOBALS HEADER
+//       ----------------------
+//
+//       This is the master system Global definition file
+//       Reserved for state, routines and data globals
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       6.10.87     1       MH        ADOPTED FOR UNI
+// **/
+
+// $$debug    // SYSTEM WIDE DEBUG FLAG FOR CONDITIONAL COMPILATION
+
+GLOBAL $(
+
+G.gr.get.val       :FGGR+0
+G.gr.store.val     :FGGR+1
+G.gr.dirty         :FGGR+2
+G.gr.pattern       :FGGR+3
+G.gr.grid.cross    :FGGR+4
+G.gr.SRAM.retrieve :FGGR+5
+G.gr.SRAM.store    :FGGR+6
+G.gr.store.block   :FGGR+7
+G.gr.load.block    :FGGR+8
+G.gr.load.index    :FGGR+9
+G.gr.find.offset   :FGGR+10
+G.gr.load.fine.index :FGGR+11
+G.gr.save.data     :FGGR+12
+G.gr.insert.bytes  :FGGR+13
+G.gr.missing       :FGGR+14
+G.gr.set.missing   :FGGR+15
+G.gr.extend.refs   :FGGR+16
+G.gr.adjust.fine   :FGGR+17
+G.gr.adjust.coarse :FGGR+18
+G.gr.find.record   :FGGR+19
+G.gr.store.coarse  :FGGR+20
+G.gr.store.fine    :FGGR+21
+G.gr.check.fs      :FGGR+22
+G.gr.do.km         :FGGR+23
+G.gr.gridh         :FGGR+24
+G.gr.inith         :FGGR+25
+$)
+
+//   ***  The End  ***

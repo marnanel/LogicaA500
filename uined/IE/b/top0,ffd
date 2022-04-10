@@ -1,0 +1,88 @@
+SECTION "Top0"
+
+/**
+         TOP0 - TOP OVERLAY
+         ------------------
+
+         This module contains only DY.INIT and DY.FREE
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.top
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         18.6.87     1       SA        Initial version
+         15.10.87    2       MH        Update for uni version
+**/
+
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glDYhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.iehd"
+
+/**
+         G.IE.DY.INIT - OVERLAY INITIALISATION
+         -------------------------------------
+
+         General overlay initialisation routine
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.ie.buff contents
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Get heap space for data buffer (g.ie.buff)
+**/
+
+
+LET G.ie.dy.init() BE g.ie.buff := GETVEC(m.ie.buffsize)
+
+
+/**
+         G.IE.DY.FREE - FREE OVERLAY
+         ---------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none (frees vector pointed to by g.ie.buff)
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Free the data buffer vector
+**/
+
+
+AND G.ie.dy.free() BE FREEVEC (g.ie.buff)
+.
+
+
+

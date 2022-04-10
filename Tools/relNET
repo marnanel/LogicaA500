@@ -1,0 +1,7 @@
+*|
+*| Release tools to Network
+*|
+*copy r.Fix     net:$.ArthurLib.Fix     ~CF
+*copy r.Replace net:$.ArthurLib.Replace ~CF
+*copy r.Search  net:$.ArthurLib.Search  ~CF
+*copy r.Convert net:$.ArthurLib.Convert ~CF

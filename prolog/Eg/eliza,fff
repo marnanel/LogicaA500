@@ -1,0 +1,133 @@
+/* eliza example */
+
+/* simulates a conversation via side effects */
+
+eliza :-
+   read_word_list(Input),eliza(Input),!.
+
+eliza([bye]) :-
+   writeln(['Goodbye. I hope I have helped you']).
+
+eliza(Input) :-
+   pattern(Stimulus,Response),
+   match(Stimulus,Dictionary,Input),
+   match(Response,Dictionary,Output),   
+   reply(Output),
+   read_word_list(Input1),
+   !,eliza(Input1).
+
+match([N|Pattern],Dictionary,Target) :-
+   integer(N), lookup(N,Dictionary,LeftTarget),
+   append(LeftTarget,RightTarget,Target),    % needs Append !!!
+   match(Pattern,Dictionary,RightTarget).
+
+match([Word|Pattern],Dictionary,[Word|Target]) :-
+   atom(Word), match(Pattern,Dictionary,Target).
+
+match([],Dictionary,[]).
+
+% lookup(Key,Dictionary,Value) defined by ....
+
+lookup(Key,[(Key,Value)|Dictionary],Value).
+lookup(Key,[(Key1,Value1)|Dictionary],Value) :-
+   Key \= Key1, lookup(Key,Dictionary,Value).
+
+pattern([i,am,1],[how,long,have,you,been,1,?]).
+pattern([1,you,2,me],[what,makes,you,think,i,2,you,?]).
+pattern([i,like,1],[does,anyone,else,in,your,family,like,1,?]).
+pattern([i,feel,1],[do,you,often,feel,that,way,?]).
+pattern([1,X,2],[can,you,tell,me,more,about,X]) :- important(X).
+pattern([1],[please,go,on]).
+
+important(father).  important(mother).  important(son).
+important(sister).  important(brother). important(daughter).
+
+reply([Head|Tail]) :- write(Head), write(' '), reply(Tail).
+reply([]) :- nl.
+
+read_word_list([W|Ws]) :-
+   get0(C), readword(C,W,C1), restsent(W,C1,Ws).
+
+restsent(W,_,[]) :- lastword(W), !.
+restsent(W,C,[W1|Ws]) :- 
+   readword(C,W1,C1), restsent(W1,C1,Ws).
+
+readword(C,W,C1) :-
+   single_character(C),
+   !,
+   name(W,[C]), 
+   get0(C1).
+readword(C,W,C2) :-  
+   in_word(C,NewC),
+   !,
+   get0(C1),
+   restword(C1,Cs,C2),
+   name(W,[NewC|Cs]).
+readword(C,W,C2) :- get0(C1), readword(C1,W,C2).
+
+restword(C,[NewC|Cs],C2) :-
+   in_word(C,NewC),
+   !,
+   get0(C1), restword(C1,Cs,C2).
+restword(C,[],C).
+
+single_character(44).
+single_character(59).
+single_character(58).
+single_character(63).
+single_character(33).
+single_character(46).
+
+in_word(C,C) :- C>96, C<123.
+in_word(C,L) :- C>64, C<91, L is C+32.
+in_word(C,C) :- C>47, C<58.
+in_word(39,39).
+in_word(45,45).
+
+lastword('.').
+lastword('!').
+lastword('?').
+
+append([],Ys,Ys).
+append([X|Xs],Ys,[X|Zs]) :- append(Xs,Ys,Zs).
+
+
+/*
+read_word_list(Xs) :-
+   get(C),
+   read_word_list(C,Ws).
+
+read_word_list(C,[W|Ws]) :-
+   word_char(C),
+   read_word(C,W,C1),
+   read_word_list(C1,Ws).
+read_word_list(C,Ws) :-
+   fill_char(C),
+   get(C1),
+   read_word_list(C1,Ws).  
+read_word_list(C,[]) :-
+   end_of_words_char(C).
+
+read_word(C,W,C1) :-
+   word_chars(C,Cs,C1),
+   name(W,Cs).
+
+word_chars(C,[C|Cs],C0) :-
+   word_char(C),
+   !,
+   get(C1),
+   word_chars(C1,Cs,C0).
+word_chars(C1,[],C) :-
+   not word_char(C).
+
+word_char(C) :- 96 < C, C < 123.
+word_char(C) :- 64 < C, C < 91.
+word_char(95).
+
+fill_char(32).
+
+end_of_words_char(46).
+
+*/
+
+

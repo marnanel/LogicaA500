@@ -1,0 +1,7 @@
+MANIFEST
+$( m.st.startstop=0 m.st.inputed=1 m.st.charth=2 m.st.chartl=3
+m.st.chartd=4 m.st.gridh=5 m.st.gridd=6 m.st.arealh=7 m.st.areald=8
+m.st.exit=9 m.st.format=10 m.st.help=15 m.st.helptxt=16 m.st.areal=17
+m.st.demo=18 m.st.book=19 m.st.config=20 m.st.nostates=20 m.st.barlen=6
+m.st.box0width=80 m.st.defboxwidth=200 m.st.boxw=#x6400 $)
+

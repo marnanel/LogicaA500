@@ -1,0 +1,617 @@
+/**
+         TABULAR FORMATTER
+         -----------------
+
+         This section contains :
+
+            G.df.tabular
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.tabular
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         02.03.87 1        MH          Initial version
+         09.04.87 2        SRY         Changed G.df.check. handling
+                                       added freevecs + tidying
+         16.07.87 3        SA          Mods. for new data type flag handling
+         31.07.87 4        SA          Clear message area before warning message          3.08.87 5        SRY         Removed m.ut.*
+         13.08.87 6        SA          Sort out 2nd parse problem
+         17.08.87 7        SRY         Fix above
+         25.11.87 8        MH          updated for UNI version
+**/
+
+SECTION "tabular"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.dfhd"
+
+STATIC
+$(  no.elements=? no.labels=? EOLN=false  min.val=? max.val=? no.vars=?
+$)
+
+/**
+         G.DF.TABULAR
+         ------------
+
+         Formats user data tabular dataset for use on the domesday system.
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.tabular []
+         ---------------
+
+            Write header
+            Read title string
+            Read yaxis string
+            Write dimensions data
+            Write Normalising and associated data
+            Rewind to start of file
+            Write diplay data
+            Write labels
+            Write data
+**/
+
+let G.df.tabular() be
+$( let title = vec 41/bytesperword  // title data block
+   let yaxis = vec 41/bytesperword  // y-axis data block
+   let spare = vec 41/bytesperword  // spare for title and yaxis data block
+   min.val := GETVEC(1)  // 32 bit number store for minimum value
+   max.val := GETVEC(1)  // 32 bit number store for maximum value
+
+   G.df!m.df.dummy := true
+   writeheader()
+   if G.df.check.() goto exit
+   readstring(title,'*s')    //get title block
+   if G.df.check.() goto exit
+   readstring(yaxis,'*s') //get yaxis block
+   if G.df.check.() goto exit
+
+   readdimensions()
+   if G.df.check.() goto exit
+
+   add.norm(true)  // read additive, normalising and scaling data
+   if G.df.check.() goto exit
+
+   G.df.rewind() // rewind to start of file
+   g.df!m.df.dummy := false
+   writeheader()
+   readstring (spare,'*s')    // pass title block
+   readstring (spare,'*s')    // pass y-axis block
+   readdimensions()           // pass dimensions
+   add.norm (false)           // pass additive flag and normalising data
+
+/*
+   for i = 1 to 5 do
+   $( read.to.new.line()  //skip over data already processed
+      if G.df.check.() goto exit
+   $)
+*/
+   readdisplay()
+   if G.df.check.() goto exit
+   for i = 0 to 41 do G.df.wrch(title%i)   //write title block to file
+   for i = 0 to 41 do G.df.wrch(yaxis%i)   //write yaxis block to file
+   G.df.wrch(0)       //write dummy label
+   for i = 1 to 41 do G.df.wrch('*s')
+   readlabels()
+   unless G.df.check.() pass2()   // 2nd pass: convert ascii to binary values
+
+exit:
+   freevec(min.val)
+   freevec(max.val)
+$)
+
+/* This module determines if the data is tabular dataset and writes the
+   header to the output file */
+AND writeheader() be
+$( 
+/* machine dependency taken out
+   let header1=TABLE #x0400,#xFFFF,#xFFFF,#xFFFF,#xFFFF,#xFFFF,
+   // byte positions   1 0     3 2     5 4     7 6     9 8    11 10
+                    #xFFFF,    0,    0,    0,    0,    0,
+   //                 13 12   15 14 17 16 19 18 21 20 23 22
+                    #xFFFF,#xFFFF
+   //                 25 24   27 26
+
+   for i=0 to 13 G.df.word(header!i)
+*/
+   g.df.wrch(0)  //write out byte header for tabular data
+   g.df.wrch(4)
+   for i = 1 to 12 g.df.wrch(-1)
+   for i = 1 to 10 g.df.wrch(0)
+   for i = 1 to 4  g.df.wrch(-1)
+   read.to.new.line()
+$)
+
+/* This module reads a label string from the input file and gets the length
+   of the string. The abbreviation is added to the end of the label string 
+*/
+AND readstring(byte.pos,abbrev) be
+$(
+   let str.len = 0
+   let char = ?
+
+   for i = 1 to 40 do // initialise string area
+      byte.pos%i := '*s'   //initialise with spaces
+   char := readchar()
+   if G.df.check.() return
+   while char ~= '*n' & char ~= '*c' do
+   $( str.len := str.len+1 //increment char pointer
+      if str.len <= 40 byte.pos%str.len := char 
+                                           //copy input string to output string
+      char := readchar()  //get next char
+      if G.df.check.() return
+   $)
+   if str.len > 40 str.len := 40
+   unless str.len = 0
+      for i = str.len to 1 do
+         if byte.pos%i = '*s' then
+            str.len := str.len - 1
+   byte.pos%0 := str.len
+   byte.pos%41 := abbrev   //add abbreviation to end of string
+$)
+
+/* This routine reads a 16 bit number and sets EOLN
+   to true if the END OF LINE is reached 
+*/
+AND readnumber(er) = VALOF
+$( let char = ?
+   EOLN := false
+   G.df.read.num(true,false,er)
+   if G.df.check.() return
+   $( char := readchar()
+      if G.df.check.() return
+      if char = '*n' | char = '*c' then
+      $( EOLN := true
+         BREAK
+      $)
+   $) repeatwhile pad(char)
+   unless char = '*n' | char = '*c' then G.df.unrdch()
+   resultis g.ut.unpack16.signed(G.df, m.df.val.byte)
+$)
+
+/* This routine reads in the dimension data values converts them to binary
+   values and writes these values to the output file.  These values are
+   stored as negative or positive numbers according to whether or not they
+   are non-additive or additive data, as indicated by the "A" or "N" flag.
+   The data offset value is also calculated and written to the output file 
+*/
+AND readdimensions() be
+$(
+   let dim.size = 0
+   let char = ?
+   let dimensions = vec 24/bytesperword  // dimensions table
+   let add.flag = ?         // flag to indicate additive or non-additive
+   let t = vec 1
+
+   no.elements := 1
+   no.labels := 0
+   $( char := readchar()
+      if G.df.check.() return
+   $) repeatwhile pad(char)
+   G.df.unrdch()
+   for i = 0 to 24/bytesperword dimensions!i := 0 //initialise to zero
+   dimensions%0 := 1 //initialise to 1
+   dimensions%1 := 1 //initialise to 1
+   $( let s = "Bad number of categories"
+      dim.size := readnumber(s) //read dimension size
+      if G.df.check.() return
+      char := capch(G.df.rdch())
+      unless (char = 'N') | (char = 'A')
+      then $( G.df.ermess(s)
+              return
+           $)
+      add.flag := (char = 'A') -> 1, -1  //multiplier to be applied to dim.size
+      test 2 <= dim.size <= 24 then
+      $(
+         dimensions%0 := dimensions%0+1
+         dimensions%(dimensions%0) := dim.size*add.flag  //store dimension size
+         no.elements := no.elements * dim.size //calculate # data elements
+         no.labels := no.labels + dim.size
+         unless 2 <= dimensions%0 <= 25
+            G.df.ermess("Bad number of variables")
+      $)
+      else
+      $( G.df.ermess(s)
+         return
+      $)
+      $( char := G.df.rdch()
+         if char = '*C' | char = '*N' goto breakexit
+      $) repeatwhile pad (char)
+      G.df.unrdch()
+   $) repeatuntil EOLN
+
+breakexit:
+   EOLN := false
+   no.vars := dimensions%0
+   no.labels := no.labels + dimensions%0 - 1  //total number of labels to read
+   if no.labels + 3 > 52 then
+   $(
+      G.df.ermess("Too many labels")
+      return
+   $)
+   for i = 0 to 25 G.df.wrch(dimensions%i)
+   //calculate offset to data
+   G.ut.set32(no.labels + 3, 0, G.df+m.df.val)
+   G.ut.set32(42, 0, t)
+   G.ut.mul32(t, G.df+m.df.val) //multiply string width by total no. of labels
+   G.ut.set32(84, 0, t)
+   G.ut.add32(t, G.df+m.df.val)  //add data offset
+   G.df.double.word(G.df+m.df.val) //write offset
+$)
+
+/* This routine converts the additive,scaling and normalising data from
+   the input file to binary data for the output file. A pass is also
+   peformed on the data to determine the maximum word size of the data
+   elements  */
+AND add.norm (size.it) be
+$( let inv.n = "Bad normalising factor"
+   let inv.d = "Bad data size"
+   let inv.c = "Bad data sign character"
+   let de    = "Warning: user data exceeds data size"
+   let char = ?
+   let data.area = vec 10/bytesperword
+   let t = vec 1
+   let t1 = vec 1
+
+   for i = 0 to 10/bytesperword data.area!i := 0
+
+   data.area%1 := 4 // additive flag: new format
+
+   $( char := readchar()
+      if G.df.check.() return
+   $) repeatwhile pad(char)
+   test capch(char) = 'E'
+   then data.area%7 := 'E'     // value is an exponent
+   else $( data.area%7 := ' '  // value is not an exponent
+           G.df.unrdch()
+        $)
+   G.df.read.num(true, false, inv.n) // norm is 16 bits
+   if G.df.check.() return
+   if data.area%7 = 'E' then
+      unless -99 <= G.ut.unpack16.signed(G.df, m.df.val.byte) <= 99
+      $( G.df.ermess(inv.n)
+         return
+      $)
+   test G.ut.unpack16.signed(G.df, m.df.val.byte) < 0
+   then $( G.df!m.df.val := - (G.df!m.df.val)
+           data.area%6 := 'D'  //set to divide
+        $)
+   else data.area%6 := 'M'  //set to multiply
+   g.ut.movebytes(G.df, m.df.val.byte, data.area, 2, 2) // store normalisation
+   $( char := readchar()
+      if G.df.check.() return
+   $) repeatwhile pad(char)
+
+   // Check for explicit data size
+   test char = '=' then
+   $( G.df.read.num(true,false,inv.d) //read in user data size
+      if G.df.check.() return
+      if g.df!m.df.dummy then
+         G.df!m.df.datasize := G.ut.unpack16.signed(G.df, m.df.val.byte)
+      switchon G.df!m.df.datasize into
+      $( case 1: case 2: case 4: endcase
+         default: G.df.ermess(inv.d)
+                  return
+      $)
+      char := readchar()
+      if G.df.check.() return
+      unless capch(char)='U' then
+         unless pad(char)
+         $( G.df.ermess(inv.c)
+            return
+         $)
+      test (capch(char) = 'U') & (G.df!m.df.datasize=4) & g.df!m.df.dummy
+      then $( data.area%0 := #x80
+              g.sc.clear (m.sd.message)
+              G.sc.ermess("Warning: unsigned 4 byte data changed to signed")
+           $)
+      else unless capch(char) = 'U' data.area%0 := #X80 // set top bit
+      unless char = '*c' | char = '*n' read.to.new.line()
+      if G.df.check.() return
+   $)
+   else       // min & max values, not explicit data size
+   $( G.df.unrdch()
+      G.df.read.num(true,true,inv.d)
+      if G.df.check.() return
+      G.ut.mov32(G.df+m.df.val, min.val)
+      G.df.read.num(true,true,inv.d)
+      if G.df.check.() return
+      G.ut.mov32(G.df+m.df.val, max.val)
+      read.to.new.line()
+      if G.df.check.() return
+      data.area%0 := 0   //clear top bit
+      if (G.ut.unpack16(min.val, 2) ~=0) | (G.ut.unpack16(max.val, 2) ~=0) then
+         data.area%0:=#x80
+      if G.ut.cmp32(min.val,max.val) = m.gt then
+      $( G.ut.mov32(max.val, G.df+m.df.val)
+         G.ut.mov32(min.val, max.val)
+         G.ut.mov32(G.df+m.df.val, min.val)
+         if g.df!m.df.dummy
+         $( g.sc.clear (m.sd.message)
+            G.sc.ermess("Warning: min/max values in wrong order")
+            G.sc.ermess("Values have been swapped")
+         $)
+      $)
+      if g.df!m.df.dummy test data.area%0 = 0
+      then 
+      $(   G.ut.set32(#xFF, 0, t)
+           test G.ut.cmp32(max.val,t)=m.gt
+           then G.df!m.df.datasize := 2
+           else G.df!m.df.datasize := 1
+      $)
+      else 
+      $(   G.ut.set32(#xFF7F, #xFFFF, t)
+           G.ut.set32(#x80, 0, t1)
+           test (G.ut.cmp32(min.val,t)=m.gt) &
+                (g.ut.cmp32(max.val,t1)=m.lt)
+           then g.df!m.df.datasize := 1
+           else 
+           $(   G.ut.set32(#x7FFF, #xFFFF, t)
+                G.ut.set32(#x8000, 0, t1)
+                test (g.ut.cmp32(min.val, t)=m.gt) &
+                     (g.ut.cmp32(max.val, t1)=m.lt)
+                then G.df!m.df.datasize := 2
+                else G.df!m.df.datasize := 4
+           $)
+      $)
+   $)
+   data.area%0 := data.area%0 | G.df!m.df.datasize
+   for i = 0 to 11 do G.df.wrch(data.area%i)
+   unless size.it return
+   readdisplay()      //1st pass over display data
+   if G.df.check.() return
+   readlabels()       //1st pass over labels
+   if G.df.check.() return
+   pass1()            //1st pass over data
+   if G.df.check.() return
+   test data.area%0 <= 4
+   then test (G.ut.unpack16(min.val, 2) ~= 0)|(g.ut.unpack16(max.val, 2) ~= 0)
+        then test (G.ut.unpack16(min.val, 2) & #x8000) ~= 0
+             then $( G.df.ermess("Signed data not allowed")
+                     return
+                  $)
+             else $( G.sc.ermess(de)
+                     data.area%0 := #x80
+                     G.df!m.df.datasize := 4
+                  $)
+        else 
+        $(   G.ut.set32(#xff, 0, t)
+             test G.ut.cmp32(max.val,t)=m.gt
+             then if G.df!m.df.datasize = 1
+                  $( G.df!m.df.datasize := 2
+                     G.sc.ermess(de)
+                  $)
+             else G.df!m.df.datasize := 1
+        $)
+   else 
+   $(   G.ut.set32(#xFF7F, #xFFFF, t)
+        G.ut.set32(#x80, 0, t1)
+        test (G.ut.cmp32(min.val,t)=m.gt) &
+             (G.ut.cmp32(max.val,t1)=m.lt)
+        then G.df!m.df.datasize := 1
+        else 
+        $(   G.ut.set32(#x7FFF, #xFFFF, t)
+             G.ut.set32(#x8000, 0, t1)
+             test (G.ut.cmp32(min.val, t)=m.gt) &
+                  (G.ut.cmp32(max.val, t1)=m.lt)
+             then $( if G.df!m.df.datasize = 1 G.sc.ermess(de)
+                     G.df!m.df.datasize := 2
+                  $)
+             else $( if G.df!m.df.datasize <= 2 G.sc.ermess(de)
+                     G.df!m.df.datasize := 4
+                  $)
+        $)
+   $)
+   unless G.df!m.df.opt G.df!m.df.datasize := 4
+$)
+
+/* This routine converts the display data from the input file to binary data
+   for output */
+AND readdisplay() be
+$( let inv.p = "Bad palette"
+   let def.d = "Bad default display method"
+   let def.m = "Bad display method"
+   let display = vec 10/bytesperword
+   let swap = ?
+   let dis.count, num = 0, ?
+   let bitmap = #x0000 //set up dependent variable
+
+   for i = 0 to 9 do display%i := 0
+   $(
+      if dis.count > 9 then
+      $( G.df.ermess("Too many display methods")
+         return
+      $)
+      display%dis.count := readnumber(def.m)
+      if G.df.check.() return
+      switchon display%dis.count into
+      $( case 1: case 2: case 6: case 7: case 8: case 10: endcase
+         default: G.df.ermess(def.m)
+         return
+      $)
+      if test.bitmap(display%dis.count, @bitmap,
+                     "Duplicated display method", true) return
+      dis.count := dis.count + 1
+   $) repeatuntil EOLN
+   test no.vars > 2 then
+      switchon bitmap & #x0500 into
+      $( case 0: case #x0500: endcase
+         default: display%dis.count := (bitmap & #x0400) = 0 -> 10, 8
+                  dis.count := dis.count + 1
+                  bitmap := bitmap | #X0500
+      $)
+   else unless (bitmap & #x0444) = 0
+        $( G.df.ermess("Illegal display methods for 1 variable")
+           return
+        $)
+   $(
+      swap := true
+      for i = 0 to dis.count-1 do
+      $( if (display%i > display%(i+1)) & (display%(i+1) ~= 0) then
+         $( num := display%i
+            display%i := display%(i+1)
+            display%(i+1) := num
+            swap := false
+        $)
+      $)
+   $) repeatuntil swap
+   for i = 0 to 9 do G.df.wrch(display%i) // write display method data to file
+   num := readnumber(def.d)  // read display default char
+   if G.df.check.() return
+   unless EOLN  read.to.new.line()
+   switchon num into
+   $( case 1: case 2: case 6: case 7: case 8: case 10: endcase
+      default: G.df.ermess(def.d)
+      return
+      endcase
+   $)
+   if test.bitmap(num,@bitmap,def.d,false) return
+   G.df.wrch(num) //write display default
+   dis.count := 0
+   bitmap := 0
+   EOLN := false
+   $(
+      if dis.count > 2 then
+      $( G.df.ermess(inv.p)
+         return
+      $)
+      num := readnumber(inv.p)
+      if G.df.check.() return
+      unless 1 <= num <= 7 then
+      $( G.df.ermess(inv.p)
+         return
+      $)
+      if test.bitmap(num,@bitmap,inv.p,true) then return
+      G.df.wrch(num)
+      dis.count := dis.count + 1
+   $) repeatuntil EOLN
+   EOLN := false
+   if dis.count ~= 3 then
+   $( G.df.ermess(inv.p)
+      return
+   $)
+$)
+
+AND read.to.new.line() be
+$( let char=?
+   $( char:=readchar()
+      if G.df.check.() return
+   $) repeatuntil char='*n' | char='*c'
+   EOLN := false
+$)
+
+and pad(ch) = ch='*n' | ch='*s' | ch='*c'
+
+/* This routine reads the user data to find the maximum byte size of the
+   data */
+and pass1() be
+$( let count = 0
+   let increment = 1
+   let more.chars = ?
+   G.df.counter(m.df.chart, 0)
+
+   unless no.elements < 100 increment := no.elements / 100
+   G.ut.set32(0, 0, min.val)
+   G.ut.set32(0, 0, max.val)
+   while count < no.elements do   //read data in
+   $(
+      count := count + 1
+      if (count rem increment) = 0 G.df.counter(count, no.elements)
+      G.df.read.num(true,true,"Bad data value")
+      if G.df.check.() return
+      test G.ut.cmp32(G.df+m.df.val,min.val)=m.lt then
+         G.ut.mov32(G.df+m.df.val, min.val)
+      else if G.ut.cmp32(G.df+m.df.val,max.val)=m.gt then
+         G.ut.mov32(G.df+m.df.val, max.val)
+   $)
+   G.df.counter(no.elements,no.elements)
+$)
+
+/* This routine writes the labels and their abbreviations to the output file */
+and readlabels() be
+$( let abbrev = ?
+   let string = vec 40/bytesperword  // 42 bytes long
+
+   for i = 1 to no.labels do
+   $( abbrev := readchar()  //read abbreviation
+      if G.df.check.() return
+      readstring(string,abbrev) //read in string
+      if G.df.check.() return
+      for i = 0 to 41 G.df.wrch(string%i)  //write string
+   $)
+$)
+
+/* This routine writes the user data to the output file  */
+and pass2() be      // 2nd pass to read in data
+$( let count=0
+   let increment = 1
+
+   G.df.counter(m.df.chart, 0)
+   unless no.elements < 100 increment := no.elements / 100
+   while count < no.elements do   //read data in
+   $( count := count + 1
+      if (count rem increment) = 0 G.df.counter(count, no.elements)
+      G.df.read.num(true,true,"Bad data value")
+      if G.df.check.() return
+      switchon G.df!m.df.datasize into
+      $( case 1: G.df.wrch(G.ut.unpack16.signed(G.df, m.df.val.byte)) 
+                                                     //write 1 byte value
+                 endcase
+         case 2: G.df.word(G.ut.unpack16.signed(G.df, m.df.val.byte)) 
+                                                     //write 2 byte value
+                 endcase
+         case 4: G.df.double.word(G.df+m.df.val) //write 4 byte value
+                 endcase
+      $)
+   $)
+   G.df.counter(no.elements, no.elements)
+   if count < no.elements G.df.ermess("Too few data items")
+$)
+
+and test.bitmap(num,bitmap,string,set)=VALOF
+$(
+   test ((!bitmap & (1 << num)) ~= 0) & set then
+   $( G.df.ermess(string)
+      resultis true
+   $)
+   else if (not set) & ((!bitmap & (1 << num)) = 0) then
+   $( G.df.ermess(string)
+      resultis true
+   $)
+   !bitmap := (!bitmap) | (1 << num)
+   resultis false
+$)
+
+and readchar() = VALOF
+$( let char = ?
+   char := G.df.rdch()
+   if G.df.check.() resultis char
+   if char = '*c' then
+     test G.df.rdch() = 10 then
+        resultis '*n'
+     else
+        G.df.unrdch()
+   resultis char
+$)
+.

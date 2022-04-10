@@ -1,0 +1,7 @@
+*|
+*| Compile all the tools
+*|
+co Fix
+co Replace
+co Search
+co Convert

@@ -1,0 +1,542 @@
+section "gr3"
+
+/**
+         GR.B.GR3 - Dataset block storage and dataset
+                    re-arrangement
+         --------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       11.05.87   1        SRY         Initial version
+
+         GLOBALS DEFINED:
+
+         G.gr.store.block
+         G.gr.adjust.coarse
+         G.gr.adjust.fine
+         G.gr.store.fine
+         G.gr.store.coarse
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.dhhd"
+get ":4.UINED.h.sthd"
+get ":4.UINED.h.cmhd"
+
+static   // all set and used by G.gr.store.block & utility routines
+$( uni.new = ?       // Block to be stored is uniform
+   sub.uni.new = ?   //  ..     ..     ..     16 uniform 8x8s
+   first.uni = ?     // Value of uniform block
+   blocks = ?        // Number of blocks
+   b32 = ?           // Current block
+   next.rec = ?      // Record, Offset pointer to next data after b32
+   next.off = ?
+   next.ind.rec = ?  // Ditto, next fine index after b32
+   next.ind.off = ?
+   first.rec = ?     // Ditto, first data offset in b32
+   first.off = ?
+   data.rec = ?      // Ditto, first data offset in dataset (not always set up)
+   data.off = ?
+   buff.num = ?      // Assigned to current buffer number in SRAM (parameter)
+   block.16.words = ?   // Words taken by current block
+   bytes.needed = ?  // Bytes to insert if expanding block
+$)
+
+/*
+   Store block in buf.no back to the dataset. If nec. expand the block
+   and re-write the coarse index
+*/
+
+let G.gr.store.block(buf.no) be
+$( let uni.old = ?
+   buff.num := buf.no
+
+   // Set up statics used by utility routines
+   set.stats()
+
+   G.sc.mess("Saving data")
+   G.cm.s!m.old.km.x := -4 // so that message bar is restored
+
+   // Finds next offset after this 32x32 if not the last
+   // It also finds the offset to the start of the data, if any
+   find.offsets()
+
+   // Load the fine index for this 32x32 block
+   uni.old := G.gr.load.fine.index(b32) <= 0
+
+   // Set first offset to data from loaded fine index
+   unless uni.old
+      for i = G.cm.s!m.fine.index to G.cm.s!m.fine.index + (60/bytesperword) 
+                                                       by 4/bytesperword
+         if g.ut.unpack16.signed(i, 0) > 0
+         $( first.rec, first.off := g.ut.unpack16.signed(i, 0), 
+                                g.ut.unpack16.signed(i, 2)
+            break
+         $)
+
+   // Pack the whole 32x32 block into m.buffer from SRAM
+   pack.32()
+
+   // If new block uniform just store the index
+   test uni.new
+   then set.coarse.index(b32, first.uni, 0)
+
+   // If the new block is made up of 16 uniform 8x8 blocks we will merely store
+   // a new fine index, which may or may not be the same as the old one.
+   // If the old block was uniform, we need to create a new fine index.
+   else test sub.uni.new
+        then test uni.old
+             then test blocks = 1
+                  then blat()
+                  else uni.to.sub.uni()
+             else G.gr.store.fine(b32)
+
+   // Write index and block at record,offset 1 if only block
+   else test blocks = 1
+        then blat()
+
+   // Expand uniform block
+   else test uni.old
+        then uni.to.non.uni()
+
+   // Expand sub-uniform block
+   else test first.rec <= 0
+        then sub.uni.to.non.uni()
+
+   // Expand block if it has got bigger
+   else test expand.needed()
+        then expand.block()
+
+   // Just write block back
+   else $( let offset = vec 1
+           G.gr.find.offset(first.rec, first.off, offset)
+           write.index.and.block(offset)
+        $)
+$)
+
+and sub.uni.to.non.uni() be
+$( let offset = vec 1
+   test next.rec <= 0 // put data at end if last
+   then $( G.dh.length(G.context!m.data.handle, offset)
+           write.index.and.block(offset)
+        $)
+   else $( let bw = vec 1                          // Strategy 4
+           g.ut.set32(block.16.words << 1, 0, bw)
+           G.gr.find.offset(next.rec, next.off, offset)   // Step
+           test G.gr.insert.bytes(bw, offset)             // 1
+           then $( write.index.and.block(offset)          // 2
+                   if ok()
+                      G.gr.adjust.fine(b32+1, blocks, bw) // 3
+                $)
+           else extend.err()
+        $)
+$)
+
+// If uniform 32x32 block changed to non-uniform
+// write a fine index and block and shuffle
+and uni.to.non.uni() be
+$( let rec, off = ?, ?
+   let fine.offset = vec 1
+   let data.offset = vec 1
+   let th2 = vec 1
+   let bw = vec 1
+   let bwth2 = vec 1
+
+   // Set up fine.offset - next pointer to fine index after current 32x32
+   //    and data.offset - next data pointer
+   // If no more indices after this, put index at start of data
+   //   and next data record at end of file
+   g.ut.set32(m.fine.index.bytes, 0, th2)
+   test next.ind.rec <= 0
+   then rec, off := data.rec, data.off // could be EOF
+   else rec, off := next.ind.rec, next.ind.off
+   G.gr.find.offset(rec, off, fine.offset)
+   test next.rec <= 0 
+                                // insert data at EOF - unless index is too!
+   then $( G.dh.length(G.context!m.data.handle, data.offset)
+           if G.ut.cmp32(fine.offset, data.offset) = m.eq
+           $( store.at.end(data.offset)
+              return
+           $)
+        $)
+   else G.gr.find.offset(next.rec, next.off, data.offset)
+
+   // Check have enough space
+   g.ut.set32(block.16.words << 1, 0, bw)
+   g.ut.mov32(th2, bwth2)
+   G.ut.add32(bw, bwth2)
+   unless G.dh.space(bwth2)
+   $( extend.err()
+      return
+   $)
+                                                      // Strategy 3
+   test G.gr.insert.bytes(bw, data.offset) &              // 1
+        G.gr.insert.bytes(th2, fine.offset)               // 2
+   then $( set.coarse.index(b32, rec, off)
+           if ok() G.gr.adjust.coarse(b32+1, blocks, th2) // 3
+           G.ut.add32(th2, data.offset)
+           if ok() write.index.and.block(data.offset)     // 4
+           if ok() G.gr.adjust.fine(1, b32-1, th2)        // 5
+           G.ut.add32(th2, bw)
+           if ok() G.gr.adjust.fine(b32+1, blocks, bw)
+        $)
+   else extend.err()
+$)
+
+// Write index followed by data at end of file
+and store.at.end(offset) be
+$( let rec, off = ?, ?
+   let th2 = vec 1
+   g.ut.set32(m.fine.index.bytes, 0, th2)
+   G.gr.find.record(offset, @rec, @off)
+   set.coarse.index(b32, rec, off)
+   G.ut.add32(th2, offset)
+   if ok() write.index.and.block(offset)   // after this 32x32
+$)
+
+// Find space for fine index when uniform block expands to 16 uniform 8x8s
+and uni.to.sub.uni() be
+$( let rec, off = -1, -1
+   let offset = vec 1
+   let th2 = vec 1
+
+   g.ut.set32(m.fine.index.bytes, 0, th2)
+                                                    // Strategy 2
+   // Find offset to insert fine index
+   // It should be at the next fine index entry after this 32x32
+   test next.ind.rec <= 0
+   then rec, off := data.rec, data.off
+   else rec, off := next.ind.rec, next.ind.off
+
+   G.gr.find.offset(rec, off, offset)                   // Step
+   test G.gr.insert.bytes(th2, offset)                    // 1
+   then $( set.coarse.index(b32, rec, off)
+           if ok() G.gr.adjust.coarse(b32+1, blocks, th2) // 2
+           if ok() G.gr.store.fine(b32)                   // 3
+           if ok() G.gr.adjust.fine(1, blocks, th2)       // 4
+        $)
+   else extend.err()
+$)
+
+// This routine adds [byte.ptr] bytes to every fine index for coarse
+// blocks start to end inclusive and stores them
+and G.gr.adjust.fine(start.block, end.block, byte.ptr) be
+   for i = start.block to end.block
+      if G.gr.load.fine.index(i) > 0
+      $( let f = G.cm.s!m.fine.index
+         let fine.mod = false
+         for j = 1 to 16
+         $( if g.ut.unpack16.signed(f, 0) > 0
+            $( fine.mod := true
+               add.to.rec.off(byte.ptr, f)
+            $)
+            f := f + 4/bytesperword
+         $)
+         if fine.mod G.gr.store.fine(i)
+         unless ok() return
+      $)
+
+// This routine adds [byte.ptr] bytes to every coarse index entry for coarse
+// blocks start to end inclusive and stores it
+and G.gr.adjust.coarse(start.block, end.block, byte.ptr) be
+$( let o = G.cm.s!m.coarse.index + ((start.block-1) * (4/bytesperword))
+   for i = start.block to end.block
+   $( if G.ut.unpack16.signed(o, 0) > 0 add.to.rec.off(byte.ptr, o)
+      o := o + 4/bytesperword
+   $)
+   G.gr.store.coarse(start.block, end.block)
+$)
+
+// Find size of old 32x32 block by subtracting consecutive offsets.
+and expand.needed() = valof
+$( let second = vec 1
+   let first = vec 1
+   if next.rec <= 0 resultis false 
+                                    // last data block - no expand needed
+   G.gr.find.offset(first.rec, first.off, first)
+   G.gr.find.offset(next.rec, next.off, second)
+   G.ut.sub32(first, second)
+   bytes.needed := (block.16.words << 1) - !second
+   resultis bytes.needed > 0
+$)
+
+// Expand normal block by inserting bytes.needed at start of block
+and expand.block() be
+$( let b = vec 1                                    // Strategy 1
+   let offset = vec 1
+   g.ut.set32(bytes.needed, 0, b)    // Step
+   G.gr.find.offset(first.rec, first.off, offset)
+   test G.gr.insert.bytes(b, offset)                   // 1
+   then $( write.index.and.block(offset)               // 2
+           if ok() G.gr.adjust.fine(b32+1, blocks, b)  // 3
+        $)
+   else extend.err()
+$)
+
+and extend.err() be
+   G.key := - m.st.inputed
+
+and ok() = G.key ~= - m.st.inputed
+
+and add.to.rec.off(b, f) be
+$( let t = vec 1
+   let rec, off = ?, ?
+   rec := g.ut.unpack16(f, 0)
+   off := g.ut.unpack16(f, 2)
+   G.gr.find.offset(rec, off, t)
+   G.ut.add32(b, t)
+   G.gr.find.record(t, @rec, @off)
+   g.ut.set32(rec, off, f)
+$)
+
+/*
+   Compress data for 8x8s in SRAM and build index relative to start of
+   data.
+
+   The fine index has relative word offsets from the start of the 8x8 put
+   in for the record number. They will be increased by the base record,
+   offset pair.
+*/
+
+and pack.32() be
+$( let ind.ptr = G.cm.s!m.fine.index
+   block.16.words := 0
+
+   for i = 0 to 15
+   $( // Change order of 8x8s into up down up down from scanning
+      let SRAM.off = (i!table
+         0,  4,  8, 12,
+        13,  9,  5,  1,
+         2,  6, 10, 14,
+        15, 11,  7,  3) << 7
+
+      // Get 8x8 buffer of packed data from SRAM block
+      let words = pack(SRAM.off, block.16.words*2) //block.16.words is 16 data value
+
+      // Deal with fine index entry - insert relative word offset from 32x32
+      test words <= 0
+      then $( g.ut.set32(words, 0, ind.ptr)
+              test first.uni > 0
+              then first.uni := words
+              else unless first.uni = words uni.new := false
+           $)
+      else $( g.ut.set32(block.16.words + 1, 0, ind.ptr) 
+                                   // add one so it's always > 0
+              block.16.words := block.16.words + words
+              uni.new := false
+              sub.uni.new := false
+           $)
+      ind.ptr := ind.ptr + 4/bytesperword
+   $)
+$)
+
+/*
+   Pack 8x8 block from SRAM buff.num & offset into buff.byte.off
+   See format.ag.b.AGagg2
+*/
+
+and pack(SRAM.offset, buff.byte.off) = valof
+$( let loc = 1
+   let datasize = G.cm.s!m.datasize
+   let cur, curHI, items, itemcount = 0, 0, 0, 0
+   let prev, prevHI = 0, 0
+   let bytes = 2
+   let any.zero = false
+   let temp = vec 256/bytesperword
+   let o = temp
+   let t = vec 1
+
+   // Retrieve values into temp. buffer, counting items
+   for i = SRAM.offset to SRAM.offset + 127 by 2 // 64 values of 2 16 bit words
+   $( G.gr.SRAM.retrieve(buff.num, i, o)
+      cur, curHI := g.ut.unpack16.signed(o, 0), g.ut.unpack16.signed(o, 2)
+      test cur = curHI = 0
+      then any.zero := true
+      else unless (cur = prev) & (curHI = prevHI) items := items + 1
+      prev, prevHI, o := cur, curHI, o+4/bytesperword
+   $)
+   // Find if uniform block
+   if items <= 1
+   $( if items = 0 resultis 0
+      unless any.zero
+      $( if G.gr.missing(temp) resultis #xFFFF8000
+         if curHI = 0 & cur > 0 resultis (-cur)
+      $)
+   $)
+   // Pack data from temp buff into data buff
+   g.ut.movebytes(@items, 0, g.cm.s!m.buffer, buff.byte.off, 2)
+   o := temp
+   $( let rep = 1
+      cur, curHI := g.ut.unpack16.signed(o, 0), g.ut.unpack16.signed(o, 2)
+      unless cur = curHI = 0
+      $( (g.cm.s!m.buffer)%(buff.byte.off+bytes) := loc
+         bytes := bytes + 1
+         while (loc < 64) & (cur = g.ut.unpack16.signed(o, 4)) & 
+                            (curHI = g.ut.unpack16.signed(o, 6))
+            rep, loc, o := rep+1, loc+1, o+4/bytesperword
+         (G.cm.s!m.buffer)%(buff.byte.off+bytes) := rep
+         bytes := bytes + 1
+         switchon datasize into
+         $( case 1:
+               if G.gr.missing(o) cur := #X80
+               (G.cm.s!m.buffer)%(buff.byte.off+bytes) := cur
+            endcase
+            case 2:
+               if G.gr.missing(o) cur := #X8000
+               g.ut.movebytes(@cur, 0, g.cm.s!m.buffer, buff.byte.off+bytes, 2)
+            endcase
+            case 4:
+               g.ut.set32(cur, curHI, t)
+               g.ut.movebytes(t, 0, g.cm.s!m.buffer, buff.byte.off+bytes, 4)
+         $)
+         bytes, itemcount := bytes + datasize, itemcount+1
+      $)
+      if loc = 64 break
+      loc, o := loc+1, o+4/bytesperword
+   $) repeat
+   unless (bytes & 1) = 0
+   $( (g.cm.s!m.buffer)%(buff.byte.off+bytes) := 0
+      bytes := bytes + 1
+   $)
+   resultis (bytes >> 1)
+$)
+
+/*
+   Writes contents of fine index to offset in file given by coarse index
+   Assumes coarse index is set up.
+*/
+
+and G.gr.store.fine(b32) be
+$( let o = G.cm.s!m.coarse.index + ((b32-1) *(4/bytesperword))
+   let offset = vec 1
+   G.gr.find.offset(g.ut.unpack16(o, 0), g.ut.unpack16(o, 2), offset)
+   G.gr.check.fs()
+   if G.dh.write(G.context!m.data.handle, offset,
+              G.cm.s!m.fine.index, m.fine.index.bytes) = 0
+      extend.err()
+$)
+
+// Store coarse index entries
+and G.gr.store.coarse(start.block, end.block) be
+$( let offset = vec 1
+   let t = vec 1
+   if end.block < start.block return
+   g.ut.set32(start.block << 2, 0, t)  // entry #1 is 4 bytes after start
+   G.gr.find.offset(1, 1, offset)
+   G.ut.add32(t, offset)
+   G.gr.check.fs()
+   if G.dh.write(G.context!m.data.handle, offset,
+              G.cm.s!m.coarse.index+((start.block-1) * (4/bytesperword)),
+              (end.block+1-start.block) << 2) = 0
+      extend.err()
+$)
+
+and set.coarse.index(block, rec, off) be
+$( let o = G.cm.s!m.coarse.index + ((block-1) * (4/bytesperword))
+   g.ut.set32(rec, off, o)
+   G.gr.store.coarse(block, block)
+$)
+
+// Adjust fine index by adding offset, then rewrite index + block
+and write.index.and.block(offset) be
+$( adjust.fine.index(offset) // Make index offsets absolute
+   G.gr.store.fine(b32)      // Write fine index back to file
+   if ok() if G.dh.write(G.context!m.data.handle, offset,
+                     G.cm.s!m.buffer, block.16.words << 1) = 0
+      extend.err()
+$)
+
+// Write out the only block at the start of the dataset
+and blat() be
+$( let data.offset = vec 1
+   let t = vec 1
+   g.ut.set32(128, 0, t)
+   G.gr.find.offset(1, 1, data.offset)
+   G.ut.add32(t, data.offset) // 64 bytes for fine and coarse, w/n
+   set.coarse.index(1, 1, 33) // 32 words to fine index + 1
+   if ok() write.index.and.block(data.offset)
+$)
+
+/*
+   Find next index offset after current block and next data offset. May
+   need to return EOF or start of data.
+*/
+
+and find.offsets() be
+$( let offset = vec 1
+   let o = G.cm.s!m.coarse.index + (b32 * (4/bytesperword)) // b32+1st block
+   let f = G.cm.s!m.fine.index
+
+   // Find next offset to data after current 32x32
+   for i = b32 + 1 to blocks
+   $( if G.gr.load.fine.index(i) > 0
+      $( if next.ind.rec <= 0 next.ind.rec, next.ind.off := 
+           g.ut.unpack16.signed(o, 0), g.ut.unpack16.signed(o, 2)
+         // Must go right through to find next offset or 16 uniform 8x8s
+         for j = f to f + 60/bytesperword by 4/bytesperword
+            if g.ut.unpack16.signed(j, 0) > 0 // found next offset
+            $( next.rec, next.off := g.ut.unpack16.signed(j, 0), 
+                       g.ut.unpack16.signed(j, 2)
+               return
+            $)
+      $)
+      o := o + 4/bytesperword
+   $)
+
+   // Find start of data if no more data after this 32x32
+   for i = 1 to b32
+      if G.gr.load.fine.index(i) > 0
+         for j = f to f + 60/bytesperword by 4/bytesperword
+            if g.ut.unpack16.signed(j, 0) > 0
+            $( data.rec, data.off := g.ut.unpack16.signed(j, 0), 
+                    g.ut.unpack16.signed(j, 2)
+               return
+            $)
+
+   // No data; return end of file
+   G.dh.length(G.cm.s!m.data.handle, offset)
+   G.gr.find.record(offset, @data.rec, @data.off)
+$)
+
+/*
+   The value of 'offset' must be set to the position in the file,
+   to add it on to the relative values stored in the index
+*/
+
+and adjust.fine.index(offset) be
+$( let v = G.cm.s!m.fine.index
+   let rec, off = ?, ?
+   for i = 1 to 16
+   $( if g.ut.unpack16.signed(v, 0) > 0    // this is the word offset + 1
+      $( g.ut.set32((g.ut.unpack16(v, 0) - 1) << 1, 
+                        g.ut.unpack16(v,2), v) // Relative byte offset in 32x32
+         G.ut.add32(offset, v)       // Absolute offset, bytes + 1
+         rec := g.ut.unpack16.signed(v, 0)
+         off := g.ut.unpack16.signed(v, 2)
+         G.gr.find.record(v, @rec, @off) // rec, off
+         g.ut.set32(rec, off, v)
+      $)
+      v := v + 4/bytesperword
+   $)
+$)
+
+and set.stats() be
+$( blocks := G.cm.s!m.blocks.w * G.cm.s!m.blocks.n
+   b32 := (G.cm.s + m.bmap)!buff.num
+   uni.new := true
+   sub.uni.new := true
+   first.uni := 1
+   first.rec, first.off := -1, -1
+   next.rec, next.off := -1, -1
+   next.ind.rec, next.ind.off := -1, -1
+   data.rec, data.off := -1, -1
+$)
+.

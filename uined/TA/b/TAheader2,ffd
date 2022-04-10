@@ -1,0 +1,227 @@
+SECTION "TAheader2"
+
+/**   TABULAR HEADER - ACTIVE FIELD ROUTINES
+      --------------------------------------
+
+      This section contains :
+
+         g.ta.hi.label
+         g.ta.valid
+         g.ta.char.input
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.areal
+
+      REVISION HISTORY:
+
+      DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+      30.4.87     1        SA       Initial version
+       5.5.87     2        SA       add g.ta.hi.label
+       8.5.87     3        SA       Mods for g.ta.incidence
+      11.5.87     4        SA       Manifests for data type strings
+      26.5.87     5        SA       Converted for tabular data
+      17.7.87     6        SA       Remove g.ta.cycle
+      22.10.87    7        MH       updated for UNI version
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+      G.TA.HI.LABEL- CONTROL ENTRY BOX FIELDS
+      -----------------------------------------
+
+      controls highlighting of entry boxes
+
+      INPUTS:
+
+      field : m.ta.title
+              m.ta.nfac
+              m.ta.axis
+      output colour of entry box
+      output colour of string
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ta.hi.label (box, back.colour, text.colour)
+      ----------------------------------------------
+
+      move to appropriate position
+      show entry box and contents in named colours
+         and message if required
+**/
+
+
+LET g.ta.hi.label (box, back.colour, text.colour) BE
+$( LET posY, posX, absX = ?, ?, ?
+   LET text = box
+//   g.sc.pointer (m.sd.off)
+
+   SWITCHON box INTO
+   $( CASE m.ta.nfac  : posY := m.ta.nfacY
+                        posX := m.ta.nfacX - m.ta.posx
+                        absX := m.ta.nfacXstr
+                        ENDCASE
+      CASE m.ta.title : posY := m.ta.titleY
+                        posX := m.ta.strX
+                        absX := m.ta.posX0
+                        ENDCASE
+      CASE m.ta.axis  : posY := m.ta.axisY
+                        posX := m.ta.strX
+                        absX := m.ta.posX0
+                        ENDCASE
+   $)
+   text := text + g.ta.buff
+   if box = m.ta.title | box = m.ta.axis then
+      if text%0 > m.ta.strlength text%0 := m.ta.strlength
+   g.sc.selcol (back.colour)
+   g.sc.movea (m.sd.display, absX, posY)
+   g.sc.rect (m.sd.plot, posX, -m.sd.linW)
+   g.sc.selcol (text.colour)
+   test box = m.ta.nfac then
+      g.sc.movea (m.sd.display, absX+m.sd.disXtex, posY-2)
+   else
+      g.sc.movea (m.sd.display, absX, posY-2)
+   g.sc.ofstr ("%s", text)
+//   g.sc.pointer (m.sd.on)
+$)
+
+
+/**
+      G.TA.VALID - VERIFIES NUMERIC FIELDS
+      ------------------------------------
+
+      returns true/false response if a given string is an integer
+
+      INPUTS:
+
+      pointer to string : m.ta.nfac
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ta.valid (box)
+      ----------------
+
+      TEST string holds an integer value
+      THEN RESULT: true
+      ELSE error message
+           RESULT: false
+**/
+
+
+AND g.ta.valid (box) = VALOF   // Check an entry is OK
+$( LET errmess1 = "Normalising factor is blank"
+   LET errmess2 = "Invalid normalising factor"
+   UNLESS box = m.ta.nfac RESULTIS true
+   IF g.ta.buff%(box*bytesperword) = 0
+   THEN $( g.sc.ermess (errmess1)
+           RESULTIS false
+        $)
+   FOR H = 1 TO g.ta.buff%(box*bytesperword) DO
+      $( LET tag = true
+         UNLESS ('0' <= g.ta.buff%(bytesperword*box+H) <= '9') DO tag := false
+         IF (H = 1) & (g.ta.buff%(bytesperword*box+H) = '-')   DO tag := true
+         UNLESS tag DO $( g.sc.ermess (errmess2)
+                          RESULTIS false
+                       $)
+      $)
+   UNLESS -99 <= string.to.num(G.ta.buff+box) <= 99 THEN
+   $( g.sc.ermess (errmess2)
+      RESULTIS false
+   $)
+   RESULTIS true
+$)
+
+
+/**
+      G.TA.CHAR.INPUT - ALLOWS INPUT INTO ENTRY BOXES
+      -----------------------------------------------
+
+      Controls input of characters into entry boxes, including on-screen
+      display and storage in g.ta.buff
+
+
+      INPUTS:
+
+      pointer to string : m.ta.title
+                          m.ta.nfac
+                          m.ta.axis
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      g.ta.buff+box
+
+      SPECIAL NOTES FOR CALLERS:
+
+      should only be used when on an active entry box and
+      cursor position has been adjusted appropriately
+      uses g.sc.input()
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ta.char.input (box)
+      ---------------------
+
+      define length of allowed string
+      call g.sc.input()
+**/
+
+
+AND g.ta.char.input(box) BE
+$( LET length = VALOF SWITCHON box INTO
+   $( CASE m.ta.axis  :
+      CASE m.ta.title : RESULTIS m.ta.strlength
+      CASE m.ta.nfac  : RESULTIS m.ta.nflength
+   $)
+   G.sc.input(g.ta.buff+box, m.sd.Blue, m.sd.Cyan, length)
+$)
+
+// convert digit string to 16-bit number
+AND string.to.num (string) = VALOF
+$( LET chs = string%0
+   LET number = 0
+   LET index  = 1
+   if chs = 1 & string%1 = '-' resultis 100  //out of range value
+   FOR H = chs TO 1 BY -1 DO
+   $( UNLESS string%H = '-' DO
+      $( number := number + ((string%H)-'0')*index
+         index  := index*10
+      $)
+   $)
+   IF string%1 = '-'
+   THEN number := -number
+   RESULTIS number
+$)
+.

@@ -1,0 +1,6 @@
+*|  join the Utilities
+*|
+*| do the linkable bits
+*|
+*copy c.DFwrite :4.format.l.DFwrite ~c~vf
+*copy c.DFsram  :4.format.l.DFsram ~c~vf

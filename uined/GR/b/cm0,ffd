@@ -1,0 +1,175 @@
+section "cm0"
+
+/**
+         CM.B.CM0 - Initialisation Routines for Map Overlay
+         --------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+         r.map
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       24.04.87   1        SRY         Adopted for Input Editor
+
+         GLOBALS DEFINED:
+         g.cm.sel.fs
+         g.cm.clear.cache
+         g.dy.init
+         g.dy.free
+**/
+
+get "libhdr"
+get "syshdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glDYhd"
+get ":4.UINED.h.dhhd"
+get ":4.UINED.h.grhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.cmhd"
+get ":4.UINED.h.cm2hd"
+
+
+let g.cm.sel.fs (fs) be   // select the requested FS
+   unless G.cm.s!m.fs = fs   // do nothing if in it already
+   $( G.vh.call.oscli( valof switchon fs into
+      $( case m.dh.vfs: resultis "VFS*C"
+         case m.dh.adfs: resultis "ADFS*C"
+         default: resultis "*C"
+      $) )
+      G.cm.s!m.video.muted := true
+      G.cm.s!m.fs := fs
+   $)
+
+/**
+         procedure g.cm.clear.cache () reinitialises the
+         freespace map record cache.  It is called on cold and
+         warm boot and after a successful turn disc over
+         operation.
+**/
+
+let g.cm.clear.cache () be
+$( g.cm.s!m.uptr := g.cm.s!m.base
+   g.cm.s!m.top := g.cm.s!m.base + m.cm.cache.size;
+   g.cm.s!m.now := 1
+$)
+
+
+/**
+         procedure g.GR.dy.init () gets vectors for the map static
+         area, the cache (freespace) store of map records and the
+         private data store that allows rapid mapwalking and zoom
+         at levels 4 and 5.
+         Note that the address of the cache base is frigged to
+         put in a header of 5 words.  This has to be compensated
+         for in g.GR.dy.free.
+         The mapdata file and the printer debug output are
+         opened.  Their handles are assigned to Map statics.
+**/
+
+let g.GR.dy.init() be
+$(
+   manifest $( indoff = 152 $)
+
+   let datoff, buff = ?, ?
+   let offset = vec 1
+   let t = vec 1
+
+   g.cm.s := getvec (m.cm.statics.size)
+   g.cm.s!m.base := getvec (m.cm.cache.size) + headsize  // (Porterism)
+   g.cm.s!m.keep := getvec (m.cm.keep.size)
+
+   // Added for Input Editor
+   g.cm.s!m.data.string := getvec (m.cm.data.length/bytesperword)
+   g.cm.s!m.buffer := getvec(m.buffer.size)
+   g.cm.s!m.coarse.index := getvec (m.coarse.index.size)
+   g.cm.s!m.fine.index := getvec (m.fine.index.bytes/bytesperword)
+   $<debug
+   G.sc.ermess("Space available: %n words", maxvec())
+   $>debug
+   buff := G.cm.s!m.buffer
+
+   // Read values for various items ...
+   g.ut.set32(0, 0, t)
+   G.dh.read(G.context!m.data.handle, t, buff, indoff+6)
+   G.context!m.data.type := g.ut.unpack16(buff, indoff-4)
+   G.context!m.resolution := g.ut.unpack16(buff, indoff)
+   datoff := g.ut.unpack16(buff, indoff+4) + 
+                (g.ut.unpack16(buff, indoff+2))*(m.dh.bytes.per.frame/2)
+   G.ut.set32(datoff*2, 0, offset)
+   G.dh.read(G.context!m.data.handle, offset, buff, 24)
+   G.cm.s!m.data.rec :=     g.ut.unpack16(buff, 0)
+   G.context!m.grbleast :=  g.ut.unpack16(buff, 4)
+   G.context!m.grblnorth := g.ut.unpack16(buff, 6)
+   G.context!m.grtreast :=  g.ut.unpack16(buff, 8)
+   G.context!m.grtrnorth := g.ut.unpack16(buff, 10)
+   G.cm.s!m.datasize :=     buff%16
+   // Set grid system of data to disallow incorrect zooming
+   g.cm.s!m.data.grid := g.cm.grid.system(G.context!m.grbleast,
+                                          G.context!m.grblnorth)
+   test G.cm.s!m.data.grid = m.grid.invalid  // no data yet
+   then $( G.cm.s!m.km.base.x := 0
+           G.cm.s!m.km.base.y := 0
+           G.cm.s!m.km.top.x := 0
+           G.cm.s!m.km.top.y := 0
+        $)
+   else $( set.km(G.context!m.grbleast, G.cm.s+m.km.base.x, true)
+           set.km(G.context!m.grblnorth, G.cm.s+m.km.base.y, false)
+           set.km(G.context!m.grtreast, G.cm.s+m.km.top.x, true)
+           set.km(G.context!m.grtrnorth, G.cm.s+m.km.top.y, false)
+        $)
+
+   G.cm.s!m.fs := m.dh.adfs
+   g.cm.sel.fs (m.dh.vfs)
+   g.cm.s!m.fhandle := g.dh.open ("MAPDATA1")
+
+   g.vh.video (m.vh.superimpose)    // set video mode (=hard key) and
+   g.cm.s!m.data.accessed := true   // ensure video will be switched on
+                                    // when first map is shown.
+
+   // Clear out the cache and read in a few records to avoid wasting time
+   // later. Reverse order, since last in is least likely to be thrown out
+
+   g.cm.clear.cache ()
+   g.cm.s!m.turn.over.pending := false
+   for offset = 5 to 0 by -1 do g.cm.findmaprec (map.L1 + offset)
+   g.cm.findmaprec (map.L0)                   // whole Domesday area
+
+   g.cm.s!m.old.km.x, g.cm.s!m.old.km.y := -1, -1 // Input Editor graphics
+$)
+
+and set.km(gref, gptr, strip) be
+$( let t = vec 1
+   let t1 = vec 1
+   let t2 = vec 1
+   if strip gref := gref & #X7FFF // remove top bit
+   g.ut.set32(gref, 0, t)
+   g.ut.set32(10, 0, t2)
+   G.ut.div32(t2, t, t1)
+   !gptr := !t
+$)
+
+
+/**
+         procedure g.GR.dy.free () is the opposite of g.GR.dy.init.  It
+         closes the mapdata file and then frees
+         the vectors allocated in g.dy.init in the correct order.
+         The map overlay may not be re-entered after this without
+         a call to g.dy.init.
+**/
+
+let g.GR.dy.free() be
+$( G.vh.video(m.vh.micro.only)
+   g.dh.close (g.cm.s!m.fhandle)   // close the mapdata file
+   g.cm.sel.fs (m.dh.adfs)
+   freevec (g.cm.s!m.data.string)
+   freevec (g.cm.s!m.coarse.index)
+   freevec (g.cm.s!m.fine.index)
+   freevec (g.cm.s!m.buffer)
+   freevec (g.cm.s!m.keep)
+   freevec (g.cm.s!m.base - headsize)
+   freevec (g.cm.s)
+$)
+.

@@ -1,0 +1,2307 @@
+
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ REM > Acc*.CalcLib : crunched
+ (c) Acorn Computers 1987
+ Version 0.5
+  
+ DEFFNinstall_file_CalcLib
+ LOCALhand%
+ hand%=OPENIN"Icons.Calculator"
+ DIMcalcptr% EXT#hand%
+ CLOSE#hand%
+ OSCLI"LOAD Icons.Calculator "+STR$~calcptr%
+ PROCsys_addtoiconbar("calculator","calculator",&301A,icon_fgcol,icon_bgcol,64)
+ =0
+
+ DEFFNselect_calculator
+ =0
+
+ DEFFNmenu_calculator
+ =0
+
+ DEFFNclose_calculator
+ =2:
+ 
+ DEFFNaction_calculator
+ calc%=FNsys_definewindow("calculator","",&3023,7,0 ,600,1024, 64,800-380,64+224,800)
+ PROCsys_defineicon( 16, 16-380, 52, 58-380,&3000,icon_fgcol,0,"0")
+ PROCsys_defineicon( 16, 76-380, 52,120-380,&3000,icon_fgcol,0,"1")
+ PROCsys_defineicon( 68, 76-380,104,120-380,&3000,icon_fgcol,0,"2")
+ PROCsys_defineicon(120, 76-380,156,120-380,&3000,icon_fgcol,0,"3")
+ PROCsys_defineicon( 16,136-380, 52,180-380,&3000,icon_fgcol,0,"4")
+ PROCsys_defineicon( 68,136-380,104,180-380,&3000,icon_fgcol,0,"5")
+ PROCsys_defineicon(120,136-380,156,180-380,&3000,icon_fgcol,0,"6")
+ PROCsys_defineicon( 16,196-380, 52,240-380,&3000,icon_fgcol,0,"7")
+ PROCsys_defineicon( 68,196-380,104,240-380,&3000,icon_fgcol,0,"8")
+ PROCsys_defineicon(120,196-380,156,240-380,&3000,icon_fgcol,0,"9")
+ PROCsys_defineicon( 68, 16-380,104, 58-380,&3000,icon_fgcol,0,".")
+ PROCsys_defineicon(120, 16-380,156, 58-380,&3000,icon_fgcol,0,"=")
+ PROCsys_defineicon(172, 16-380,208, 58-380,&3000,icon_fgcol,0,"+")
+ PROCsys_defineicon(172, 76-380,208,120-380,&3000,icon_fgcol,0,"-")
+ PROCsys_defineicon(172,136-380,208,180-380,&3000,icon_fgcol,0,"*")
+ PROCsys_defineicon(172,196-380,208,240-380,&3000,icon_fgcol,0,"/")
+ PROCsys_defineicon(172,256-380,208,300-380,&3000,icon_fgcol,0,"C")
+ PROCclear
+ =calc%
+
+ DEFFNredraw_calculator
+ WHILE more%
+   SYS&2E,&122,calcptr%-4,"calculator2",bx%,by%-380,0
+   MOVEbx%+24,by%-28:
+    PRINTdisplayreg$
+   SYSGetR,0,b TO more%
+ ENDWHILE
+ =0
+
+ DEFFNbutton_calculator
+ LOCALERROR
+ ONERRORLOCALerrorflag%=TRUE:
+  displayreg$="Error":
+  icon%=-1
+ IFerrorflag% THEN
+   IFicon%=16 PROCclear :
+   
+   ELSE
+   CASEicon% OF
+     WHEN0,1,2,3,4,5,6,7,8,9 :
+      PROCdigit(CHR$(icon%+ASC"0"))
+     WHEN10 :
+      PROCpoint
+     WHEN11 :
+      PROCoperator("=")
+     WHEN12 :
+      PROCoperator("+")
+     WHEN13 :
+      PROCoperator("-")
+     WHEN14 :
+      PROCoperator("*")
+     WHEN15 :
+      PROCoperator("/")
+     WHEN16 :
+      PROCclear
+   ENDCASE
+ ENDIF
+ PROCupdate(calc%,0,-1024,1280,0):
+  void=FNredraw_calculator
+ =0
+
+ DEFPROCclear
+ errorflag%=FALSE:
+  tempreg=0:
+  entry$="0":
+  operator$="="
+ displayreg$=entry$
+ ENDPROC
+
+ DEFPROCdigit(key$)
+ IFLENentry$ - SGN(INSTR(entry$,".")) < 8 THEN
+   IFentry$="0" entry$=key$ ELSEentry$=entry$+key$
+ ENDIF
+ displayreg$=entry$
+ ENDPROC
+
+ DEFPROCpoint
+ IFINSTR(entry$,".")=0 ANDLENentry$ < 8 entry$=entry$+"."
+ displayreg$=entry$
+ ENDPROC
+
+ DEFPROCoperator(key$)
+ LOCAL@%
+ @%=&01020711
+ IFoperator$="=" tempreg=VALdisplayreg$ ELSEtempreg=EVAL(STR$tempreg+operator$+displayreg$)
+ PROCdisplay(STR$tempreg)
+ entry$="0":
+  operator$=key$
+ ENDPROC
+
+ DEFPROCdisplay(value$)
+ displayreg=VALvalue$
+ IFABSdisplayreg >= 100000000 displayreg=0/0
+ WHILE RIGHT$(value$,1)="0" ANDINSTR(value$,".")>0
+   value$=LEFT$(value$,LEN(value$)-1)
+ ENDWHILE
+ value$=LEFT$(value$,8+SGN(INSTR(value$,"."))+SGN(INSTR(value$,"-")))
+ IFRIGHT$(value$,1)="." value$=LEFT$(value$,LEN(value$)-1)
+ IFvalue$="-0" value$="0"
+ displayreg$=value$
+ ENDPROC
+
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ REM > Acc*.ClockLib : crunched
+ (c) Acorn Computers 1987
+ Version 0.5
+  
+ DEFFNinstall_file_ClockLib
+ PROCsys_addtoiconbar("clock","clock",&301A,icon_fgcol,icon_bgcol,40)
+ =0
+
+ DEFFNselect_clock
+ :
+ =0
+
+ DEFFNmenu_clock
+ :
+ =0
+
+ DEFFNclose_clock
+ :
+ =2
+
+ DEFFNaction_clock
+ clock_update_only%=FALSE
+ clock_radius%     =80
+ clock_sec_handlen%=64
+ clock_min_handlen%=48
+ clock_hrs_handlen%=32
+ clocksprh%=300
+ clocksprw%=200
+ clock_time$=RIGHT$(TIME$,8)
+ clock%=FNsys_definewindow("clock","",&3203, 7,0, 1280,1024,0,0,clocksprw%,clocksprh%)
+ PROCsys_claimpoll("clock")
+ =clock%
+
+ DEFFNredraw_clock
+ clock_centrex%=bx%+(clocksprw%DIV2)
+ clock_centrey%=by%-(clocksprh%DIV2)+40
+ clock_time$=RIGHT$(TIME$,8)
+ clock_sec%=VAL(RIGHT$(clock_time$,2))
+ clock_sec_ang=RAD(clock_sec%*6)
+ clock_sec_x=SIN(clock_sec_ang)*clock_sec_handlen%
+ clock_sec_y=COS(clock_sec_ang)*clock_sec_handlen%
+ clock_min%=VAL(MID$(clock_time$,4,2))
+ clock_min_ang=RAD(clock_min%*6)
+ clock_min_x=SIN(clock_min_ang)*clock_min_handlen%
+ clock_min_y=COS(clock_min_ang)*clock_min_handlen%
+ clock_hrs%=VAL(MID$(clock_time$,1,2))
+ clock_hrs_ang=RAD(clock_hrs%*360/12+clock_min%/2)
+ clock_hrs_x=SIN(clock_hrs_ang)*clock_hrs_handlen%
+ clock_hrs_y=COS(clock_hrs_ang)*clock_hrs_handlen%
+ WHILE more%
+   IFNOTclock_update_only% THEN
+     GCOL4
+     RECTANGLE FILL bx%,by%,clocksprw%,-clocksprh%
+   ENDIF
+   GCOL0
+   RECTANGLE FILL bx%+20,by%+24-clocksprh%,clocksprw%-40,48
+   CIRCLE FILLclock_centrex%,clock_centrey%,clock_radius%
+   GCOL7
+   MOVEbx%+36,by%+60-clocksprh%:
+   PRINTclock_time$
+   MOVEclock_centrex%,clock_centrey%
+   PLOT1,clock_sec_x,clock_sec_y
+   MOVEclock_centrex%,clock_centrey%
+   PLOT1,clock_min_x,clock_min_y
+   MOVEclock_centrex%,clock_centrey%
+   PLOT1,clock_hrs_x,clock_hrs_y
+   SYSGetR,0,b TO more%
+ ENDWHILE
+ clock_update_only%=FALSE
+ =0
+
+ DEFFNuseraction_clock
+ IFclock_time$=RIGHT$(TIME$,8) :
+ =0
+ PROCupdate(clock%,0,-clocksprh%,clocksprw%,0)
+ clock_update_only%=TRUE
+ void=FNredraw_clock
+ =0
+
+ DEFFNbutton_clock                                                                IFbutton% <> 2 :
+ =0
+ PROCsys_altertimebox("clock")
+ =0
+
+ DEFFNdialogueselect_clock
+ LOCALtime$
+ time$=TIME$
+ CASEicon% OF
+   WHEN0:
+    MID$(time$,17,2)=RIGHT$("0"+STR$((EVALMID$(time$,17,2)+1)MOD24),2)
+   WHEN2:
+    MID$(time$,20,2)=RIGHT$("0"+STR$((EVALMID$(time$,20,2)+1)MOD60),2)
+   WHEN4:
+    MID$(time$,23,2)=RIGHT$("0"+STR$((EVALMID$(time$,23,2)+1)MOD60),2)
+   WHEN1:
+    MID$(time$,17,2)=RIGHT$("0"+STR$((EVALMID$(time$,17,2)+23)MOD24),2)
+   WHEN3:
+    MID$(time$,20,2)=RIGHT$("0"+STR$((EVALMID$(time$,20,2)+59)MOD60),2)
+   WHEN5:
+    MID$(time$,23,2)=RIGHT$("0"+STR$((EVALMID$(time$,23,2)+59)MOD60),2)
+   WHEN9:
+    PROCsys_closedialogue
+ ENDCASE
+ TIME$=time$
+ PROCupdate(clock%,0,-clocksprh%,clocksprw%,0)
+ void=FNredraw_clock
+ =0
+
+ DEFPROCsys_altertimebox(suffix$)
+ LOCALboxOrgx%,boxOrgx%,boxWidth%,boxHeight%
+ LOCALbuttonOrgx%,buttonOrgy%,buttonWidth%,buttonHeight%
+ LOCALoffSet%
+ boxOrgx%=250:
+ boxOrgy%=660
+ boxWidth%=272:
+ boxHeight%=208+64
+ buttonWidth%=48:
+ buttonHeight%=48
+ offSet%=16
+ PROCsys_createdialogue("clock",boxWidth%,boxHeight%)
+ buttonOrgx%=boxWidth%-(buttonWidth%+offSet%)*2
+ buttonOrgy%=offSet%
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+buttonWidth%,-buttonOrgy%,&202D,7,1,"+")
+ buttonOrgx%=boxWidth%-buttonWidth%-offSet%
+ buttonOrgy%=offSet%
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+buttonWidth%,-buttonOrgy%,&202D,7,1,"-")
+ buttonOrgx%=boxWidth%-(buttonWidth%+offSet%)*2
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+buttonWidth%,-buttonOrgy%,&202D,7,1,"+")
+ buttonOrgx%=boxWidth%-buttonWidth%-offSet%
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+buttonWidth%,-buttonOrgy%,&202D,7,1,"-")
+ buttonOrgx%=boxWidth%-(buttonWidth%+offSet%)*2
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)*2
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+buttonWidth%,-buttonOrgy%,&202D,7,1,"+")
+ buttonOrgx%=boxWidth%-buttonWidth%-offSet%
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)*2
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+buttonWidth%,-buttonOrgy%,&202D,7,1,"-")
+ buttonOrgx%=0
+ buttonOrgy%=offSet%
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+112,-buttonOrgy%,&2021,7,0,"Hours")
+ buttonOrgx%=0
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)*1
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+112,-buttonOrgy%,&2021,7,0,"Minutes")
+ buttonOrgx%=0
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)*2
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+112,-buttonOrgy%,&2021,7,0,"Seconds")
+ buttonOrgx%=32
+ buttonOrgy%=offSet%+(buttonHeight%+offSet%)*3
+ PROCsys_defineicon(buttonOrgx%,-buttonOrgy%-buttonHeight%,buttonOrgx%+64,-buttonOrgy%,&202D,7,1,"OK")
+ PROCsys_opendialogue
+ ENDPROC
+
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ REM > Acc*.DiaryLib : crunched
+ (c) Acorn Computers 1987
+ Version 0.5
+  
+ DEFFNinstall_file_DiaryLib
+ full_month$=" January February   March    April     May     June     July    August  September October November December "
+ RTCtime$=TIME$
+ thisdate%=VAL(MID$(RTCtime$,5,2))
+ thisyear%=VAL(MID$(RTCtime$,12,4))
+ thismonth%=INSTR("JanFebMarAprMayJunJulAugSepOctNovDec",MID$(RTCtime$,8,3))-1
+ IFthismonth%<0 ORthismonth%MOD3<>0 MODE12  PRINT"Naff RTC month"
+  STOP
+ thismonth%=thismonth%DIV3
+ caldryear%=thisyear%
+ caldryear$=RIGHT$("0000"+STR$caldryear%,4)
+ caldrmonth%=thismonth%
+ PROCsys_addtoiconbar("diary","diary",&301A,icon_fgcol,icon_bgcol,96)
+ PROCsetup_diary
+ DIMdays_so_far%(11)
+ =0
+
+ DEFFNselect_diary
+ =0
+
+ DEFFNmenu_diary
+ =0
+
+ DEFFNclose_diary
+ =2
+
+ DEFFNaction_diary
+ diary%=FNsys_definewindow("diary",caldryear$+" Diary",&23,7,0,600,1024, 64,800-430,64+400-48+4,800)
+ PROCsys_defineicon(  8,-64, 48,-12,&303D,icon_fgcol,icon_bgcol,"ˆ")
+ PROCsys_defineicon(308,-64,348,-12,&303D,icon_fgcol,icon_bgcol,"‰")
+ FORJ%=0TO5
+   FORI%=0TO6
+     PROCsys_defineicon(8+48*I%,-48*J%-172,8+48*(I%+1),48-48*J%-172,&3000,icon_fgcol,icon_bgcol,"")
+   NEXT
+ NEXT
+ =diary%
+
+ DEFFNredraw_diary
+ LOCALrow%,col%,i%
+ caldrorgx%=bx%
+  caldrorgy%=by%-140
+ caldrsltw%=48
+  caldrslth%=48
+ PROCdiary_monthparms(0,caldrmonth%,caldryear%)
+ @%=3
+ WHILE more%
+   CLG
+   MOVEbx%+104,by%-28
+   PRINT MID$(full_month$,1+caldrmonth%*9,9)
+   MOVEcaldrorgx%,caldrorgy%+caldrslth%
+    PRINT "  M  T  W  T  F  S  S"
+   FORi%=1 TO caldrdaysinmonth%
+     col%=(i%-1+caldrfirstday%) MOD7
+     row%=(i%-1+caldrfirstday%) DIV7
+     MOVEcaldrorgx%+col%*caldrsltw%,caldrorgy%-row%*caldrslth%
+     CASETRUE OF
+       WHEN(i%=thisdate% ANDcaldrmonth%=thismonth%)
+       PRINT i%;
+       GCOL3,7
+       RECTANGLEFILL 8+caldrorgx%+col%*caldrsltw%,caldrorgy%-row%*caldrslth%-32,48,44
+       GCOL0,7
+       OTHERWISE
+       PRINT i%;
+     ENDCASE
+   NEXT
+   SYSGetR,0,b TO more%
+ ENDWHILE
+ =0
+
+ DEFFNbutton_diary
+ LOCALdiary_day%
+ CASEbutton% OF
+   WHEN4,1
+   CASEicon% OF
+     WHEN0
+     caldrmonth%=(caldrmonth%+11)MOD12 
+     
+     PROCsys_forceredraw(diary%)
+     WHEN1
+     caldrmonth%=(caldrmonth%+ 1)MOD12
+     PROCsys_forceredraw(diary%)
+     OTHERWISE 
+     
+     diary_day%=icon%-2-caldrfirstday%
+     IFdiary_day% >=0 ANDdiary_day%<caldrdaysinmonth% THEN
+       diary_page$=STR$(1+diary_day%)+" "+MID$(full_month$,1+caldrmonth%*9,9)+" "+caldryear$
+       PROCget_diary_page(diary_day%+days_so_far%(caldrmonth%))
+       PROCfront(diary_text%)
+     ENDIF
+   ENDCASE
+   WHEN2
+   PROCdiary_menubox
+ ENDCASE
+ =0
+
+ DEFPROCdiary_monthparms(date%,month%,year%)
+ LOCALy%
+ CASE(year% AND3) OF
+   WHEN0
+    CASETRUE OF
+     WHEN(year% MOD100) =0
+      CASE((year% DIV100) AND3) OF
+       WHEN0     
+        leap_year%=1
+       WHEN1,2,3 
+        leap_year%=0
+     ENDCASE
+     OTHERWISE
+      leap_year%=1
+   ENDCASE
+   WHEN1,2,3
+    leap_year%=0
+ ENDCASE
+ CASEmonth% OF
+   WHEN0,2,4,6,7,9,11 
+    caldrdaysinmonth%=31
+   WHEN1              
+    caldrdaysinmonth%=28 + leap_year%
+   WHEN3,5,8,10       
+    caldrdaysinmonth%=30
+   OTHERWISE MODE12
+    PRINT"Invalid month"
+    STOP
+ ENDCASE
+ days_so_far%(0)=0
+ FORI%=1TO11
+   CASEI%-1 OF
+     WHEN0,2,4,6,7,9,11 
+      D%=31
+     WHEN1              
+      D%=28 + leap_year%
+     WHEN3,5,8,10       
+      D%=30
+   ENDCASE
+   days_so_far%(I%)=days_so_far%(I%-1)+D%
+ NEXT
+ y%=year%
+ IFy%>0 THEN
+   dayoffset%=(6+y%+(y%-1)DIV4-(y%-1)DIV100+ (y%-1)DIV400)MOD7
+   ELSE
+   dayoffset%=5
+ ENDIF
+ IFmonth%>1 THENdayoffset%=(dayoffset%+leap_year%)MOD7
+ CASEmonth% OF
+   WHEN0
+    caldrfirstday%=dayoffset%
+   
+   WHEN1
+    caldrfirstday%=(dayoffset%+3)MOD7
+   
+   WHEN2,10
+    caldrfirstday%=(dayoffset%+3)MOD7
+   
+   WHEN3,6
+    caldrfirstday%=(dayoffset%+6)MOD7
+   
+   WHEN4
+    caldrfirstday%=(dayoffset%+1)MOD7
+   
+   WHEN5
+    caldrfirstday%=(dayoffset%+4)MOD7
+   
+   WHEN7
+    caldrfirstday%=(dayoffset%+2)MOD7
+   
+   WHEN8,11
+    caldrfirstday%=(dayoffset%+5)MOD7
+   
+   WHEN9
+    caldrfirstday%=dayoffset%
+   
+   OTHERWISE MODE12
+    PRINT"Invalid month"
+    STOP
+ ENDCASE
+ ENDPROC
+
+ DEFPROCsetup_diary
+ LOCALI%
+ this_diary_page%=-1
+ diary_page$=""
+ diary_pages%=366
+ diary_maxllen%=20
+ diary_maxrows%=8
+ diary_blocksize%=(1+diary_maxrows%)*diary_maxllen%+4
+ diary_packsize%=(1+diary_pages%)*diary_blocksize%
+ DIMdiary_packptr%(diary_pages%),diary_pack% diary_packsize%+64
+ diary_packend%=diary_pack%+diary_packsize%
+ PROCclean_diary_pages
+ DIMdiary_ptr%(diary_maxrows%)
+ DIMdiary_block% diary_blocksize%+256
+ diary_end%=diary_block%+diary_blocksize%
+ dummy_diary$=""
+ FORI%=0 TO diary_maxrows%
+   $(diary_block%+I%*(LEN(dummy_diary$)+1))=dummy_diary$
+ NEXT
+ PROCdiary_findptrs
+ chX%=16
+ chY%=40
+ diary_row%=1
+ diary_col%=1
+ diary_text%=FNsys_definewindow("diary_text",caldryear$+" Diary",&300F,7,0,chX%*diary_maxllen%,chY%*(1+diary_maxrows%),0,0,320,256)
+ ENDPROC
+
+ DEFFNclose_diary_text
+ =1
+
+ DEFFNredraw_diary_text
+ LOCALI%,BR%,TR%
+ WHILE more%
+   CLG
+   IFBR%>diary_maxrows% BR%=diary_maxrows%
+   TR%=((by%-b!40-4)DIVchY%)
+   IFTR%>diary_maxrows% TR%=diary_maxrows%
+   IFTR%<1 THEN
+     MOVEbx%+chX%,by%-4
+     PRINTdiary_page$;
+     GCOL3,7
+     RECTANGLEFILLbx%,by%+4-chY%,1280,chY%
+     GCOL0,7
+   ENDIF
+   BR%=(by%-b!32-4)DIVchY%
+   FORI%=TR% TO BR%
+     MOVEbx%,by%-chY%*I%-4
+     PRINT$diary_ptr%(I%);
+   NEXT
+   SYSGetR,0,b TO more%
+ ENDWHILE
+ =0
+
+ DEFFNbutton_diary_text
+ CASEbutton% OF
+   WHEN4
+   PROCsys_claiminputfocus(diary_text%,-1,(diary_col%-1)*chX%,-(0.75+diary_row%)*chY%,&1000000 OR32,-1)
+   WHEN2
+   PROCdiary_menubox
+   WHEN1
+   PROCsys_claiminputfocus(diary_text%,-1,(diary_col%-1)*chX%,-(0.75+diary_row%)*chY%,&1000000 OR32,-1)
+ ENDCASE
+ =0
+
+ DEFPROCdiary_cursor(x%,y%)
+ PROCsys_claiminputfocus(diary_text%,-1,(x%-1)*chX%,-(y%+0.75)*chY%,&1000000 OR32,-1)
+ ENDPROC
+
+ DEFFNkeypress_diary_text
+ CASETRUE OF
+   WHENkey%=13
+   diary_col%=1
+   diary_row%+=1
+   IFdiary_row%>diary_maxrows% diary_row%=diary_maxrows%
+   WHENkey%=127
+   diary_original%=FALSE
+   diary_col%-=1
+   IFdiary_col%<=0 diary_col%=1
+   PROCdiary_put(diary_row%,diary_col%," ")
+   PROCupdate(diary_text%,chX%*(diary_col%-1),-chY%*(diary_row%+1),chX%*(diary_col%),-chY%*diary_row%)
+   void=FNredraw_diary_text
+   WHENkey%=129
+   diary_original%=FALSE
+   PROCdiary_insert_line(diary_row%)
+   PROCupdate(diary_text%,0,-chY%*(1+diary_maxrows%),1280,-chY%*(diary_row%))
+   void=FNredraw_diary_text
+   WHENkey%=145
+   diary_original%=FALSE
+   PROCdiary_delete_line(diary_row%)
+   PROCupdate(diary_text%,0,-chY%*(1+diary_maxrows%),1280,-chY%*(diary_row%))
+   void=FNredraw_diary_text
+   WHENkey%=130
+   diary_original%=FALSE
+   PROCdiary_insert_char(diary_row%,diary_col%)
+   WHENkey%=146
+   diary_original%=FALSE
+   PROCdiary_delete_char(diary_row%,diary_col%)
+   WHENkey%=136
+   CASETRUE OF
+     WHENINKEY(-2) 
+     diary_col%=1
+     WHENINKEY(-1) 
+     diary_col%-=4
+     OTHERWISE 
+     diary_col%-=1
+   ENDCASE
+   IFdiary_col%<=1 diary_col%=1
+   WHENkey%=137
+   CASETRUE OF
+     WHENINKEY(-2) 
+     diary_col%=diary_maxllen%
+     WHENINKEY(-1) 
+     diary_col%+=4
+     OTHERWISE 
+     diary_col%+=1
+   ENDCASE
+   IFdiary_col%>diary_maxllen% diary_col%=diary_maxllen%
+   WHENkey%=138
+   diary_row%+=1
+   IFdiary_row%>diary_maxrows% diary_row%=diary_maxrows%
+   WHENkey%=139
+   diary_row%-=1
+   IFdiary_row%<=1 diary_row%=1
+   WHENkey%>31
+   diary_original%=FALSE
+   PROCdiary_put(diary_row%,diary_col%,CHR$key%)
+   PROCdiary_cursor(diary_col%+1,diary_row%)
+   PROCupdate(diary_text%,chX%*(diary_col%-1),-chY%*(diary_row%+1),chX%*(diary_col%),-chY%*diary_row%)
+   void=FNredraw_diary_text
+   diary_col%+=1
+   IFdiary_col%>diary_maxllen% THEN
+     IFFNdiary_word_wrap(diary_row%) =FALSE THEN
+       PROCflush
+       PROCdiary_cursor(diary_maxllen%,diary_row%)
+       diary_col%=diary_maxllen%
+       PROCupdate(diary_text%,chX%*(diary_col%-1),-chY%*(diary_row%+1),chX%*(diary_col%+1),-chY%*(diary_row%))
+       void=FNredraw_diary_text
+     ENDIF
+   ENDIF
+   =0
+   OTHERWISE
+ ENDCASE
+ PROCdiary_cursor(diary_col%,diary_row%)
+ =0
+
+ DEFPROCflush
+ OSCLI"fx15,1"
+ ENDPROC
+
+ DEFFNdiary_row(I%)
+ =$diary_ptr%(I%)
+
+ DEFPROCdiary_put(R%,C%,A$)
+ LOCALline$,D%,I%
+ line$=FNdiary_row(R%)
+ CASETRUE OF
+   WHENLEN(line$)>=C%
+   MID$(line$,C%,1)=A$
+   $diary_ptr%(R%)=line$
+   WHENLEN(line$)<C%
+   D%=C%-LEN(line$)
+   PROCdiary_blockmoveup(R%+1,D%)
+   PROCdiary_adjustptrs(R%+1,D%)
+   line$+=STRING$(D%," ")
+   MID$(line$,C%,1)=A$
+   $diary_ptr%(R%)=line$
+ ENDCASE
+ ENDPROC
+
+ DEFPROCdiary_insert_line(R%)
+ IFLEN($diary_ptr%(diary_maxrows%))<>0 ENDPROC
+ IFR%>=diary_maxrows% ENDPROC
+ PROCdiary_blockmoveup(R%,1)
+ diary_ptr%(R%)?(0)=13
+ PROCdiary_findptrs
+ ENDPROC
+
+ DEFPROCdiary_delete_line(R%)
+ LOCALline$
+ line$=$diary_ptr%(R%)
+ CASETRUE OF
+   WHENR%=diary_maxrows%
+   diary_ptr%(R%)?0=13
+   OTHERWISE
+   PROCdiary_blockmovedown(R%+1,LEN(line$)+1)
+ ENDCASE
+ PROCdiary_findptrs
+ ENDPROC
+
+ DEFPROCdiary_insert_char(R%,C%)
+ LOCALline$
+ line$=$diary_ptr%(R%)
+ IFLEN(line$)<diary_maxllen% THEN
+   line$=LEFT$(line$,C%-1)+" "+MID$(line$,C%)
+   PROCdiary_blockmoveup(R%+1,1)
+   $diary_ptr%(R%)=line$
+   PROCdiary_findptrs
+   PROCupdate(diary_text%,0,-chY%*(diary_row%+1),1280,-chY%*(diary_row%))
+   void=FNredraw_diary_text
+ ENDIF
+ ENDPROC
+
+ DEFPROCdiary_delete_char(R%,C%)
+ LOCALline$
+ line$=$diary_ptr%(R%)
+ IFLEN(line$)<>0 THEN
+   line$=LEFT$(line$,C%-1)+MID$(line$,C%+1)
+   $diary_ptr%(R%)=line$
+   PROCdiary_blockmovedown(R%+1,1)
+   PROCdiary_findptrs
+   PROCupdate(diary_text%,0,-chY%*(diary_row%+1),1280,-chY%*diary_row%)
+   void=FNredraw_diary_text
+ ENDIF
+ ENDPROC
+
+ DEFFNdiary_word_wrap(R%)
+ LOCALline$,I%,flag%
+ line$=FNdiary_row(R%)
+ I%=1
+ flag%=TRUE
+ WHILE flag%
+   IFASC(RIGHT$(line$,I%))=ASC" " flag%=FALSE ELSE
+   I%+=1
+   IFI%>LEN(line$) flag%=FALSE
+ ENDWHILE
+ IFI%>LEN(line$) 
+ =FALSE
+ IFR%=diary_maxrows% 
+ =FALSE
+ IFLEN($diary_ptr%(diary_maxrows%))<>0 
+ =FALSE
+ PROCdiary_insert_line(R%+1) 
+ 
+ diary_ptr%(R%)?(LEN(line$)-I%)=13
+ diary_ptr%(R%+1)?(-1)=32
+ diary_ptr%(R%+1)-=I%
+ PROCupdate(diary_text%,0,-chY%*(1+diary_maxrows%),1280,-chY%*(diary_row%))
+ diary_col%=I%
+ diary_row%+=1
+ void=FNredraw_diary_text
+ PROCdiary_cursor(diary_col%,diary_row%)
+ =TRUE
+
+ DEFPROCdiary_blockmoveup(R%,D%)
+ LOCALI%,S%,E%
+ IFR%>diary_maxrows% ENDPROC
+ S%=diary_ptr%(R%)
+ E%=diary_ptr%(diary_maxrows%)+LEN($diary_ptr%(diary_maxrows%))
+ E%+=4-((E%-S%)AND3)
+ IFE%+D%>diary_end% ENDPROC
+ FORI%=E% TO S% STEP -4
+   I%!D%=!I%
+ NEXT
+ ENDPROC
+
+ DEFPROCdiary_blockmovedown(R%,D%)
+ LOCALI%,S%,E%
+ IFR%>diary_maxrows% ENDPROC
+ S%=diary_ptr%(R%)
+ E%=diary_ptr%(diary_maxrows%)+LEN($diary_ptr%(diary_maxrows%))
+ FORI%=0TO255STEP4
+ I%!E%=&0D0D0D0D
+ NEXT
+ E%+=4-((E%-S%)AND3)
+ D%=-D%
+ FORI%=S% TO E% STEP 4
+   I%!D%=!I%
+ NEXT
+ ENDPROC
+
+ DEFPROCdiary_adjustptrs(R%,D%)
+ LOCALI%
+ IFR%>diary_maxrows% ENDPROC
+ FORI%=R% TO diary_maxrows%
+   diary_ptr%(I%)+=D%
+ NEXT
+ ENDPROC
+
+ DEFPROCdiary_findptrs
+ LOCALI%,L%
+ L%=diary_block%
+ diary_ptr%(0)=diary_block%
+ FORI%=1 TO diary_maxrows%
+   WHILE ?L% <> 13 
+   L%+=1
+   ENDWHILE
+   L%+=1
+   diary_ptr%(I%)=L%
+ NEXT
+ ENDPROC
+
+ DEFPROCget_diary_page(page%)
+ IFthis_diary_page%<>-1 THEN
+   PROCpack_diary_page(this_diary_page%)
+ ENDIF
+ PROCunpack_diary_page(page%)
+ this_diary_page%=page%
+ PROCsys_forceredraw(diary_text%)
+ PROCdiary_findptrs
+ ENDPROC
+
+ DEFPROCclean_diary_pages
+ LOCALI%,J%,K%,J$
+ FORI%=0 TO diary_pages%
+   J%=diary_pack%+diary_blocksize%*I%
+   diary_packptr%(I%)=J%
+ NEXT
+ diary_original%=TRUE
+ J$=STRING$(diary_blocksize%,CHR$13)
+ FORK%=0 TO diary_pages%
+   $diary_packptr%(K%)=J$
+ NEXT
+ ENDPROC
+
+ DEFPROCunpack_diary_page(page%)
+ LOCALI%,J%,K%
+ I%=diary_packptr%(page%)
+ J%=diary_block%
+ FORK%=0TOdiary_blocksize%
+   J%?K%=I%?K%
+ NEXT
+ ENDPROC
+
+ DEFPROCpack_diary_page(page%)
+ LOCALI%,J%,K%
+ I%=diary_packptr%(page%)
+ J%=diary_ptr%(diary_maxrows%)
+ I%=diary_packptr%(page%)
+ J%=diary_block%
+ FORK%=0TOdiary_blocksize%
+   I%?K%=J%?K%
+ NEXT
+ ENDPROC
+
+ DEFPROCdiary_menubox
+ PROCsys_definetextmenu("diary_text",caldryear$+" Diary","Load|Save|Print")
+ ENDPROC
+
+ DEFFNmenuselect_diary_text
+ LOCALERROR
+ diary_is_doing$=""
+ CASEitem0% OF
+   WHEN0
+   IFdiary_original% THEN
+     PROCdiary_load
+     ELSE
+     diary_is_doing$="load"
+     PROCsys_yesnobox("diary","Do you really want to","load a new diary?","")
+     =0
+   ENDIF
+   WHEN1
+   diary_is_doing$="save"
+   IFthis_diary_page%<>-1 THEN
+     PROCpack_diary_page(this_diary_page%)
+   ENDIF
+   PROCsys_yesnobox("diary","Do you really want to","save this diary?","")
+   =0
+   WHEN2
+   IFthis_diary_page%<>-1 THEN
+     PROCpack_diary_page(this_diary_page%)
+   ENDIF
+   ONERRORLOCALOSCLI"FX3,0"
+   =0
+   OSCLI"FX3,10"
+   FORI%=1 TO diary_maxrows%
+     PRINT $diary_ptr%(I%)
+   NEXT
+   OSCLI"FX3,0"
+   =0
+ ENDCASE
+ RESTORE ERROR
+ =0
+
+ DEFFNdialogueselect_diary
+ PROCsys_closedialogue
+ CASEicon% OF
+   WHEN0 
+   
+   CASEdiary_is_doing$ OF
+     WHEN"load"
+     PROCdiary_load
+     WHEN"save"
+     PROCdiary_save
+   ENDCASE
+   diary_is_doing$=""
+   WHEN1 
+   
+ ENDCASE
+ =0     
+
+ DEFPROCdiary_load
+ LOCALresult%
+ result%=FNfilehandler_loadfile("",diary_pack%,diary_packend%,&FEF)
+ IFresult% THEN
+   ENDPROC
+ ENDIF
+ IFthis_diary_page%<>-1 THEN
+   PROCunpack_diary_page(this_diary_page%)
+ ENDIF
+ diary_original%=TRUE
+ PROCdiary_findptrs
+ PROCsys_forceredraw(diary_text%)
+ ENDPROC
+
+ DEFPROCdiary_save
+ result%=FNfilehandler_savefile("&.Diary"+caldryear$,diary_pack%,diary_packend%,&FEF)
+ IFresult% THEN
+   ENDPROC
+ ENDIF
+ diary_original%=TRUE
+ ENDPROC
+ 
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ REM > Acc*.filehandlr : crunched
+ (c) Acorn Computers 1987
+ Version 0.5
+  
+ DEFFNinstall_file_filehandlr
+ LOCALfloppies%,winnies%,network%
+ DIMdata 1032
+ DIMdirectory$(32), directory%(32), directorymark%(32)
+ directoryindex%=0
+ DIMselectname$(32), selecttype$(32)
+  selectindex%=0
+ SYS"OS_Byte",161,&87 TO ,,winnies%
+ floppies%=winnies%AND7
+  IFfloppies%>4 floppies%=1
+ winnies%=winnies%>>3
+  IFwinnies%>2 winnies%=1
+ SYS"XOS_SWINumberFromString",,"NetFS_DoFSOp" TO R0;network%
+ network%=(network% AND1)=0
+ IFfloppies%>0 PROCsys_addtoiconbar_left("floppy0","disc3.5",&301A,icon_fgcol,icon_bgcol, 128)
+ IFfloppies%>1 PROCsys_addtoiconbar_left("floppy1","disc3.5",&301A,icon_fgcol,icon_bgcol, 128)
+ IFwinnies%>0  PROCsys_addtoiconbar_left("winnie4","harddisc",&301A,icon_fgcol,icon_bgcol, 128)
+ IFnetwork% PROCsys_addtoiconbar_left("network","network",&301A,icon_fgcol,icon_bgcol, 128)
+ =0
+
+ DEFFNselect_winnie4
+ =0
+
+ DEFFNmenu_winnie4
+ =0
+
+ DEFFNaction_winnie4
+ winnie4%=FNfilehandler_open_dir("-adfs-:4","Hard disc")
+ =winnie4%
+
+ DEFFNmenuselect_winnie4
+ CASEitem0% OF
+ ENDCASE
+ =0
+
+ DEFFNselect_floppy0
+ =0
+
+ DEFFNmenu_floppy0
+ PROCsys_definetextmenu("floppy0","floppy :0","Format")
+ =0
+
+ DEFFNaction_floppy0
+ floppy0%=FNfilehandler_open_dir("-adfs-:0","Floppy :0")
+ =floppy0%
+
+ DEFFNmenuselect_floppy0
+ CASEitem0% OF
+   WHEN-1
+   WHEN0
+   PROCfilehandler_formatfloppy("0")
+ ENDCASE
+ =0
+
+ DEFFNselect_floppy1
+ =0
+
+ DEFFNmenu_floppy1
+ PROCsys_definetextmenu("floppy1","floppy :1","Format")
+ =0
+
+ DEFFNaction_floppy1
+ floppy1%=FNfilehandler_open_dir("-adfs-:1","Floppy :1")
+ =floppy1%
+
+ DEFFNmenuselect_floppy1
+ CASEitem0% OF
+   WHEN-1
+   WHEN0
+    PROCfilehandler_formatfloppy("1")
+ ENDCASE
+ =0
+
+ DEFFNselect_network
+ =0
+
+ DEFFNmenu_network
+ =0
+
+ DEFFNaction_network
+ LOCALi%,FSsta%,FSnet%
+ LOCALERROR
+ ONERRORLOCALIFERR=67007 PROCfilehandler_logonbox
+ =-1 ELSEPROCfilehandler_report
+ =-1
+ fsptr%=data
+  urptr%=data+20
+  psptr%=data+50
+ $fsptr%=""
+  $urptr%=""
+  $psptr%=""
+  i%=&9E
+ SYS"OS_Byte",161,1 TO ,,FSsta%
+  SYS"OS_Byte",161,2 TO ,,FSnet%
+ CASEFSsta% OF
+   WHEN0
+   WHILE FSnet%<>0 ANDLEN($fsptr%)<15
+     $fsptr%+=CHR$(FSnet%)
+      SYS"OS_Byte",161,i% TO ,,FSnet%
+      i%+=1
+   ENDWHILE
+   OTHERWISE 
+    $fsptr%=STR$FSnet%+"."+STR$FSsta%
+   SYSMultiple,10,"-net-",data,1,1,500,"*"
+   network%=FNfilehandler_open_dir("-net-&","Econet")
+   =network%
+
+ DEFFNmenuselect_network
+  CASEitem0% OF
+  ENDCASE
+ =0
+ 
+ DEFFNclose_filehandler
+  LOCALfound%
+  found%=FNsys_searchI(handle%,directory%(),directoryindex%)
+  PROCsys_removeSII(found%,directory$(),directory%(),directorymark%(),directoryindex%)
+ =2
+   
+ DEFFNredraw_filehandler
+  WHILE more%
+    SYSGetR,0,b TO more%
+  ENDWHILE
+ =0
+
+ DEFFNbutton_filehandler
+  LOCALindex%, dir$, name$, type$
+  index%=directoryindex%
+  REPEAT
+    index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid directory window"
+    STOP
+  UNTILdirectory%(index%)=handle%
+  dir$=directory$(index%)
+  IFicon%>=0 PROCfilehandler_name_type(handle%,icon%, name$,type$)
+  filehandler_path$=dir$
+  filehandler_name$=name$
+  filehandler_type$=type$
+  CASETRUE OF
+   WHEN(button%AND&400)=&400 ANDicon%>=0
+    PROCfilehandler_selectobject(dir$+"."+name$,type$,handle%,icon%OR1)
+   WHEN(button%AND&2)=&2
+    IFselectindex%=0 PROCsys_definetextmenu("filehandler","File menu","New dir.|<Copy to|<Move to|<Delete|<Rename")
+    IFselectindex%<>0 PROCsys_definetextmenu("filehandler","File menu","New dir.|Copy to|Move to|Delete|Rename")
+   WHEN(button%AND&100)=&100 ANDfilehandler_type$="directory"
+    LOCALfilehandler%
+    filehandler%=FNfilehandler_open_dir(filehandler_path$+"."+filehandler_name$,filehandler_name$)
+    IFfilehandler% >=0 PROCpopup(filehandler%)
+   WHEN(button%AND&100)=&100 ANDicon%>=0 
+     PROCfilehandler_open_file(dir$,name$,type$)
+   WHEN(button%AND4)=4 ANDfilehandler_type$="directory"
+    PROCfilehandler_selectobject(dir$+"."+name$,type$,handle%,icon%OR1)
+    LOCALfilehandler%
+    filehandler%=FNfilehandler_open_dir(filehandler_path$+"."+filehandler_name$,filehandler_name$)
+    IFfilehandler% >=0 PROCpopup(filehandler%)
+   WHEN(button%AND4)=4 ANDicon%>=0 
+     PROCfilehandler_selectobject(dir$+"."+name$,type$,handle%,icon%OR1)
+     PROCfilehandler_open_file(dir$,name$,type$)
+   ENDCASE
+ =0
+
+ DEFFNmenuselect_filehandler
+  filehandler_dest_path$=filehandler_path$
+  filehandler_dest_name$=""
+  CASEitem0% OF
+     WHEN-1
+     WHEN0
+      PROCfilehandler_createdirectory
+     WHEN1
+      PROCfilehandler_copyselection
+     WHEN2
+      PROCfilehandler_moveselection
+     WHEN3
+      PROCfilehandler_deleteselection
+     WHEN4
+      PROCfilehandler_renameselection
+  ENDCASE
+ =0
+
+ DEFPROCfilehandler_name_type(handle%,entry%, RETURN name$, RETURN type$)
+  LOCALi%
+  PROCsys_geticoninfo(handle%,entry%AND-2, i%,type$)
+  PROCsys_geticoninfo(handle%,entry%OR1, i%,name$)
+ ENDPROC
+  
+ DEFPROCfilehandler_open_file(dir$,name$,type$)
+  filehandler_srce$=dir$+"."+name$
+  filehandler_command%=&700
+  PROCsys_yesnobox("filehandler","Do you really want to","run file "+name$+"?","")
+ ENDPROC
+
+ DEFFNfilehandler_open_dir(dir$,title$)
+  LOCALfound%, filehandler%
+  found%=FNsys_searchS(dir$,directory$(),directoryindex%)
+  IFfound%>=0 
+  =directory%(found%)
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =-1
+  filehandler%=FNsys_definewindow("filehandler",title$,&1F,7,0 ,1280,1024, 0,0,1000,460)
+  ONERRORLOCAL
+   PROCdelete(filehandler%)
+   PROCfilehandler_report
+   =-1
+  PROCsys_setwindowextent(0,-156*37-32,1238,0)
+  PROCfilehandler_filldirwindow(dir$,filehandler%)
+  directory%(directoryindex%)=filehandler%
+  directory$(directoryindex%)=dir$
+   directorymark%(directoryindex%)=0
+  directoryindex%+=1
+ =filehandler%
+
+ DEFPROCfilehandler_updatealldirwindows
+  LOCALi%,found%
+  FORi%=1 TO 4
+    found%=FNsys_searchI(i%,directorymark%(),directoryindex%)
+    WHILE found%>=0
+      PROCfilehandler_updatedirwindow(directory$(found%),directory%(found%),directorymark%(found%))
+      found%=FNsys_searchI(i%,directorymark%(),directoryindex%)
+    ENDWHILE
+  NEXT
+ ENDPROC
+
+ DEFPROCfilehandler_update(dir$)
+  LOCALfound%
+  found%=FNsys_searchS(dir$,directory$(),directoryindex%)
+  IFfound%>=0 THEN
+    directorymark%(found%)=-1
+    PROCfilehandler_updatedirwindow(dir$,directory%(found%))
+    directorymark%(found%)=0
+  ENDIF
+ ENDPROC
+
+ DEFPROCfilehandler_updatedirwindow(dir$,handle%, RETURN mark%)
+  LOCALdat2%,type%
+  LOCALERROR
+  CASEmark% OF
+    WHEN0,1,3
+    ONERRORLOCAL
+     mark%=-1
+     PROCclose_window(handle%)
+     PROCfilehandler_report
+     ENDPROC
+    WHEN2,4
+    ONERRORLOCAL
+     PROCclose_window(handle%)
+     ENDPROC
+    WHEN-1
+    ONERRORLOCAL
+     ENDPROC
+ ENDCASE
+  SYSFile,5,dir$ TO type%
+  IFtype%<>2 PROCclose_window(handle%)
+   ENDPROC
+  dat2%=data
+   !b=handle%
+  SYSWhichI,handle%,dat2%,0,0
+  
+  WHILE !dat2% <> -1
+    b!4=!dat2%
+     SYSDeleteI,0,b
+     dat2%+=4
+  ENDWHILE
+  PROCfilehandler_filldirwindow(dir$,handle%)
+   mark%=0
+  PROCsys_forceredraw(handle%)
+ ENDPROC
+
+ DEFPROCfilehandler_filldirwindow(dir$,handle%)
+  LOCALinstallL%,installB%,installR%,installT%,installM%
+  LOCALfileindex%,filename$,filetype%,filetype$,numread%
+  LOCALselected%
+  installT%=130
+   installM%=installT%-100
+   installB%=installM%-32
+  SYSMultiple,10,dir$,data,1,fileindex%,500,"*" TO ,,,numread%
+  WHILE numread%=1
+    filename$=FNstring_zero(data+20)
+     filetype%=data!16
+    CASEfiletype% OF
+      WHEN1
+      CASE(data!1) AND&FFF OF
+        WHEN&FFF   ,&FFE,&FFD,&FFC,&FFA,&FF9 
+         filetype$="file"
+        WHEN&FFB 
+         filetype$="file_basic"
+        WHEN&FEF 
+         filetype$="diary"
+        WHEN&FEE 
+         filetype$="notepad"
+        WHEN&FED 
+         filetype$="palette"
+        WHEN&FE0 
+         filetype$="access"
+        OTHERWISE 
+         filetype$="file"
+      ENDCASE
+      WHEN2 
+       filetype$="directory"
+      OTHERWISE MODE12
+       PRINT"Unknown filetype "; filetype%
+       STOP
+    ENDCASE
+    selected%=FNfilehandler_selected(dir$+"."+filename$) AND&200000
+    IF(fileindex% MOD7)=0 installL%=12
+     installR%=installL%+10*16
+     installB%-=156
+     installM%-=156
+     installT%-=156
+    PROCsys_defineicon(installL%+2*16,installM%,installR%-2*16,installT%,&A03A,7,1,filetype$)
+    PROCsys_defineicon(installL%,installB%,installR%,installM%,&A029ORselected%,7,1,filename$)
+    installL%+=11*16
+     installR%+=11*16
+     fileindex%+=1
+    SYSMultiple,10,dir$,data,1,fileindex%,500,"*" TO ,,,numread%
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCfilehandler_mark(dir$,mark%)
+  LOCALfound%
+  found%=FNsys_searchS(dir$,directory$(),directoryindex%)
+  IFfound%>=0 directorymark%(found%)=mark%
+ ENDPROC
+
+ DEFPROCfilehandler_selectobject(name$,type$,handle%,icon%)
+  LOCALfound%
+  found%=FNsys_searchS(name$,selectname$(),selectindex%)
+  IFfound%<0 THEN
+    IFselectindex%>DIM(selectname$(),1) THEN
+      filehandler_command%=&081
+      PROCsys_warningbox("filehandler","Don't select any more files","","","o--")
+      ENDPROC
+    ENDIF
+    selectname$(selectindex%)=name$
+     selecttype$(selectindex%)=type$
+    selectindex%+=1
+    PROCsys_seticonstate(handle%,icon%,&00200000,&00200000)
+  ENDIF
+  IFfound%>=0 THEN
+    PROCsys_removeSS(found%,selectname$(),selecttype$(),selectindex%)
+    PROCsys_seticonstate(handle%,icon%,&00000000,&00200000)
+  ENDIF
+ ENDPROC
+
+ DEFPROCfilehandler_deselectobject(path$,name$)
+  LOCALhandle%,iname$,itype$,i%
+  handle%=FNsys_searchS(path$,directory$(),directoryindex%)
+  IFhandle%<0 ENDPROC
+  handle%=directory%(handle%)
+   i%=-1
+  REPEAT
+    i%+=2
+    
+    PROCfilehandler_name_type(handle%,i%, iname$,itype$)
+  UNTILname$=iname$
+  PROCsys_seticonstate(handle%,i%,&00000000,&00200000)
+ ENDPROC
+
+ DEFPROCfilehandler_copyselection
+  LOCALsubdir%,file%,dir%
+  PROCfilehandler_nextitem(dir%,file%)
+  subdir%=INSTR(filehandler_dest_path$,filehandler_srce$+".")=1
+  subdir%=subdir% ORfilehandler_srce$=filehandler_dest_path$
+  filehandler_dest_name$=filehandler_srce_name$
+  samedir%=filehandler_srce_path$=filehandler_dest_path$
+  CASETRUE OF
+    WHENsubdir% 
+     filehandler_command%=&3FE
+    PROCsys_warningbox("filehandler","I can't copy directory "+filehandler_srce_name$,"as it contains the destination","","o--")
+    WHENsamedir% ANDfile%
+     filehandler_command%=&306
+    PROCfilehandler_renamebox("filehandler","COPY","File",filehandler_srce_name$,"as")
+    WHENsamedir% ANDdir% 
+     filehandler_command%=&307
+    PROCfilehandler_renamebox("filehandler","COPY","Dir.",filehandler_srce_name$,"as")
+    WHENfile% 
+     filehandler_command%=&300
+    PROCsys_yesnobox("filehandler","Do you really want to","copy file "+filehandler_srce_name$+"?","")
+    WHENdir%  
+     filehandler_command%=&301
+    PROCsys_yesnobox("filehandler","Do you really want to","copy directory "+filehandler_srce_name$+"?","")
+    OTHERWISE  
+     filehandler_command%=&3FD
+    PROCsys_warningbox("filehandler","I can't copy "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_moveselection
+  LOCALsubdir%,file%,dir%,samedir%
+  PROCfilehandler_nextitem(dir%,file%)
+  subdir%=INSTR(filehandler_dest_path$,filehandler_srce$+".")=1
+  subdir%=subdir% ORfilehandler_srce$=filehandler_dest_path$
+  filehandler_dest_name$=filehandler_srce_name$
+  samedir%=filehandler_srce_path$=filehandler_dest_path$
+  CASETRUE OF
+    WHENsubdir%
+     filehandler_command%=&2FE
+    PROCsys_warningbox("filehandler","I can't move directory "+filehandler_srce_name$,"as it contains the destination","","o--")
+    WHENsamedir% ANDfile%
+     filehandler_command%=&206
+    PROCfilehandler_renamebox("filehandler","MOVE","File",filehandler_srce_name$,"as")
+    WHENsamedir% ANDdir% 
+     filehandler_command%=&207
+    PROCfilehandler_renamebox("filehandler","MOVE","Dir.",filehandler_srce_name$,"as")
+    WHENfile% 
+     filehandler_command%=&200
+    PROCsys_yesnobox("filehandler","Do you really want to","move file "+filehandler_srce_name$+"?","")
+    WHENdir%  
+     filehandler_command%=&201
+    PROCsys_yesnobox("filehandler","Do you really want to","move directory "+filehandler_srce_name$+"?","")
+    OTHERWISE  
+     filehandler_command%=&2FD
+    PROCsys_warningbox("filehandler","I can't move "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_deleteselection
+  LOCALdir%,file%
+  PROCfilehandler_nextitem(dir%,file%)
+  CASETRUE OF
+    WHENfile% 
+     filehandler_command%=&100
+    PROCsys_yesnobox("filehandler","Do you really want to","delete file "+filehandler_srce_name$+"?","")
+    WHENdir%  
+     filehandler_command%=&101
+    PROCsys_yesnobox("filehandler","Do you really want to","delete directory "+filehandler_srce_name$+"?","")
+    OTHERWISE 
+     filehandler_command%=&1FE
+    PROCsys_warningbox("filehandler","I can't delete "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_renameselection
+  LOCALdir%,file%
+  PROCfilehandler_nextitem(dir%,file%)
+  filehandler_dest_path$=filehandler_srce_path$
+  CASETRUE OF
+    WHENfile%
+     filehandler_command%=&406
+    PROCfilehandler_renamebox("filehandler","RENAME","File",filehandler_srce_name$,"as")
+    WHENdir% 
+     filehandler_command%=&407
+    PROCfilehandler_renamebox("filehandler","RENAME","Dir.",filehandler_srce_name$,"as")
+    OTHERWISE 
+     filehandler_command%=&4FE
+    PROCsys_warningbox("filehandler","I can't rename "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_createdirectory
+  filehandler_command%=&907
+  PROCfilehandler_renamebox("filehandler","Create dir.","","","Dir.")
+ ENDPROC
+
+ DEFPROCfilehandler_path_name(filename$, RETURN path$,RETURN name$)
+  name$=filename$
+  WHILE INSTR(name$,".")>0
+    name$=RIGHT$(name$, LENname$-INSTR(name$,"."))
+  ENDWHILE
+  path$=LEFT$(filename$, LENfilename$-LENname$-1)
+ ENDPROC
+
+ DEFFNfilehandler_selected(name$)
+  IFselectindex%=0 
+  =FALSE
+  LOCALi%
+   i%=selectindex%
+  REPEATi%-=1
+  UNTILi%=0 ORselectname$(i%)=name$
+  =(selectname$(i%)=name$)
+
+ DEFPROCfilehandler_nextitem(RETURN dir%, RETURN file%)
+  IFselectindex%<=0 ERROR&0100000C,"No selected file"
+  filehandler_command%=-1
+  filehandler_srce$=selectname$(0)
+   filehandler_type$=selecttype$(0)
+  PROCfilehandler_path_name(filehandler_srce$,filehandler_srce_path$,filehandler_srce_name$)
+  PROCsys_removeSS(0,selectname$(),selecttype$(),selectindex%)
+  dir%=filehandler_type$="directory"
+  file%=NOTdir%
+ ENDPROC
+
+ DEFFNdialogueselect_filehandler
+  LOCALyes%,no%
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =0
+  yes%=icon%=0
+   no%=icon%=1
+  CASEfilehandler_command% OF
+    WHEN&080
+     PROCfilehandler_updatealldirwindows
+     PROCsys_closedialogue
+    =0
+    WHEN&081
+     PROCsys_closedialogue
+    =0
+  ENDCASE
+  IFyes% THEN
+    CASEfilehandler_command% OF
+      WHEN&200,&201,&300,&301
+      filehandler_dest$=filehandler_dest_path$+"."+filehandler_dest_name$
+      WHEN&206,&207,&306,&307,&406,&407,&907
+      filehandler_dest$=filehandler_dest_path$+"."+$data
+    ENDCASE
+    CASEfilehandler_command% OF
+      WHEN&100,&101 
+       PROCfilehandler_mark(filehandler_srce_path$,3)
+      WHEN&200,&201,&300,&301
+      PROCfilehandler_mark(filehandler_srce_path$,3)
+      PROCfilehandler_mark(filehandler_dest_path$,1)
+      WHEN&206,&207,&306,&307,&406,&407,&907
+      PROCfilehandler_mark(filehandler_dest_path$,1)
+    ENDCASE
+    CASEfilehandler_command% OF
+      WHEN&100
+      PROCoscli("ACCESS "+filehandler_srce$)
+      PROCoscli("DELETE "+filehandler_srce$)
+      WHEN&101
+      PROCfilehandler_delete_dir(filehandler_srce$)
+      WHEN&200,&206,&406
+      PROCoscli("ACCESS "+filehandler_srce$+" WR")
+      PROCoscli("RENAME "+filehandler_srce$+" "+filehandler_dest$)
+      WHEN&201,&207,&407
+      PROCfilehandler_rename_dir(filehandler_srce$,filehandler_dest$)
+      WHEN&300,&306
+      PROCoscli("COPY "+filehandler_srce$+" "+filehandler_dest$)
+      WHEN&301,&307
+      PROCoscli("COPY "+filehandler_srce$+" "+filehandler_dest$+" R")
+      WHEN&600
+       PROCfilehandler_logon
+      WHEN&700
+      MOVE0,-500
+       OSCLI"FX200"
+      PROCoscli("RUN "+filehandler_srce$)
+       RUN
+      WHEN&800
+       filehandler_command%=&801
+      PROCsys_warningbox("filehandler","Formatting this disc","will destroy","any data on it","oq-")
+      WHEN&801
+       filehandler_command%=&802
+      MOVE0,-200
+       PROCoscli("FORMAT "+filehandler_srce$+" D Y")
+      PROCsys_warningbox("filehandler","Formatting complete","","","o--")
+      WHEN&802
+      PROCsys_closedialogue
+      WHEN&907
+      PROCoscli("CDIR "+filehandler_dest$)
+    ENDCASE
+  ENDIF
+  IF(filehandler_command% AND&80)>0 ORNOTyes% THEN
+    CASEfilehandler_command% AND&FF00 OF
+      WHEN&100,&200,&300,&400
+      PROCfilehandler_deselectobject(filehandler_srce_path$,filehandler_srce_name$)
+      WHEN&700 
+       PROCsys_closedialogue
+      WHEN&800 
+       PROCsys_closedialogue
+    ENDCASE
+  ENDIF
+  CASEfilehandler_command% AND&FF00 OF
+    WHEN&100,&200,&300,&400
+    IFselectindex%=0 THEN
+      PROCsys_closedialogue
+       PROCfilehandler_updatealldirwindows
+      =0
+    ENDIF
+  ENDCASE
+  PROCfilehandler_updatealldirwindows
+  CASEfilehandler_command% AND&FF00 OF
+    WHEN&100 
+     PROCfilehandler_deleteselection
+    WHEN&200 
+     PROCfilehandler_moveselection
+    WHEN&300 
+     PROCfilehandler_copyselection
+    WHEN&400 
+     PROCfilehandler_renameselection
+    WHEN&600,&900 
+     PROCsys_closedialogue
+  ENDCASE
+  =0
+
+ DEFPROCfilehandler_rename_dir(from$,to$)
+  LOCALi%
+  PROCoscli("ACCESS "+from$)
+  PROCoscli("RENAME "+from$+" "+to$)
+  PROCoscli("ACCESS "+to$+" DL")
+  FORi%=0 TO directoryindex%-1
+    CASETRUE OF
+      WHENdirectory$(i%)=from$
+       directory$(i%)=to$
+      WHENINSTR(directory$(i%),from$+".")=1
+      directory$(i%)=to$+MID$(directory$(i%),1+LENfrom$)
+      directorymark%(i%)=2
+    ENDCASE
+  NEXT
+  i%=0 
+  
+  WHILE i%<selectindex%
+    IFINSTR(selectname$(i%),from$+".")=1 THEN
+      selectname$(i%)=to$+MID$(selectname$(i%),1+LENfrom$)
+    ENDIF
+    i%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCfilehandler_delete_dir(dir$)
+  LOCALi%
+  i%=selectindex%-1     
+  WHILE i%>=0
+    IFINSTR(selectname$(i%),dir$+".")=1 PROCsys_removeSS(i%,selectname$(),selecttype$(),selectindex%)
+    i%-=1
+  ENDWHILE
+  FORi%=0 TO directoryindex%-1
+    IFINSTR(directory$(i%)+".",dir$+".")=1 directorymark%(i%)=2
+  NEXT
+  PROCoscli("WIPE "+dir$+" FR")
+ ENDPROC
+
+ DEFPROCfilehandler_logon
+  LOCALstr$
+  IF$fsptr%<>"" str$=":"+$fsptr%+" "
+  str$+=$urptr%+" "+$psptr%
+  IFstr$=STRING$(LENstr$," ") ENDPROC
+  IFstr$=":"+STRING$(LEN(str$)-1," ") ENDPROC
+  PROCoscli("-NET-LOGON"+str$)
+  network%=FNfilehandler_open_dir("-net-&","Econet")
+  IFnetwork% >=0 PROCpopup(network%)
+ ENDPROC
+
+ DEFPROCfilehandler_formatfloppy(drive$)
+  filehandler_command%=&800
+  filehandler_srce$=drive$
+  PROCsys_yesnobox("filehandler","Do you really want to","format drive "+drive$+"?","")
+ ENDPROC
+
+ DEFPROCfilehandler_renamebox(suffix$,text0$,text1$,text2$,text3$)
+  LOCALboxW%,boxH%
+  LOCALbutL%,butB%,butR%,butT%, butW%
+  boxW%=22*16
+  boxH%=9*32 +32* 2*((text1$="") AND(text2$=""))
+  butW%=16*4
+  butL%=(boxW%-butW%)/2
+  butR%=butL%+butW%
+  B0%=-32*2
+  B1%=-32*4
+  B2%=-32*6
+  B3%=16-boxH%
+  T1%=B1%+48
+  T2%=B2%+48
+  T3%=B3%+48
+  IFtext1$="" ANDtext2$="" B2%=B1%
+  T2%=T1%
+  L0%=16*2
+  L1%=16*9
+  L3%=L0%
+  R0%=16*8
+  R1%=16*(9+11)
+  R3%=L3%+16*6
+  R2%=R1%
+  L2%=R2%-16*6
+  butB%=16-boxH%
+  butT%=butB%+48
+  PROCsys_createdialogue(suffix$,boxW%,boxH%)
+  PROCsys_defineicon(L3%,B3%,R3%,T3%,&403D,7,1,"OK")
+  PROCsys_defineicon(L2%,B3%,R2%,T3%,&403D,7,1,"Quit")
+  $data=""
+  PROCsys_defineiconW(L1%,B2%,R1%,T2%,&F11D,7,1, data,-1,11)
+  PROCsys_defineicon(L0%,B2%,R0%,T2%,&0011,7,1,text3$)
+  IFtext1$<>"" PROCsys_defineicon(L0%,B1%,R0%,T1%,&0011,7,1,text1$)
+  PROCsys_defineicon(0,B0%,boxW%,0,&0039,7,1,text0$)
+  IFtext2$<>"" PROCsys_defineicon(L1%,B1%,R1%,T1%,&0011,7,1,text2$)
+  PROCsys_opendialogue
+  PROCsys_claiminputfocus(handle%,2, 0,0,-1,0)
+ ENDPROC
+
+ DEFPROCfilehandler_logonbox
+  LOCALboxW%,boxH%,slt0W%,slt1W%,slotH%
+  LOCALbutL%,butB%,butR%,butT%, butW%
+   B0%=-32*2
+   B1%=-32*4
+   B2%=-32*6
+   B3%=-32*8
+   B4%=-32*10
+   T1%=B1%+48
+   T2%=B2%+48
+   T3%=B3%+48
+   T4%=B4%+48
+   boxH%= 2*16-B4%
+   L0%=2*16
+   R0%=L0%+13*16
+   L1%=R0%+2*16
+   R1%=L1%+22*16
+   boxW%=R1%+2*16
+  PROCsys_createdialogue("filehandler",boxW%,boxH%)
+  PROCsys_defineicon(L0%,B4%,R0%,T4%,&403D,7,1,"OK")
+  PROCsys_defineicon(L1%,B4%,R1%,T4%,&403D,7,1,"Quit")
+  PROCsys_defineicon(L0%,B1%,R0%,T1%,&0011,7,1,"File server")
+  PROCsys_defineicon(L0%,B2%,R0%,T2%,&0011,7,1,"User name  ")
+  PROCsys_defineicon(L0%,B3%,R0%,T3%,&0011,7,1,"Password   ")
+  PROCsys_defineiconW(L1%,B1%,R1%,T1%,&F11D,7,1, fsptr%,-1,17)
+  PROCsys_defineiconW(L1%,B2%,R1%,T2%,&F11D,7,1, urptr%,-1,22)
+  PROCsys_defineiconW(L1%,B3%,R1%,T3%,&F11D,7,1, psptr%,-1,7) 
+  PROCsys_defineicon(0,B0%,boxW%,0,&0039,7,1,"Logon")
+  PROCsys_opendialogue
+  PROCsys_claiminputfocus(handle%,6, 0,0,-1,0)
+  filehandler_command%=&600
+ ENDPROC
+
+ DEFFNfilehandler_loadfile(filename$,start%,end%,type%)
+  LOCALpath$,name$,numread%,dir%,file%
+  LOCALobj%,adr%,exe%,len%
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =TRUE
+  IFfilename$="" THEN
+    PROCfilehandler_nextitem(dir%,file%)
+    filename$=filehandler_srce$
+  ENDIF
+  PROCfilehandler_path_name(filename$,path$,name$)
+  PROCfilehandler_mark(path$,1)
+  SYSFile,5,filename$ TO obj%,,adr%,exe%,len%
+  IFobj%=0  ERROR&01000008,"File not found"
+  IFobj%<>1 ERROR&01000009,"Not a file"
+  IFadr%>=0 OR((adr%>>8)AND&FFF)<>type% ERROR&0100000A,"Wrong file type"
+  IFlen%>(end%-start%) ERROR&0100000B,"File too big"
+  OSCLI"LOAD "+filename$+" "+STR$~start%
+  PROCfilehandler_updatealldirwindows
+  =FALSE
+
+ DEFFNfilehandler_savefile(name$,start%,end%,typ%)
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =TRUE
+  directorymark%()=1
+  OSCLI"SAVE "+name$+" "+STR$~start%+" "+STR$~end%
+  OSCLI"SETTYPE "+name$+" &"+STR$~typ%
+  OSCLI"STAMP "+name$
+  PROCfilehandler_updatealldirwindows
+  =FALSE
+
+ DEFPROCfilehandler_report
+  IFERR=17 VDU4
+   PRINT TAB(0,1);"filehandler_report sez : ";REPORT$;"  "
+   END                                                   
+  filehandler_command%=&080
+  PROCsys_warningbox("filehandler","System reported error",REPORT$,"","o-w")
+ ENDPROC
+
+ DEFPROCoscli(str$)
+  OSCLIstr$
+ ENDPROC
+ 
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+         
+ REM > Acc*.NoteLib : crunched
+ (c) Acorn Computers 1987
+ Version 0.5
+  
+ DEFFNinstall_file_NoteLib
+ text_maxllen%=78
+ text_maxrows%=100
+ text_blocksize%=&2000
+ text_original%=TRUE
+ DIMtext_ptr%(text_maxrows%)
+ DIMdefault_text_block% text_blocksize%+300
+ text_block%=default_text_block%
+ text_end%=text_block%+text_blocksize%
+ dummy_text$=""
+ FORI%=0 TO text_maxrows%
+   $(text_block%+I%*(LEN(dummy_text$)+1))=dummy_text$
+ NEXT
+ PROCfindptrs
+ chX%=16
+ chY%=40
+ text_row%=0
+ text_col%=1
+ text_old_row%=0
+ text_old_col%=1
+ text_curaction%=3:
+ text_curcolour%=7
+ text_cur%=TRUE   :
+ text_curchar%=255
+ PROCsys_addtoiconbar("text","notepad",&301A,icon_fgcol,icon_bgcol,chX%*5)
+ =0
+
+ DEFFNselect_text
+ :
+ =0
+
+ DEFFNmenu_text
+ :
+ =0
+
+ DEFFNclose_text
+ :
+ =2
+
+ DEFFNaction_text
+ text%=FNsys_definewindow("text","Note-Pad",&300F,7,0,chX%*text_maxllen%,chY%*(1+text_maxrows%),0,0,320,256)
+ =text%
+
+ DEFFNredraw_text
+ LOCALI%,BR%,TR%
+ WHILE more%
+   BR%=(by%-b!32-4)DIVchY%
+   IFBR%>text_maxrows% BR%=text_maxrows%
+   TR%=((by%-b!40-4)DIVchY%)
+   IFTR%>text_maxrows% TR%=text_maxrows%
+   CLG
+   FORI%=TR% TO BR%
+     MOVEbx%,by%-chY%*I%-4
+     PRINT$text_ptr%(I%);
+   NEXT
+   SYSGetR,0,b TO more%
+ ENDWHILE
+ =0
+
+ DEFFNbutton_text
+ CASEbutton% OF
+   WHEN1
+   PROCsys_claiminputfocus(text%,-1,(text_col%-1)*chX%,-(0.75+text_row%)*chY%,&1000000 OR32,-1)
+   WHEN2
+   PROCtext_menubox
+   WHEN4
+   PROCsys_claiminputfocus(text%,-1,(text_col%-1)*chX%,-(0.75+text_row%)*chY%,&1000000 OR32,-1)
+ ENDCASE
+ =0
+
+ DEFPROCcursor(x%,y%)
+ PROCsys_claiminputfocus(text%,-1,(x%-1)*chX%,-(y%+0.75)*chY%,&1000000 OR32,-1)
+ ENDPROC
+
+ DEFFNkeypress_text
+ CASETRUE OF
+   WHENkey%=13
+   text_col%=1
+   text_row%+=1
+   IFtext_row%>text_maxrows% text_row%=text_maxrows%
+   WHENkey%=127
+   text_col%-=1
+   IFtext_col%<=0 text_col%=1
+   PROCtext_put(text_row%,text_col%," ")
+   PROCupdate(text%,chX%*(text_col%-1),-chY%*(text_row%+1),chX%*(text_col%),-chY%*text_row%)
+   void=FNredraw_text
+   text_original%=FALSE
+   WHENkey%=129
+   PROCinsert_line(text_row%)
+   PROCupdate(text%,0,-chY%*(1+text_maxrows%),1280,-chY%*(text_row%))
+   void=FNredraw_text
+   text_original%=FALSE
+   WHENkey%=145
+   PROCdelete_line(text_row%)
+   PROCupdate(text%,0,-chY%*(1+text_maxrows%),1280,-chY%*(text_row%))
+   void=FNredraw_text
+   text_original%=FALSE
+   WHENkey%=130
+   PROCinsert_char(text_row%,text_col%)
+   text_original%=FALSE
+   WHENkey%=146
+   PROCdelete_char(text_row%,text_col%)
+   text_original%=FALSE
+   WHENkey%=134
+   WHENkey%=136
+   CASETRUE OF
+     WHENINKEY(-2) :
+     text_col%=1
+     WHENINKEY(-1) :
+     text_col%-=4
+     OTHERWISE :
+     text_col%-=1
+   ENDCASE
+   IFtext_col%<=1 text_col%=1
+   text_cur%=TRUE
+   WHENkey%=137
+   CASETRUE OF
+     WHENINKEY(-2) :
+     text_col%=text_maxllen%
+     WHENINKEY(-1) :
+     text_col%+=4
+     OTHERWISE :
+     text_col%+=1
+   ENDCASE
+   IFtext_col%>text_maxllen% text_col%=text_maxllen%
+   WHENkey%=138
+   text_row%+=1
+   IFtext_row%>text_maxrows% text_row%=text_maxrows%
+   WHENkey%=139
+   text_row%-=1
+   IFtext_row%<=0 text_row%=0
+   WHENkey%>31
+   text_original%=FALSE
+   PROCtext_put(text_row%,text_col%,CHR$key%)
+   PROCcursor(text_col%+1,text_row%)
+   PROCupdate(text%,chX%*(text_col%-1),-chY%*(text_row%+1),chX%*(text_col%),-chY%*text_row%)
+   void=FNredraw_text
+   text_col%+=1
+   IFtext_col%>text_maxllen% THEN
+     IFFNword_wrap(text_row%) =FALSE THEN
+       PROCflush
+       PROCcursor(text_maxllen%,text_row%)
+       text_col%=text_maxllen%
+       PROCupdate(text%,chX%*(text_col%-1),-chY%*(text_row%+1),chX%*(text_col%+1),-chY%*(text_row%))
+       void=FNredraw_text
+     ENDIF
+   ENDIF
+   :
+   =0
+   OTHERWISE
+ ENDCASE
+ PROCcursor(text_col%,text_row%)
+ =0
+
+ DEFPROCflush
+ OSCLI"fx15,1"
+ ENDPROC
+
+ DEFFNtext_row(I%)
+ =$text_ptr%(I%)
+
+ DEFPROCtext_put(R%,C%,A$)
+ LOCALline$,D%,I%
+ line$=FNtext_row(R%)
+ CASETRUE OF
+   WHENLEN(line$)>=C%
+   MID$(line$,C%,1)=A$
+   $text_ptr%(R%)=line$
+   WHENLEN(line$)<C%
+   D%=C%-LEN(line$)
+   PROCblockmoveup(R%+1,D%)
+   PROCadjustptrs(R%+1,D%)
+   line$+=STRING$(D%," ")
+   MID$(line$,C%,1)=A$
+   $text_ptr%(R%)=line$
+ ENDCASE
+ ENDPROC
+
+ DEFPROCinsert_line(R%)
+ IFLEN($text_ptr%(text_maxrows%))<>0 ENDPROC
+ IFR%>=text_maxrows% ENDPROC
+ PROCblockmoveup(R%,1)
+ text_ptr%(R%)?(0)=13
+ PROCfindptrs
+ ENDPROC
+
+ DEFPROCdelete_line(R%)
+ LOCALline$
+ line$=$text_ptr%(R%)
+ CASETRUE OF
+   WHENR%=text_maxrows%
+   text_ptr%(R%)?0=13
+   OTHERWISE
+   PROCblockmovedown(R%+1,LEN(line$)+1)
+ ENDCASE
+ PROCfindptrs
+ ENDPROC
+
+ DEFPROCinsert_char(R%,C%)
+ LOCALline$
+ line$=$text_ptr%(R%)
+ IFLEN(line$)<text_maxllen% THEN
+   line$=LEFT$(line$,C%-1)+" "+MID$(line$,C%)
+   PROCblockmoveup(R%+1,1)
+   $text_ptr%(R%)=line$
+   PROCfindptrs
+   PROCupdate(text%,0,-chY%*(text_row%+1),1280,-chY%*(text_row%))
+   void=FNredraw_text
+ ENDIF
+ ENDPROC
+
+ DEFPROCdelete_char(R%,C%)
+ LOCALline$
+ line$=$text_ptr%(R%)
+ IFLEN(line$)<>0 THEN
+   line$=LEFT$(line$,C%-1)+MID$(line$,C%+1)
+   $text_ptr%(R%)=line$
+   PROCblockmovedown(R%+1,1)
+   PROCfindptrs
+   PROCupdate(text%,0,-chY%*(text_row%+1),1280,-chY%*text_row%)
+   void=FNredraw_text
+ ENDIF
+ ENDPROC
+
+ DEFFNword_wrap(R%)
+ LOCALline$,I%,flag%
+ line$=FNtext_row(R%)
+ I%=1:
+ flag%=TRUE
+ WHILE flag%
+   IFASC(RIGHT$(line$,I%))=ASC" " flag%=FALSE ELSE:
+   I%+=1
+   IFI%>LEN(line$) flag%=FALSE
+ ENDWHILE
+ IFI%>LEN(line$) :
+ =FALSE
+ IFR%=text_maxrows% :
+ =FALSE
+ IFLEN($text_ptr%(text_maxrows%))<>0 :
+ =FALSE
+ PROCinsert_line(R%+1) :
+ 
+ text_ptr%(R%)?(LEN(line$)-I%)=13
+ text_ptr%(R%+1)?(-1)=32
+ text_ptr%(R%+1)-=I%
+ PROCupdate(text%,0,-chY%*(1+text_maxrows%),1280,-chY%*(text_row%))
+ text_col%=I%
+ text_row%+=1
+ void=FNredraw_text
+ PROCcursor(text_col%,text_row%)
+ :
+ =TRUE
+
+ DEFPROCblockmoveup(R%,D%)
+ LOCALI%,S%,E%
+ IFR%>text_maxrows% ENDPROC
+ S%=text_ptr%(R%)
+ E%=text_ptr%(text_maxrows%)+LEN($text_ptr%(text_maxrows%))
+ E%+=4-((E%-S%)AND3)
+ IFE%+D%>text_end% ENDPROC
+ FORI%=E% TO S% STEP -4
+   I%!D%=!I%
+ NEXT
+ ENDPROC
+
+ DEFPROCblockmovedown(R%,D%)
+ LOCALI%,S%,E%
+ IFR%>text_maxrows% ENDPROC
+ S%=text_ptr%(R%)
+ E%=text_ptr%(text_maxrows%)+LEN($text_ptr%(text_maxrows%))
+ FORI%=0TO255STEP4:
+ I%!E%=&0D0D0D0D:
+ NEXT
+ E%+=4-((E%-S%)AND3)
+ D%=-D%
+ FORI%=S% TO E% STEP 4
+   I%!D%=!I%
+ NEXT
+ ENDPROC
+
+ DEFPROCadjustptrs(R%,D%)
+ LOCALI%
+ IFR%>text_maxrows% ENDPROC
+ FORI%=R% TO text_maxrows%
+   text_ptr%(I%)+=D%
+ NEXT
+ ENDPROC
+
+ DEFPROCfindptrs
+ LOCALI%,L%
+ L%=text_block%
+ text_ptr%(0)=text_block%
+ FORI%=1 TO text_maxrows%
+   WHILE ?L% <> 13 :
+   L%+=1:
+   ENDWHILE
+   L%+=1
+   text_ptr%(I%)=L%
+ NEXT
+ ENDPROC
+
+ DEFPROCtext_menubox
+ PROCsys_definetextmenu("text","Note Pad","Load|Save|Print")
+ ENDPROC
+
+ DEFFNmenuselect_text
+ LOCALERROR
+ text_is_doing$=""
+ CASEitem0% OF
+   WHEN0
+   IFtext_original%=TRUE THEN
+     PROCtext_load
+     ELSE
+     text_is_doing$="load"
+     PROCsys_yesnobox("text","Do you really want to","load a new notepad?","")
+     =0
+   ENDIF
+   WHEN1
+   text_is_doing$="save"
+   PROCsys_yesnobox("text","Do you really want to","save this notepad?","")
+   =0
+   WHEN2
+   ONERRORLOCALOSCLI"FX3,0":
+   =0
+   OSCLI"FX3,10"
+   FORI%=0 TO text_maxrows%
+     PRINT $text_ptr%(I%)
+   NEXT
+   OSCLI"FX3,0"
+   =0
+ ENDCASE
+ RESTORE ERROR
+ =0
+
+ DEFFNdialogueselect_text
+ PROCsys_closedialogue
+ CASEicon% OF
+   WHEN0 :
+   
+   CASEtext_is_doing$ OF
+     WHEN"load"
+     PROCtext_load
+     WHEN"save"
+     PROCtext_save
+   ENDCASE
+   text_is_doing$=""
+   WHEN1 :
+   
+ ENDCASE
+ :
+ =0
+
+ DEFPROCtext_load
+ LOCALresult%
+ result%=FNfilehandler_loadfile("",text_block%,text_end%,&FEE)
+ IFresult% THEN
+   ENDPROC
+ ENDIF
+ text_original%=TRUE
+ PROCfindptrs
+ PROCsys_forceredraw(text%)
+ ENDPROC
+
+ DEFPROCtext_save
+ LOCALresult%
+ result%=FNfilehandler_savefile("&.NotePad",text_block%,text_end%,&FEE)
+ text_original%=TRUE
+ ENDPROC
+ 
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ REM > Acc*.PalLib : crunched
+ (c) Acorn Computers 1987
+ Version 0.5
+  
+ DEFFNinstall_file_PalLib
+ DIMpalblock% 3*20
+ palend%=palblock%+3*20
+ FORI%=0TO7
+   J%=(I% EOR&7) <<1
+   palblock%!(I%*3)=(J%<<4)+(J%<<12)+(J%<<20)
+ NEXT
+ FORI%=8TO15
+   CASEI% OF
+     WHEN8  :
+     J%=&408000
+     WHEN9  :
+     J%=&00F000
+     WHEN10 :
+     J%=&00F0F0
+     WHEN11 :
+     J%=&0000F0
+     WHEN12 :
+     J%=&00C000
+     WHEN13 :
+     J%=&0060B0
+     WHEN14 :
+     J%=&00C0C0
+     WHEN15 :
+     J%=&C00000
+   ENDCASE
+   palblock%!(I%*3)=J%
+ NEXT
+ palblock%!(16*3)=palblock%!(15*3)
+ DIMpal%(2)
+ palcolour%=-1:
+ palc2%=16
+ PROCsys_addtoiconbar("palette"   ,"palette",&301A,icon_fgcol,icon_bgcol,80)
+ =0
+
+ DEFFNselect_palette
+ =0
+
+ DEFFNmenu_palette
+ =0
+
+ DEFFNaction_palette
+ LOCALx%,y%
+ palette_slidercol%=icon_fgcol
+ pal%=FNsys_definewindow("palette","Palette",&23,7,0, 600,1024, 164,300,164+288,844)
+ PROCsys_defineicon( 16, -40,272,-16 ,&3084,icon_fgcol,icon_bgcol,"")
+ PROCsys_defineicon( 16, -72,272,-48 ,&3084,icon_fgcol,icon_bgcol,"")
+ PROCsys_defineicon( 16,-104,272,-80 ,&3084,icon_fgcol,icon_bgcol,"")
+ PROCsys_defineicon( 16,-448, 80,-400,&3025,icon_fgcol,icon_bgcol,"Bor")
+ PROCsys_defineicon( 80,-448,144,-400,&3025,icon_fgcol,icon_bgcol,"Ms1")
+ PROCsys_defineicon(144,-448,208,-400,&3025,icon_fgcol,icon_bgcol,"Ms2")
+ PROCsys_defineicon(208,-448,272,-400,&3025,icon_fgcol,icon_bgcol,"Ms3")
+ PROCsys_defineicon( 16,-528,136,-464,&3025,icon_fgcol,icon_bgcol,"Load")
+ PROCsys_defineicon(152,-528,272,-464,&3025,icon_fgcol,icon_bgcol,"Save")
+ FORy%=0 TO 3
+   FORx%=0 TO 3
+     PROCsys_defineicon(16+64*x%,-192-64*y%,80+64*x%,-128-64*y%,&3020,0,x%+4*y%,"")
+   NEXT
+ NEXT
+ paldrag%=-1
+ =pal%
+
+ DEFFNclose_palette
+ =1:
+
+ DEFFNuseraction_palette
+ IFpaldrag%<>-1 PROCgetpointer:
+  handle%=pal%:
+  icon%=paldrag%:
+  void=FNbutton_palette
+ =0
+
+ DEFFNquit_drag_palette
+ IFpaldrag%<>-1 THENpaldrag%=-1:
+  claimpoll$="" ELSESTOP
+ =0
+
+ DEFFNbutton_palette
+ IFicon%<>-1 THEN
+   IFicon%<3THEN
+     IFpaldrag%=-1THEN
+       paldrag%=icon%
+       PROCuserdrag(bx%+16,by%-40-32*icon%,bx%+272,by%-16-32*icon%)
+       claimpoll$="palette"
+     ENDIF
+     pal%(icon%)=(mousex%-bx%-8)DIV16*16
+     IFpal%(icon%)>255THENpal%(icon%)=255
+     IFpalc2%=16THEN
+       CASEpalcolour% OF
+         OTHERWISE:
+         VDU19,palcolour%,16,pal%(0),pal%(1),pal%(2)
+       ENDCASE
+       ELSEVDU19,palcolour%,palc2%,pal%(0),pal%(1),pal%(2)
+     ENDIF
+     PROCht(pal%,paldrag%,"*",icon_fgcol,icon_bgcol)
+     ELSEIFicon%<7THEN
+       PROCunhtpal
+       CASEicon% OF
+         WHEN3:
+         palcolour%=0:
+         palc2%=24
+         WHEN4:
+         palcolour%=1:
+         palc2%=25
+         WHEN5:
+         palcolour%=2:
+         palc2%=25
+         WHEN6:
+         palcolour%=3:
+         palc2%=25
+       ENDCASE
+       PROChtpal
+       PROCreadpal(palcolour%,palc2%):
+       PROCsetrgbvals(r%,g%,b%)
+       ELSEIFicon%<9THEN
+         IFicon%=7THENPROCxor(pal%,icon%,3):
+         PROCgetpalette:
+         PROCxor(pal%,icon%,1)
+         IFicon%=8THENPROCxor(pal%,icon%,3):
+         PROCputpalette:
+         PROCxor(pal%,icon%,1)
+         ELSE
+         PROCunhtpal
+         palcolour%=icon%-9:
+         palc2%=16
+         PROChtpal
+         PROCreadpal(palcolour%,16):
+         PROCsetrgbvals(r%,g%,b%)
+       ENDIF
+     ENDIF
+   ENDIF
+ ENDIF
+ =0
+
+ DEFPROCxor(handle%,icon%,ntimes%)
+ LOCALI%:
+ FORI%=1TOntimes%
+   !b=handle%:
+   b!4=icon%:
+   SYSGetI,0,b
+   b?11=b?27+(b?26<<4):
+   b!12=&FF000000:
+   SYSSetI,0,b
+ NEXT
+ ENDPROC
+
+ DEFPROCunhtpal
+ IFpalcolour%=-1THENENDPROC
+ IFpalc2%=16THENPROCht(pal%,palcolour%+9,"&3020",0,palcolour%):
+ ENDPROC
+ PROCht(pal%,palcolour%+3,"&3025",icon_fgcol,icon_bgcol)
+ ENDPROC
+
+ DEFPROChtpal
+ IFpalcolour%=-1THENENDPROC
+ IFpalc2%=16THENPROCht(pal%,palcolour%+9,"&3024",icon_fgcol,palcolour%):
+ ENDPROC
+ PROCht(pal%,palcolour%+3,"&3025",icon_bgcol,icon_fgcol)
+ ENDPROC
+
+ DEFPROCsetrgbvals(r%,g%,b%)
+ LOCALI%
+ pal%(0)=r%:
+ pal%(1)=g%:
+ pal%(2)=b%
+ FORI%=0TO2
+   PROCht(pal%,I%,"*",icon_fgcol,icon_bgcol)
+ NEXT
+ ENDPROC
+
+ DEFPROCreadpal(c%,c2%)
+ SYSReadPal,c%,c2% TO R0,R1,palette%
+ r%=(palette%>> 8)AND&FF
+ g%=(palette%>>16)AND&FF
+ b%=(palette%>>24)AND&FF
+ ENDPROC
+
+ DEFFNredraw_palette
+ WHILE more%
+   GCOL0,palette_slidercol% :
+   
+   FORI%=0TO2:
+   IFpal%(I%)>0THENRECTANGLEFILLbx%+16,by%-40-32*I%,pal%(I%)-1,23
+   NEXT
+ SYSGetR,0,b TO more%:
+ ENDWHILE
+ =0
+
+ DEFPROCgetpalette
+ result%=FNfilehandler_loadfile("&.!palette",palblock%,palend%,&FED)
+ FORI%=0TO19:
+ PROCgetpal(I%):
+ NEXT
+ ENDPROC
+
+ DEFPROCputpalette
+ LOCALresult%
+ FORI%=0TO19:
+ PROCputpal(I%):
+ NEXT
+ result%=FNfilehandler_savefile("&.!Palette",palblock%,palend%,&FED)
+ IFresult% THEN
+   ENDPROC
+ ENDIF
+ ENDPROC
+ ======================
+ LOCALERROR
+ ONERRORLOCAL:
+ ENDPROC
+ output=OPENOUT"&.!Palette"
+ ONERRORLOCALCLOSE#output:
+ ENDPROC
+ FORI%=0TO19:
+ PROCputpal(I%):
+ NEXT
+ CLOSE#output
+ ONERRORLOCAL:
+ ENDPROC
+ ENDPROC
+
+ DEFPROCgetpal(c%)
+ CASEc% OF
+   WHEN16:
+   c1%=0:
+   c2%=24
+   WHEN17:
+   c1%=1:
+   c2%=25
+   WHEN18:
+   c1%=2:
+   c2%=25
+   WHEN19:
+   c1%=3:
+   c2%=25
+   OTHERWISE:
+   c1%=c%:
+   c2%=16
+ ENDCASE
+ r%=palblock%?(c%*3)
+ g%=palblock%?(c%*3+1)
+ b%=palblock%?(c%*3+2)
+ VDU19,c1%,c2%,r%,g%,b%
+ IFc1%=palcolour%IFc2%=palc2% THENPROCsetrgbvals(r%,g%,b%)
+ ENDPROC
+
+ DEFPROCputpal(c%)
+ CASEc% OF
+   WHEN16:
+   c1%=0:
+   c2%=24
+   WHEN17:
+   c1%=1:
+   c2%=25
+   WHEN18:
+   c1%=2:
+   c2%=25
+   WHEN19:
+   c1%=3:
+   c2%=25
+   OTHERWISE:
+   c1%=c%:
+   c2%=16
+ ENDCASE
+ PROCreadpal(c1%,c2%)
+ palblock%?(c%*3)   =r%
+ palblock%?(c%*3+1) =g%
+ palblock%?(c%*3+2) =b%
+ ENDPROC
+
+ DEFPROCht(handle%,icon%,fl$,fc%,bc%)
+ LOCALmask%
+ IFfl$="*"THENfl%=0:
+ mask%=&FF000000 ELSEfl%=EVALfl$:
+ mask%=-1
+ !b=handle%:
+ b!4=icon%:
+ b!8=fl%:
+ b?11=fc%+(bc%<<4):
+ b!12=mask%:
+ SYSSetI,0,b
+ ENDPROC
+
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

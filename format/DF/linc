@@ -1,0 +1,5 @@
+join :4.format.l.kernel :4.format.l.DFwrite :4.format.l.DFread :4.format.l.DFsram -to c.l
+join $.alib.lib c.DFdata c.DFtransfer c.DFtabular c.DFgetkey c.DFindex c.DFprim -to c.m
+join c.m c.l c.DFmapform1 c.DFmapform2 c.DFmapform3 c.DFmapform4 -to :4.format.r.format
+*delete c.l
+*delete c.m

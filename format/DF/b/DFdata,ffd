@@ -1,0 +1,274 @@
+/**
+         USER DATA EXECUTIVE
+         -------------------
+
+         This section contains :
+
+            G.df.format
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.DFdata
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       12.03.87   1        MH          Initial version
+       19.03.87   2        MH          sideways ram initialisation
+       24.03.87   3        MH          split print and graphics cursors
+       30.03.87   4        MH          pointer off/return to BASIC
+       16.04.87   5        MH          $TEMP to %TEMP
+       21.05.87   6        SRY         Don't call aggregate
+                                       Add check for ip & op files same
+       16.06.87   7        SRY         Change %temp to !RS423
+       25.06.87   8        SRY         Add question for data compression
+                                       Add overwrite check
+        5.08.87   9        SRY         Change Domesday to DataMerge
+        4.09.87  10        SRY         Delete duff o/p file
+       21.09.87  11        SRY         DataFormat in banner
+       24.11.87  12        MH          Commented out G.df.init.SRAM and added
+                                       GETVEC for G.cachevec
+**/
+
+SECTION "user data"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.uthd"
+GET ":4.format.h.dfhd"
+GET ":4.format.h.kdhd"
+GET ":4.format.h.iophd"
+GET ":4.format.h.sdphd"
+
+let start() be G.df.format()
+
+/**
+         G.DF.FORMAT
+         -------------
+
+         Inputs the source and output filename, determines if a file
+         transfer is required and the type of formatting operation to
+         perform.
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.format[]
+         ---------------
+
+            turn pointer off
+            initialise sideways ram for use
+            read source filename
+            read output filename
+            if source filename = "/R" then
+               perform file transfer via RS432
+            endif
+            open files
+            if open operation successful then
+               read header identifier
+               if header identifier = 'T' then
+                  perform tabular operation
+               else if header identifier = 'A' or header identifier = 'G' then
+                  perform mappable operation
+               else
+                  error
+            endif
+            close files
+            split print and graphics cursor
+            call BASIC
+
+**/
+
+and G.df.format() be
+$( let source.file = vec 15
+   let output.file = vec 15
+   let dataset.type = ?
+
+   
+$<debug
+    debug(0) // enter debug
+$>debug       
+   setup.screen()
+   plot()
+   G.context := GETVEC(m.contextsize)
+   G.df := GETVEC(m.df.buffsize)
+   G.cachevec := GETVEC(m.io.cachesize/bytesperword)  // pseudo sideways ram
+   G.df!m.df.eof := false
+   G.df!m.df.err := false
+   G.ut.stream := 0
+   G.sc.pointer(m.sd.off) //turn pointer off
+//   G.df.init.sram() //initialise sideways ram   removed 24.11.87 MH
+   get.filename(source.file, "Source file:*s")
+      repeatwhile source.file%0 = 0
+   get.filename(output.file, "Output file:*s")
+      repeatwhile output.file%0 = 0
+
+   G.sc.clear(m.sd.display)
+   if compstring(source.file, output.file) = 0
+   $( G.df.ermess("Input and output filenames are the same")
+      goto exit
+   $)
+   if compstring(source.file, "/R") = 0 then
+   $( source.file := "!RS423"
+      unless check.overwrite(source.file,
+                           "Scratch file exists: overwrite (Y/N)? ") goto exit
+      G.sc.mess("Transfer via RS423 in progress")
+      G.df.receive() //transfer file
+      if G.df!m.df.err goto exit
+      G.sc.ermess("Transfer complete")
+   $)
+   if G.df.initr(source.file) = m.ut.success then
+   $(
+      if check.overwrite(output.file, "File already exists: overwrite (Y/N)? ")
+         if (G.df.initw(output.file) = m.ut.success)
+         $( dataset.type := G.df.rdch()
+            unless G.df.check.()
+            $( G.df.unrdch()
+               opt.() // determine if want compression
+               switchon dataset.type into
+               $( case 'T':
+                     G.df.tabular()
+                  endcase
+                  case 'A':
+                  case 'G':
+                     G.df.mapform()
+                  endcase
+                  default:
+                     G.df.ermess("File is not a dataset")
+               $)
+            $)
+            G.df.endw()
+            if g.df!m.df.err g.df.delete.file(output.file)
+         $)
+      G.df.endr()
+   $)
+
+   unless G.df!m.df.err
+      G.df.ermess("Output file: %s", output.file)
+
+exit:
+   FREEVEC(G.df)
+   FREEVEC(G.context)
+   FREEVEC(G.cachevec)
+   FREEVEC(G.sc.sprite.area/bytesperword) 
+     //Converted back to BCPL address N.B. see setup.screen
+   G.df.split.cursor()
+$)
+
+and check.overwrite(file, message) = valof
+$( let h = G.ud.open.if.can(file)
+   test h = 0
+   then resultis true
+   else $( let string = vec 1
+           G.dh.close(h)
+           get.string(message, string, 1)
+           test capch(string%1) = 'Y'
+           then resultis G.df.delete.file(file)
+           else $( G.df!m.df.err := true
+                   resultis false
+                $)
+        $)
+$)
+
+and get.string(message, string, chars) be
+$( G.sc.mess(message)
+   G.sc.movea(m.sd.message, G.sc.width(message)+8, m.sd.mesYtex)
+   string%0 := 0
+   G.key := m.kd.noact
+   G.sc.input(string, m.sd.blue, m.sd.cyan, chars)
+   $( G.key := getkey()
+      unless G.key = m.kd.noact
+      G.sc.input(string, m.sd.blue, m.sd.cyan, chars)
+   $) repeatuntil G.key = m.kd.return
+$)
+
+and get.filename(file.name, out.str) be
+$( let no.chars = ((m.sd.disw-(G.sc.width(out.str)+8))/m.sd.charwidth) - 1
+   get.string(out.str, file.name, no.chars)
+   unless file.name%0 = 0 then   // remove trailing spaces
+      while file.name%(file.name%0) = '*s' do
+         file.name%0 := file.name%0 - 1
+$)
+
+and opt.() be
+$( let out.str = "Do you want to compress the data (Y/N)? "
+   let string = vec 1
+   get.string(out.str, string, 1)
+   G.df!m.df.opt := (capch(string%1) = 'Y')
+$)
+
+and getkey() = VALOF
+$( let char = G.df.getkey()
+   unless G.ut.printingchar(char) | char = m.kd.return | char = m.kd.delete
+   $( G.sc.beep()
+      resultis m.kd.noact
+   $)
+   resultis char
+$)
+
+and plot() be
+$( G.sc.pointer(m.sd.off)
+   G.sc.selcol(m.sd.blue)
+   G.sc.movea(m.sd.display,0,0)
+   G.sc.rect(m.sd.plot,m.sd.disw-4,m.sd.dish-4)
+   G.sc.selcol(m.sd.cyan)
+   G.sc.movea(m.sd.display,64,64)
+   G.sc.rect(m.sd.plot,m.sd.disw-128,m.sd.dish-128)
+   G.sc.movea(m.sd.display,390,m.sd.dish-128-64)
+   G.sc.odrop("DataMerge")
+   G.sc.movea(m.sd.display,436,m.sd.dish-256-90)
+   G.sc.odrop("DataFormat")
+$)
+
+/*
+   Initialise display and sprite space
+*/
+AND setup.screen() BE
+$(
+   LET pb = VEC 7
+
+   // N.B. these two lines must occur before Mode change
+   OSByte(144,0,0)   // Set display position and interlace - mod for A500 PAC
+   OSByte(114,1,0)   // Set non shadow modes at next mode change
+
+   G.sc.mode(1)                  // mode 1, join cursors, default palette
+   G.sc.initialise.mouse()       // new mouse init
+
+
+   // get user sprite space from the system heap
+   G.sc.sprite.area := GETVEC( m.sd.sprite.ws.size/bytesperword )
+   IF G.sc.sprite.area = 0 THEN G.ut.abort( m.ut.init.abort+1 )
+
+   //
+   // N.B. the values used below are obtained by trial and error
+   // using a BASIC program. The Acorn documentation is insufficient.
+   // The really dodgy value is the 100, which is the offset to first
+   // sprite. See the reference manual for details of control block
+   //
+
+   G.sc.sprite.area!0 := m.sd.sprite.ws.size  // set up header info
+   G.sc.sprite.area!1 := 1                    // so that the SNEW
+   G.sc.sprite.area!2 := 100                  // command will initialise
+   G.sc.sprite.area   := G.sc.sprite.area * bytesperword // m/c address
+
+   pb!0 := G.sc.sprite.area        // R1 = sprite workspace 
+
+   UNLESS OsSprite( m.sd.clear.sprite.area, pb ) // initialise sprite area
+   DO G.ut.abort( m.ut.init.abort+2 )
+
+$)
+.

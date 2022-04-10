@@ -1,0 +1,7 @@
+*|
+*| Release tools to Winchester
+*|
+*copy r.Fix     :4.Library.Fix     ~CF
+*copy r.Replace :4.Library.Replace ~CF
+*copy r.Search  :4.Library.Search  ~CF
+*copy r.Convert :4.Library.Convert ~CF

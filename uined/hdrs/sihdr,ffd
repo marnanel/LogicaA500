@@ -1,0 +1,43 @@
+//
+//        SIHDR - STATE TABLE INITIALISATION HEADER
+//        -----------------------------------------
+//
+//        Mainfests for packed menu bar words
+//        Word offsets of starts of strings
+//        Byte size of total list
+//
+//        REVISION HISTORY:
+//
+//        DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//        02/11/87 1.00     BASIC.extract AUTO GENERATED
+//
+MANIFEST $(
+m.wArea=0
+m.wAreal=2
+m.wAreas=4
+m.wCategories=6
+m.wChart=9
+m.wClear=11
+m.wData=13
+m.wEnd=15
+m.wExit=16
+m.wFind=18
+m.wFirst=20
+m.wFormat=22
+m.wGrid=24
+m.wGridh=26
+m.wHelp=28
+m.wLabels=30
+m.wMain=32
+m.wNew=34
+m.wOut=35
+m.wRanges=36
+m.wSave=38
+m.wSystem=40
+m.wTabular=42
+m.wTop=44
+m.wVariables=45
+m.wBlank=#x1FF
+m.wtotallength=192
+$)
+

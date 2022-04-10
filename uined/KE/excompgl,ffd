@@ -1,0 +1,7 @@
+*| run compacter on globals header files
+*basic
+*dir :4.UINED
+LOAD ":4.UINED.basic.compgl"
+RUN
+glhd
+*| complete.

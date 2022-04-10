@@ -1,0 +1,8 @@
+*| aggregator link
+join :4.format.l.kernel :4.format.l.DFread :4.format.l.DFsram -to c.a
+*dir :4.format.DF.c
+join DFindex DFmapform4 DFgetkey -to :4.format.AG.c.b
+*back
+join $.alib.lib c.AGagg1 c.AGagg2 c.AGprim c.a c.b -to :4.format.r.aggregate
+*del.c.a
+*del.c.b

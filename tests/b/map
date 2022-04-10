@@ -1,0 +1,12 @@
+
+Section "MAP.dummy"
+
+GET "LIBHDR"      
+GET ":0.aes.gh.glhd"
+GET ":0.aes.gl.gldyhd"
+
+LET G.CM.dy.init() BE 
+$(                 
+   G.sc.mess("*nDummy Map : dy.init")
+   Backtrace()
+$) 

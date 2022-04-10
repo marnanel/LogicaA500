@@ -1,0 +1,2397 @@
+ 
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ This is McLibAr
+
+ LEADR &1000
+
+ GET $.ALib.BCPLMacs -> here it is...
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+pc              RN      15
+r14             RN      14
+rb              RN      8
+rl              RN      12
+rts             RN      11
+rp              RN      10
+rg              RN      9
+rgb             RN      7
+w1              RN      4
+w2              RN      5
+nil             RN      13
+nilbase         RN      6
+r0              RN      0
+a1              RN      1
+a2              RN      2
+a3              RN      3
+a4              RN      4
+
+; SWI calls
+KWrch           *       0
+KWrite0         *       2
+KNewline        *       3
+KRdch           *       4
+KCLI            *       5
+KByte           *       6
+KWord           *       7
+KFile           *       8
+KArgs           *       9
+KBget           *       &a
+KBput           *       &b
+Kgbpb           *       &c
+KFind           *       &d
+KControl        *       &f
+KReadEnv        *       &10
+KExit           *       &11
+KSetEnv         *       &12
+KCallBack       *       &15
+
+PSRBits         *       &fc000000
+OverflowBit     *       &10000000
+
+; 3rd argument (what to do) for SetEventHandler
+ev_ignore       *       0
+ev_set_flag     *       1
+ev_call_proc    *       2
+ev_buffer       *       3
+
+        GBLA    xxrelocs
+        GBLA    xxglobs
+        GBLA    xxtopglobal
+        GBLA    tempa
+        GBLS    temps
+xxrelocs SETA   0
+xxglobs SETA    0
+UserGlobals * 150
+
+xxtopglobal SETA  UserGlobals
+
+        MACRO
+        Module $name,$date
+Start
+        =       "BCPL"
+        &       globinits-Start
+        =       ("$name":CC:"        "):LEFT:8
+ [ "$date"=""
+        =       "<unset> <unset>",0,0,0,0,0
+  |
+        =       "$date",0,0
+ ]
+        &       0
+        MEND
+
+        MACRO
+$name   GlobNo $no
+G_$name *       ($no)*4
+ [ $no>xxtopglobal
+xxtopglobal SETA $no
+ ]
+        MEND
+
+        MACRO
+        GlobDef $no,$name
+        &       -1
+        =       7,("$name":CC:"       "):LEFT:7
+G_$name *       ($no)*4
+ [ $no>xxtopglobal
+xxtopglobal SETA $no
+ ]
+temps   SETS    "xxgname":CC:"$xxglobs"
+        GBLS    $temps
+$temps  SETS    "$name"
+xxglobs SETA    xxglobs+1
+$name
+        MEND
+
+        MACRO
+        GlobInits
+globinits
+tempa   SETA    0
+     WHILE tempa<xxglobs
+temps   SETS    "xxgname":CC:"$tempa"
+temps   SETS    $temps
+        GlobInit $temps
+tempa   SETA    tempa+1
+     WEND
+        MEND
+
+        MACRO
+$lab    Address $value
+ [ "$lab"<>""
+$lab
+ ]
+temps   SETS    "rx":CC:"$xxrelocs"
+$temps
+        &       $value-Start
+xxrelocs SETA   xxrelocs+1
+        MEND
+
+        MACRO
+        GlobInit $name
+        &       G_$name/4
+temps   SETS    "rx":CC:"$xxrelocs"
+$temps
+        &       $name-Start
+xxrelocs SETA   xxrelocs+1
+        MEND
+
+        MACRO
+        EndModule
+globinits
+tempa   SETA    0
+     WHILE tempa<xxglobs
+temps   SETS    "xxgname":CC:"$tempa"
+temps   SETS    $temps
+        GlobInit $temps
+tempa   SETA    tempa+1
+     WEND
+        &       &$xxtopglobal
+        &       0
+
+        &       &12345678
+tempa   SETA    0
+     WHILE tempa<>xxrelocs
+temps   SETS    "rx":CC:"$tempa"
+tempa   SETA    tempa+1
+        &       $temps-Start
+     WEND
+        &       &87654321
+        MEND
+
+        END     
+
+->  END OF BCPLMacs FILE
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+RootStackSize * &1000 ; an unreasonably large amount
+
+Kreadl   * 14  ; different between emulator & u-K
+realarm  * 1
+lispmode * 0
+StackDirn * 1
+
+; description of stack-frame linkage
+frrb * 0
+frrp * 4
+frrl * 8
+frpc * 12
+
+ LNK a.mclibr    
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+AND this is a.McLibR
+
+;*******************-*- Mode: Assembler -*-****************************
+;*  Title:      BCPL system library                                   *
+;*  Author:     Harry Meekings                                        *
+;*  Lastedit:   21 Apr 87 12:58:53 by Harry Meekings                  *
+;*              Copyright (c) 1986 by Acorn Computers Ltd             *
+;**********************************************************************
+
+LibraryMajorVersion * 1
+LibraryMinorVersion * 2
+
+r1              RN      1
+r2              RN      2
+r3              RN      3
+r4              RN      4
+r5              RN      5
+r6              RN      6
+r7              RN      7
+r13             RN      13
+r11             RN      11
+r12             RN      12
+
+; co-routine stuff kept at the base of a stack
+
+cb_next         *       0*4*StackDirn
+cb_caller       *       1*4*StackDirn
+cb_stackend     *       2*4*StackDirn
+cb_resume_rp    *       4*4*StackDirn
+cb_fn           *       5*4*StackDirn
+cb_real_stack   *       6*4*StackDirn
+
+ [ aof
+; Standard BCPL header ...
+        Module  SysLib,"21 Jan 86 16:38:29"
+ |
+CodeStart
+        B       LibraryInit
+
+; Standard BCPL header ...
+        Module  SysLib,"21 Jan 86 16:38:29"
+ ]
+
+result2         GlobNo  13
+retcode         GlobNo  39
+initio          GlobNo  111
+blklist         GlobNo  57
+linebuff        GlobNo  17
+strchain        GlobNo  146
+termio          GlobNo  143
+fault           GlobNo  95
+stackbase       GlobNo  40
+abort           GlobNo  63
+loadPoint       GlobNo  142
+Rdbch           GlobNo  44
+Wrbch           GlobNo  45
+topOfStore      GlobNo  148
+
+LocalDataP
+        Address localData
+        &       -1
+        =       7, "Initial"
+
+ [ :LNOT:aof
+relocated
+        Address Start   ; this tells me whether we are being rerun
+                        ; (if so, it has the base of this section added)
+ ]
+ [ lispmode=1
+ ; these things (which are a table of addresses to go to
+ ; on dereference errors) get copied on startup to sit at
+ ; small negative offsets from RG.
+Xcar_init
+        Address xrplacw2_a4
+        Address xrplacw2_a1
+        Address xrplacw2_a2
+        Address xrplacw2_a3
+        Address xrplacw2_w1
+        Address xrplacw2_w2
+
+        Address xrplacw1_a4
+        Address xrplacw1_a1
+        Address xrplacw1_a2
+        Address xrplacw1_a3
+        Address xrplacw1_w1
+        Address xrplacw1_w2
+
+        Address xrplacd_a4
+        Address xrplacd_a1
+        Address xrplacd_a2
+        Address xrplacd_a3
+        Address xrplacd_w1
+        Address xrplacd_w2
+
+        Address xrplaca_a4
+        Address xrplaca_a1
+        Address xrplaca_a2
+        Address xrplaca_a3
+        Address xrplaca_w1
+        Address xrplaca_w2
+
+        Address xcdr_a4
+        Address xcdr_a1
+        Address xcdr_a2
+        Address xcdr_a3
+        Address xcdr_w1
+        Address xcdr_w2
+
+        Address xcar_a4
+        Address xcar_a1
+        Address xcar_a2
+        Address xcar_a3
+        Address xcar_w1
+        Address xcar_w2
+Xcar_init_end
+ ]
+
+ [ aof
+        ENTRY
+ ]
+LibraryInit
+ ; first pass through the BCPL sections present determines
+ ; the highest referenced global.
+ [ aof
+        LDR     rb, =|Image$$CodeLimit|
+ |
+        LDR     rb, relocated
+ ]
+        ADR     r1, Start
+        MOV     r5, #150
+        LDR     r4, [r1, #0]    ; magic constant to identify BCPL
+nextmodule
+        MOV     r6, r1
+        LDMIA   r1, {r2, r3}
+        CMPS    r2, r4
+        BNE     endinit         ; not BCPL
+ [ aof
+        CMP     r1, rb
+        BGE     endinit
+ ]
+        ADD     r1, r3, r1      ; start of global initialisations
+nextinit
+        LDMFD   r1!, {r2, r3}
+        CMPS    r3, #0
+        BNE     nextinit
+ ; that's that module finished
+ ; Now a temporary fix until we have a linkage editor.
+ ; At the end of each compiled module (after the global
+ ; initialisations) there is a table, started with
+ ; &12345678 and terminated with &87654321, of the offsets
+ ; in the module which require the module base adding in.
+ ; This must be done in the first pass, because global
+ ; initialisations are values which need relocating
+        CMPS    r2, r5
+        MOVGE   r5, r2
+ [ :LNOT:aof
+        LDR     r3, [r1, #0]
+        LDR     r2, relocstart
+        CMPS    r2, r3
+        BNE     nextmodule
+        LDR     r2, relocend
+        ADD     r1, r1, #4
+        CMPS    rb, #0          ; the assumption is
+        BNE     dont_relocate   ; that we are being re-run
+nx1
+        LDMFD   r1!, {r3}
+        CMPS    r3, r2
+        LDRNE   r0, [r3, r6]
+        ADDNE   r0, r0, r6
+        STRNE   r0, [r3, r6]
+        BNE     nx1
+        B       nextmodule
+
+dont_relocate
+        LDMFD   r1!, {r3}
+        CMPS    r3, r2
+        BNE     dont_relocate
+ ]
+        B       nextmodule
+
+endinit
+ ; Now r1 is the end of code, and r5+1 the number of
+ ; globals required.  The global vector gets allocated
+ ; at r1+64, leaving some workspace locations below rg.
+ ; The stack then goes immediately above the global vector.
+ [ aof
+        LDR     r1, =|Image$$DataLimit|
+ ]
+        ADD     rg, r1, #64
+ [ lispmode=1
+        ADD     rg, rg, #Xcar_init_end-Xcar_init
+        ADR     r2, Xcar_init
+        ADR     r3, Xcar_init_end
+Xcar_loop
+        LDR     r0, [r2],#+4
+        STR     r0, [r1,#+4]!
+        CMPS    r2, r3
+        BNE     Xcar_loop
+ ]
+        ADD     rp, rg, r5, ASL #2
+        ADD     rp, rp, #4
+        STR     r5, [rg, #0]    ; global 0 = max global
+clear
+        MOV     r6, #&ae000000
+        ADD     r6, r6, #&950000
+        ADD     r6, r6, r5, ASL #2
+        STR     r6, [rg, r5, ASL #2]
+        SUBS    r5, r5, #1
+        BNE     clear
+
+ ; second pass through BCPL code, filling in global
+ ; initialisations.
+
+        ADR     r1, Start
+nextm2
+        LDMFD   r1, {r2, r3}
+        CMPS    r2, r4
+        BNE     endi2           ; not BCPL
+ [ aof
+        CMP     r1, rb
+        BGE     endi2
+ ]
+        ADD     r1, r3, r1      ; start of initialisations
+nexti2
+        LDMFD   r1!, {r2, r3}   ; next (gno, addr) pair
+        CMPS    r3, #0
+        STRNE   r3, [rg, r2, ASL #2]
+        BNE     nexti2
+ ; that's that module finished.
+ ; temporary fix again - step over the relocation words.
+ [ :LNOT:aof
+        LDR     r3, [r1, #0]
+        LDR     r2, relocstart
+        CMPS    r2, r3
+        BNE     nextm2
+        LDR     r2, relocend
+nx2     LDMFD   r1!, {r3}
+        CMPS    r3, r2
+        BNE     nx2
+ ]
+        B       nextm2
+endi2
+
+; I have for the moment abandoned here the pretence of support
+; for downward-growing stacks
+        SWI     KReadEnv                    ; top of store + 1 in r1
+        STR     r1, [rg, #G_topOfStore]
+
+        MOV     r0, rp, LSR #2
+        STR     r0, [rg, #G_blklist]
+        MOV     r2, #RootStackSize       ; simulate a GetVec
+        RSB     r2, r2, #0
+        STR     r2, [rp]
+        SUB     r3, rp, r2, ASL #2       ; stack top +4 (a hw address)
+ [ StackDirn=1
+        ADD     rp, rp, #4
+ |
+        MOV     r0, r3
+        SUB     rp, r3, #4
+        MOV     r3, r0
+ ]
+        MOV     r0, rp, LSR #2
+        STR     r0, [rg, #G_stackbase]
+        MOV     r0, #0          ; co-routine stuff : next
+        MVN     r2, #0          ; caller=-1 => root
+        MOV     r4, r3, LSR #2  ; stackend (as BCPL address)
+        SUB     r4, r4, #1
+ [ StackDirn=1
+        STMIA   rp, {r0, r2, r4}
+ |
+        STMDA   rp, {r0, r2, r4}
+ ]
+        MVN     r2, #0
+        STR     r2, [rp, #cb_fn]
+        ADD     rp, rp, #cb_real_stack
+        MOV     rts, rp
+
+        SUB     r2, r1, #8      ; highest (hw) address in heap
+        SUB     r1, r2, r3      ; free heap size in bytes
+        MOV     r1, r1, LSR #2  ;  ...........   in BCPL words
+        MOV     r0, r3, LSR #2
+        STR     r0, freeHeapChain
+        STR     r1, [r3]
+        MOV     r4, #0
+        STR     r4, [r3, r1, ASL #2]
+        MOV     r2, r2, LSR #2
+        STR     r2, [r3, #4]    ; heap free chain (BCPL pointer)
+        STR     r4, [rg, #G_linebuff]
+        STR     r4, [rg, #G_strchain]
+        MOV     r0, #"A"
+        STR     r0, [rg, #8]
+        MOV     r0, #0 ; no change to exit routine
+        MOV     r1, #0 ;           or memory limit
+        MOV     r2, #0 ;           or real memory end
+        MVN     r3, #1 ;           or local buffering
+        STR     r0, faultcode
+        LDR     r4, [rg, #G_abort] ; set an abort handler only if there's
+        MOV     r5, #&ae00         ; a BCPL procedure for it to call
+        ADD     r5, r5, #&95
+        CMPS    r5, r4, LSR #16
+        ADRNE   r4, undef          ; abort handlers
+        ADRNE   r5, pref
+        ADRNE   r6, dataab
+        ADRNE   r7, addrex
+        SWINE   KSetEnv
+
+        ADR     r0, RegDump
+        ADR     r1, CallBackHandler
+        SWI     KCallBack
+
+        MOV     r0, #0
+        STR     r0, ErrorString
+        ADR     r0, ErrorHandler
+        LDR     r1, ErrorBufferP
+        ADR     r2, EscapeHandler
+        ADR     r3, EventHandler
+        SWI     KControl
+
+        ADR     r0, Start
+        MOV     r0, r0, LSR #2
+        STR     r0, [rg, #G_loadPoint]
+        LDR     rgb, GlobsP
+        ADD     rgb, rgb, #&40000000  ; that is the Z PSR bit
+        LDR     rb, [rg, #G_initio]
+        BL      CallGlob
+
+        ; rest of command line goes into the tty buffer
+        SWI     KReadEnv
+        LDR     r2, [rg, #G_linebuff]
+        MOV     r2, r2, ASL #2
+        MOV     r4, r2
+        ADD     r2, r2, #3      ; real buffer start
+
+cl1     LDRB    r5, [r0], #1    ; copy over
+        STRB    r5, [r2], #1
+        CMPS    r5, #0
+        BNE     cl1
+
+        MOV     r5, #10         ; put in terminating newline
+        STRB    r5, [r2, #-1]
+        ADD     r1, r4, #3      ; look for first space
+
+cl2     LDRB    r5, [r1], #1
+        CMPS    r5, #" "
+        CMPNES  r5, #10
+        BNE     cl2
+
+        CMPS    r5, #10         ; if we found a newline (ie no args)
+        SUBEQ   r1, r1, #1      ; leave it for the decoder
+        SUB     r2, r2, r1      ; length of remainder
+        STRB    r2, [r4, #2]
+        SUB     r1, r1, r4
+        SUB     r1, r1, #3      ; offset of next char
+        STRB    r1, [r4, #1]
+
+        LDR     rb, [rg, #4]
+        BL      CallGlob
+
+WindUp
+        MOV     rts, rp
+        LDR     rb, [rg, #G_termio]
+        BL      CallGlob
+
+        SWI     KExit
+
+        LTORG
+GlobsP
+        Address Globs
+
+ErrorBufferP
+        Address ErrorBuffer
+
+        &       -1
+        =       7, "ErrHand"
+
+ErrorHandler
+        LDR     rb, ErrorBuffer
+        LDR     r0, ErrorNumber
+        RSB     r0, r0, #0
+        ORRS    pc, rb, #OverflowBit
+
+EscapeHandler   ; make this look somewhat like an event
+        TSTS    r11, #&40
+        MOVEQ   pc, r14         ; ignore flag going away
+        STMFD   r13!, {r0, r1, r2, r14}
+        CMPS    r12, #0         ; if it is safe to do so now
+        MOVEQ   r0, #&7e        ; acknowledge the escape
+        SWIEQ   KByte           ; (otherwise have to wait until callback)
+        MVN     r0, #0
+        MOV     r1, r11
+        BL      EventHandler
+        LDMFD   r13!, {r0, r1, r2, r14}
+        CMPS    r12, #0
+        MOVNE   r12, #1
+        MOV     pc, r14
+
+        &       -1
+        =       7, "EvHandl"
+
+EventHandler
+        ADR     r11, EventHandlers
+        LDR     pc, [r11, r0, ASL #2]
+
+update_flag
+        ADR     r11, EventFlags
+        LDR     r11, [r11, r0, ASL #2]
+        MOV     r0, r0, ASL #16
+        ORR     r0, r0, r1, ASL #8
+        ORR     r0, r0, r2
+        ORR     r0, r0, #&80000000
+        STR     r0, [r11]
+null_handler
+        LDR     pc, HisEventHandler
+return_code
+        MOV     pc, r14
+
+buffer_events
+        ADR     r11, EventFlags
+        LDR     r11, [r11, r0, ASL #2]
+        MOV     r0, r0, ASL #16
+        ORR     r0, r0, r1, ASL #8
+        ORR     r0, r0, r2
+        LDMIA   r11!, {r1, r2, r12}
+        STR     r0, [r12, r1, ASL #2]
+        ADD     r1, r1, #1
+        CMPS    r1, r12
+        MOVEQ   r1, #0
+        CMPS    r1, r2
+        STRNE   r1, [r11, #-12]
+        MOV     r12, #0                 ; don't want callback
+        MOV     pc, r14
+
+        &       -1
+        =       7, "CBHandl"
+
+CallBackHandler
+        ; at the moment, this is only ever called after an escape
+        ; update event.  When I work out an interface, I should be
+        ; prepared to call a user procedure (of which there may of
+        ; course be many)
+
+        ADR     r0, RegDump
+        LDR     r14, [r0, #60]  ; user's pc value
+        ; proceed with the callback only if the SVC we were in was called
+        ; from user mode
+        TSTS    r14, #3
+        BEQ     EscCallBack2
+
+        ; Otherwise, reinstate the callback flag and resume the SVC.
+        ; Eventually, we will get called back on a return to user mode.
+        MOV     r1, r14
+        SWI     SetCallBack
+        MOV     r14, r1
+        LDMIA   r0, {r0 - r12}
+        MOVS    pc, r14
+
+EscCallBack2
+        TEQP    pc, #0
+        MOV     r0, #&7e        ; acknowledge the escape
+        SWI     KByte
+        ADR     r0, RegDump
+        LDMIA   r0, {r0-pc}^
+
+EscapeUpdateHandler     Address null_handler
+EventHandlers
+BufferEmptyHandler      Address null_handler
+BufferFullHandler       Address null_handler
+KBHandler               Address null_handler
+ADCCompleteHandler      Address null_handler
+VSyncHandler            Address null_handler
+TimerHandler            Address null_handler
+EscapeEventHandler      Address null_handler
+RS423ErrorHandler       Address null_handler
+NetworkErrorHandler     Address null_handler
+UserEventHandler        Address null_handler
+
+
+EscapeUpdateFlag        &       0
+EventFlags
+BufferEmptyFlag         &       0
+BufferFullFlag          &       0
+KBFlag                  &       0
+ADCCompleteFlag         &       0
+VSyncFlag               &       0
+TimerFlag               &       0
+EscapeEventFlag         &       0
+RS423ErrorFlag          &       0
+NetworkErrorFlag        &       0
+UserEventFlag           &       0
+
+
+ GlobDef 112,SetEventHandler
+
+        CMPS    a3, #ev_ignore
+        ADREQ   a2, null_handler
+        BEQ     SetHandler
+        CMPS    a3, #ev_call_proc
+        ADRNE   w1, EventFlags
+        MOVNE   a2, a2, ASL #2
+        STRNE   a2, [w1, a1, ASL #2]
+        ADRNE   a2, update_flag
+        CMPNES  a3, #ev_set_flag
+        ADRNE   a2, buffer_events
+SetHandler
+        ADR     w1, EventHandlers
+        STR     a2, [w1, a1, ASL #2]
+        MOVS    pc, r14
+
+
+undef   STR     r14, pcdump
+        MOV     r14, #1
+        B       aborted
+
+pref    STR     r14, pcdump
+        MOV     r14, #2
+        B       aborted
+
+dataab  STR     r14, pcdump
+        MOV     r14, #3
+        B       aborted
+
+addrex  STR     r14, pcdump
+        MOV     r14, #4
+        B       aborted
+
+aborted
+; entry here in SVC mode,  r14 set to the type of abort
+; all user registers are as at the time of the abort.
+; We fabricate a call from the point of the error to ABORT,
+; lifting the stack a bit to allow for death at unfortunate
+; times.  We assume that rp and rg have not been too badly savaged.
+        STR     r14, faultcode
+        ADR     r14, RegDump
+        STMEA   r14, {r0-r14}^
+        TSTP    pc, #0                  ; back to user mode
+        ADD     rts, rp, #200           ; ignore what it was (?)
+        LDR     rb, [rg, #G_abort]
+        LDR     r1, faultcode
+        LDR     r14, pcdump
+        MOV     pc, rb
+
+ GlobDef 35,Stop
+
+        STR     a1, [rg, #G_retcode]
+        LDR     a3, [rg, #G_stackbase]
+        MOV     a3, a3, ASL #2
+        LDR     a2, [a3, #cb_caller]
+        ADD     rp, a3, #cb_real_stack
+        CMN     a2, #1          ; if current coroutine is root,
+        BEQ     WindUp          ; terminate completely
+        B       CreateCo2
+
+RegDump
+        %       15*4
+pcdump
+        &       0
+faultcode
+        &       0
+
+
+ GlobDef 101,OSCLI
+
+ ; oscli command
+ ; command is a BCPL string (so needs conversion)
+ ; Returns False if the command fails, True otherwise
+ ; If the base of this program is not 1000, then it
+ ; tries to run the command as a sub-program.
+
+        STMEA   rts!, {r14}
+        MOV     r1, a1, ASL #2
+        MOV     r2, #0
+        BL      crterm
+        MOV     r0, r1
+        LDR     r4, osclixp
+        SUBS    r5, pc, r4
+        BEQ     oscli_no_subp
+
+osclix  STMEA   rts!, {r14}
+        STMEA   rts!, {r0 - r3, r6, r7, rg}
+
+        ADR     r0, oscli_exit
+        ADD     r1, r5, #&1000     ; new memory limit
+        MOV     r2, #0 ; no change to real memory end
+        MVN     r3, #1 ;           or local buffering
+        MOV     r4, #0
+        MOV     r5, #0
+        MOV     r6, #0
+        MOV     r7, #0
+        SWI     KSetEnv
+
+        ADR     r14, cli_save
+        STMIA   r14!, {r0 - r7}
+        LDMEA   rts!, {r6, r7, rg}
+
+        MOV     r0, #0
+        MOV     r1, #0
+        SWI     KCallBack
+        STMIA   r14!, {r0, r1}
+
+        MOV     r0, #0
+        MOV     r1, #0
+        MOV     r2, #0
+        MOV     r3, #0
+        SWI     KControl
+        STMIA   r14!, {r0 - r3}
+
+        MOV     r2, #&40
+        LDR     r0, SWIBranch
+FindSWIBranch
+        LDR     r1, [r2], #+4
+        CMPS    r1, r0
+        BNE     FindSWIBranch
+
+        LDR     r1, [r2, #KControl*4]
+        ADR     r3, MyControlHandler
+        STR     r3, [r2, #KControl*4]
+        STMIA   r14!, {r1, r2}
+
+        ADR     r0, return_code
+        STR     r0, HisEventHandler
+
+        LDMEA   rts!, {r0 - r3}
+        STMIA   r14!, {r1 - r13}
+        SWI     KCLI
+        MVN     r0, #0
+        MOVVS   r0, #0
+        B       oscli_exit_2
+
+oscli_exit
+        MVN     r0, #0
+oscli_exit_2
+        STR     r0, cli_status
+        ADR     r0, return_code
+        STR     r0, HisEventHandler
+        TSTP    pc, #0
+        ADR     r14, R1_to_r13_save
+        LDMIA   r14, {r1 - r13}
+        LDMEA   rts!, {r14}
+        STMEA   rts!, {r1 - r3, r6, r7}
+        ADR     r5, OriginalControl
+        LDMIA   r5, {r1, r2}
+        STR     r1, [r2, #KControl*4]
+
+        ADR     r5, cli_save
+        LDMIA   r5, {r0 - r7}
+        SWI     KSetEnv
+        ADR     r5, cli_save+32
+        LDMIA   r5!, {r0, r1}
+        SWI     KCallBack
+        LDMIA   r5!, {r0 - r3}
+        SWI     KControl
+        LDMEA   rts!, {r1 - r3, r6, r7}
+        LDR     r0, cli_status
+        B       afterosf
+
+oscli_no_subp
+        SWI     KCLI
+        MVN     r0, #0
+        MOVVS   r0, #0
+        B       afterosf
+
+SWIBranch
+        LDR     pc, [rp, r11, LSL #2]
+
+osclixp & osclix+&1000
+cli_save
+        % 14*4
+OriginalControl
+        % 2*4
+R1_to_r13_save
+        % 13*4
+cli_status & 0
+HisEventHandler
+        Address return_code
+
+MyControlHandler
+        MOV     r2, #0
+        CMPS    r3, #0
+        STRNE   r3, HisEventHandler
+        MOV     r3, #0
+        LDR     pc, OriginalControl
+
+        &       -1
+        =       7, "Call   "
+
+CallGlob
+        MOV     pc, rb
+
+relocstart & &12345678
+relocend & &87654321
+
+ [ lispmode=1
+LispEntryCount
+; fixed offset  -&  from Globs
+ ; profile counts of procedure entry.
+ ; called by  jump  as first instruction of function
+ ; followed by full-word count to increment.
+ ; No registers have been saved: this routine does
+ ; that.  Return is to  rb+8  (ie the instruction after
+ ; the count).
+        STMEA   rts!, {r14, rb, rl, rp}
+        SUB     rp, rts, #16
+        BIC     r14, rb, #&ff000000
+        LDR     r0, [r14, #4]
+        ADD     r0, r0, #1
+        STR     r0, [r14, #4]
+        ADD     pc, rb, #8
+
+; Blink and Bexit are entry and exit sequences for small
+; subroutines created by the block compiler from spotting
+; identical pieces of code.  The subroutines presumably may
+; not do much (no test for garbage collection in the call
+; sequence).  The call adds a link to the top of the current
+; stack frame (made relative to the block base so garbage
+; collection needn't worry about it).  Note that the link has
+; its top 8 bits removed, so calls of such routines must be
+; executed conditionally only if they are the last things that
+; are.
+; On entry to both of the sequences, rb must be loaded with the
+; address of the base of the block.
+
+Blink   BIC     w2, r14, #P_key
+        LDR     w1, [w2], #+4
+        SUB     w2, w2, rb
+        BIC     w2, w2, #P_key
+        STMEA   rts!, {w2}
+        ADD     pc, rb, w1
+
+BExit   LDMEA   rts!, {r14}
+        ADD     pc, r14, rb
+
+        BCall   0
+        BCall   1
+        BCall   2
+        BCall   3
+
+        XCall   N
+        XCall   3
+        XCall   2
+        XCall   1
+        XCall   0
+
+        CallN   FN
+        CallN   N
+
+        Call    F
+        Call    L
+        Call    3
+        Call    2
+        Call    1
+        Call    0
+ ]
+
+Globs
+        B       WindUp
+
+itimes
+; fixed offset  &4  from Globs
+ ; 32 * 32 bit multiply -> 32 bits: no overflow detection
+ ; arguments in a1 and a2; result in a1 with a2 destroyed
+ ; other registers preserved
+ ; uses globals -1 & -2 as workspace
+        STMDB   rg, {w1, r14}
+        MOV     w1, #0
+        MOVS    r14, a2
+        RSBMI   r14, r14, #0
+10      MOVS    r14, r14, LSR #1
+        ADDCS   w1, w1, a1
+        MOV     a1, a1, ASL #1
+        BNE     %10
+        MOV     a1, w1
+        TEQS    a2, #0
+        RSBMI   a1, a1, #0
+        LDMDB   rg, {w1, pc}^
+
+
+quotrem
+; fixed offset  &34  from Globs
+ ; 32 bit divide
+ ; dividend in a1, divisor in a2
+ ; quotient returned in a1, remainder in a2
+ ; other registers preserved
+ ; uses globals -1 to -4 inclusive as workspace
+        STMDB   rg, {a3, a4, w2, r14}
+        MOVS    r14, a1
+        RSBMI   r14, r14, #0
+        MOVS    a3, a2
+        BEQ     divideby0
+        RSBMI   a3, a3, #0
+        MOV     a4, #0
+        MOV     w2, #1
+11      CMPS    a3, #&80000000
+        CMPCCS  a3, r14
+        MOVCC   a3, a3, ASL #1
+        MOVCC   w2, w2, ASL #1
+        BCC     %11
+
+12      CMPS    a3, r14
+        ADDLS   a4, a4, w2
+        SUBLS   r14, r14, a3
+        MOVS    w2, w2, LSR #1
+        MOVNE   a3, a3, LSR #1
+        BNE     %12
+
+        TEQS    a1, a2
+        RSBMI   a4, a4, #0
+        CMPS    a1, #0
+        MOV     a2, r14
+        RSBLT   a2, a2, #0
+        MOV     a1, a4
+        LDMDB   rg, {a3, a4, w2, pc}^
+        MOVNV   r0, r0
+
+entrycount
+; fixed offset  &a0  from Globs
+ ; profile counts of procedure entry.
+ ; called by  jump  as first instruction of procedure,
+ ; followed by full-word count to increment.
+ ; No registers have been saved: this routine does
+ ; that.  Return is to  rb+8  (ie the instruction after
+ ; the count).
+        STMEA   rts!, {r14, rb, rl, rp}
+        SUB     rp, rts, #16
+        LDR     rl, [rb, #-4]           ; that was the standard entry sequence
+        LDR     r0, [rb, #4]
+        ADD     r0, r0, #1
+        STR     r0, [rb, #4]
+        ADD     pc, rb, #8
+
+count
+; fixed offset  &bc  from Globs
+ ; other profile counts.  Called by branch & link, followed
+ ; by full-word count.  Return to  link+4.
+ ; Can't use link directly to access the count, cos of PSR.
+ ; Destroys no registers
+        ADD     r14, r14, #4
+        STMDB   rg, {r0, r14}
+        BIC     r14, r14, #PSRBits
+        LDR     r0, [w2, #0]
+        ADD     r0, r0, #1
+        STR     r0, [w2, #0]
+        LDMDB   rg, {r0, pc}^
+
+ [ lispmode=1
+ ; it is carefully arranged that each of the following entries
+ ; starts on a 16-byte boundary to ensure that all of them
+ ; fit in the displacement field of a format 1 instruction
+xcons
+; fixed offset  &d8  from Globs
+        EOR     a1, a1, a2
+        EOR     a2, a2, a1
+        EOR     a1, a1, a2
+        B       cons
+ncons
+; fixed offset  &e8  from Globs
+        MOV     a2, nil
+cons
+; fixed offset  &ec  from Globs
+        LDR     w1, [rg, #G_fringe]
+        CMPS    w1, rts
+        BLT     consgc
+        ADD     w1, w1, #FringeGap
+        STMFD   w1!, {a1, a2}
+        ADD     a1, w1, #P_pair
+        SUB     w1, w1, #FringeGap
+        STR     w1, [rg, #G_fringe]
+        MOVS    pc, r14
+
+fbind
+; fixed offset  &110  from Globs
+        STMEA   rts!, {a2, a3, r14}
+        SUB     a2, w2, nil
+        LDR     w2, [w2]
+bindx
+        BIC     w2, w2, #P_key
+        LDMFD   w2, {w1, w2}
+        BIC     w1, w1, #P_key
+        LDMFD   w1, {a3, w1}
+        BIC     a3, a3, #P_key
+        LDR     r14, [a3]
+        STR     r14, [rp, w1]
+        STR     nil, [a3]
+        CMPS    w2, nil
+        BHI     bindx
+        ADD     a2, a2, #P_id+P_spid
+        STR     a2, [rp, w2]
+        LDMEA   rts!, {a2, a3, pc}^
+
+lispexit        ; out of line, to be branched to by conditional exits
+; fixed offset  &150  from Globs
+        MOV     rts, rp
+        LDMIB   rts, {rp, rl, pc}^
+
+funbind
+; fixed offset  &158  from Globs
+        STMEA   rts!, {a3, r14}
+ubindx
+        BIC     w2, w2, #P_key
+        LDMFD   w2, {w1, w2}
+        BIC     w1, w1, #P_key
+        LDMFD   w1, {a3, w1}
+        BIC     a3, a3, #P_key
+        LDR     r14, [rp, w1]
+        STR     r14, [a3]
+        CMPS    w2, nil
+        BHI     ubindx
+        STR     nil, [rp, w2]
+        LDMEA   rts!, {a3, pc}^
+
+add2
+; fixed offset  &188  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BNE     add2x
+        MOV     a3, a1, LSL #7
+        ADDS    a3, a3, a2, LSL #7
+        MOVVC   a1, a3, LSR #7
+        MOVVCS  pc, r14
+add2x
+        LDR     rb, [rg, #G_Add]
+        MOV     pc, rb
+
+diff2
+; fixed offset  &1ac  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BNE     diff2x
+        MOV     a3, a1, LSL #7
+        SUBS    a3, a3, a2, LSL #7
+        MOVVC   a1, a3, LSR #7
+        MOVVCS  pc, r14
+diff2x
+        LDR     rb, [rg, #G_Difference]
+        MOV     pc, rb
+
+sub1
+; fixed offset  &1d0  from Globs
+        TSTS    a1, #P_numsk
+        BNE     sub1x
+        CMPS    a1, #P_sgnbt
+        SUBNE   a1, a1, #1
+        BICNE   a1, a1, #P_numsk
+        MOVNES  pc, r14
+sub1x
+        LDR     rb, [rg, #G_Sub1]
+        MOV     pc, rb
+
+add1
+; fixed offset  &1f0  from Globs
+        TSTS    a1, #P_numsk
+        BNE     add1x
+        ADD     a2, a1, #1
+        CMPS    a2, #P_sgnbt
+        BICNE   a1, a2, #P_numsk
+        MOVNES  pc, r14
+add1x
+        LDR     rb, [rg, #G_Add1]
+        MOV     pc, rb
+
+equal
+; fixed offset  &210  from Globs
+        CMPS    a1, a2
+        LDREQ   a1, [rg, #G_true]
+        MOVEQS  pc, r14
+        LDR     rb, [rg, #G_Equal]
+        MOV     pc, rb
+
+grtp
+; fixed offset  &224  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BNE     grtx
+        MOV     a3, a1, LSL #7
+        CMPS    a3, a2, LSL #7
+        MOVLE   a1, nil
+        LDRGT   a1, [rg, #G_true]
+        MOVS    pc, r14
+grtx
+        LDR     rb, [rg, #G_Greaterp]
+        MOV     pc, rb
+
+lessp
+; fixed offset  &24c  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BNE     lessx
+        MOV     a3, a1, LSL #7
+        CMPS    a3, a2, LSL #7
+        MOVGE   a1, nil
+        LDRLT   a1, [rg, #G_true]
+        MOVS    pc, r14
+lessx
+        LDR     rb, [rg, #G_Lessp]
+        MOV     pc, rb
+
+quotient
+; fixed offset  &274  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BNE     quotx
+        MVN     r3, #P_numsk
+        CMPS    a1, #P_sgnbt
+        CMPEQS  a2, r3
+        BNE     iquotient
+quotx
+        LDR     rb, [rg, #G_Quotient]
+        MOV     pc, rb
+
+remainder
+; fixed offset  &298  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BEQ     iremainder
+        LDR     rb, [rg, #G_Remainder]
+        MOV     pc, rb
+
+times
+; fixed offset  &2ac  from Globs
+        TSTS    a1, #P_numsk
+        TSTEQS  a2, #P_numsk
+        BNE     xtimes
+        MOV     w1, #0
+        MOV     w2, a1, LSL #7
+        MOVS    r3, a2, LSL #7
+        MOV     r3, r3, ASR #7
+        RSBLT   r3, r3, #0
+51
+        MOVS    r3, r3, LSR #1
+        ADDCSS  w1, w1, w2
+        BVS     xtimes
+        ADDS    w2, w2, w2
+        BVS     xtimes
+        CMPS    r3, #0
+        BNE     %51
+        TSTS    a2, #P_sgnbt
+        RSBNE   w1, w1, #0
+        MOV     a1, w1, LSR #7
+        MOVS    pc, r14
+xtimes
+        LDR     rb, [rg, #G_Mult]
+        MOV     pc, rb
+
+iquotient
+; fixed offset  &300  from Globs
+        STMDB   rg, {r0, r3, r4, r5, r14}
+        MOVS    r14, r1, ASL #7
+        RSBMI   r14, r14, #0
+        MOVS    r3, r2, ASL #7
+        BEQ     divideby0
+        RSBMI   r3, r3, #0
+        MOV     r0, r3
+        MOV     r4, #0
+        MOV     r5, #1
+31
+        CMPS    r3, #&80000000
+        CMPCCS  r3, r14
+        MOVCC   r3, r3, ASL #1
+        MOVCC   r5, r5, ASL #1
+        BCC     %31
+
+32      CMPS    r3, r14
+        ADDLS   r4, r4, r5
+        SUBLS   r14, r14, r3
+        MOVS    r5, r5, LSR #1
+        MOVNE   r3, r3, LSR #1
+        BNE     %32
+        B       IQuotRemFixSigns
+        & 0
+        & 0
+        & 0
+
+
+iremainder
+; fixed offset  &360  from Globs
+        STR     r14, [rg, #-24]
+        BL      iquotient
+        MOV     r1, r14, LSR #7
+        LDR     r14, [rg, #-24]
+        MOVS    pc, r14
+
+IQuotRemFixSigns
+        EOR     r2, r1, r2
+        TSTS    r2, #P_sgnbt
+        BEQ     IQuotRemSameSigns
+        RSB     r4, r4, #0
+        CMPS    r14, #0
+        SUBNE   r4, r4, #1
+        SUBNE   r14, r14, r0
+IQuotRemSameSigns
+        TSTS    r1, #P_sgnbt
+        RSBNE   r14, r14, #0
+        BIC     r1, r4, #P_numsk
+        LDMDB   rg, {r0, r3, r4, r5, pc}^
+        & 0
+        & 0
+        & 0
+
+CallPoll
+; fixed offset  &3ac  from Globs
+        LDR     rb, [rg, #G_PollSR]
+        MOV     pc, rb
+
+List2
+; fixed offset  &3b4  from Globs
+        LDR     w2, [rg, #G_fringe]
+        CMPS    w2, rts
+        BLT     gc_List2
+        MOV     a3, a2
+        ADD     w2, w2, #FringeGap
+        SUB     a2, w2, #8
+        ADD     a2, a2, #P_pair
+        STMDB   w2!, {a1, a2, a3, nil}
+        ADD     a1, w2, #P_pair
+        SUB     w2, w2, #FringeGap
+        STR     w2, [rg, #G_fringe]
+        MOVS    pc, r14
+
+List2Star
+; fixed offset  &3e4  from Globs
+        LDR     w2, [rg, #G_fringe]
+        CMPS    w2, rts
+        BLT     gc_List2Star
+        MOV     w1, a3
+        MOV     a3, a2
+        ADD     w2, w2, #FringeGap
+        SUB     a2, w2, #8
+        ADD     a2, a2, #P_pair
+        STMDB   w2!, {a1, a2, a3, w1}
+        ADD     a1, w2, #P_pair
+        SUB     w2, w2, #FringeGap
+        STR     w2, [rg, #G_fringe]
+        MOVS    pc, r14
+        MOVNV   r0,r0
+        MOVNV   r0,r0
+
+List3
+; fixed offset  &420  from Globs  (must be *16)
+        LDR     w2, [rg, #G_fringe]
+        CMPS    w2, rts
+        BLT     gc_List3
+        ADD     w2, w2, #FringeGap
+        STMDB   w2!, {a3, nil}
+        MOV     a3, a2
+        ADD     w1, w2, #P_pair
+        SUB     a2, w1, #8
+        STMDB   w2!, {a1, a2, a3, w1}
+        ADD     a1, w2, #P_pair
+        SUB     w2, w2, #FringeGap
+        STR     w2, [rg, #G_fringe]
+        MOVS    pc, r14
+
+
+        ; from here on, alignment doesn't matter
+
+        &       -1
+        =       7,"CallSeq"
+gc0     MOV     a1, nil         ; make all these safe over collection
+                                ; (they probably were anyway, but ...)
+gcL
+gcF
+gc1     MOV     a2, nil
+gc2     MOV     a3, nil
+gc3     ADR     r0, gc0         ; fake function name
+        STMEA   rts!, {r0, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2, a3, rb}
+        MOV     a1, #0
+        MOV     a2, rb
+        LDR     rb, [rg, #G_Rclm]
+        BL      CallGlob
+        LDMEA   rts!, {a1, a2, a3, rb}
+        MOV     rts, rp         ; unwind our frame
+        LDMIB   rp, {rp, rl, r14}
+        BIC     pc, rb, #P_key ; and enter the target function
+
+gcFN    CMPS    w1, #2          ; may have had any number of arguments -
+                                ; make them all safe
+        MOVLE   a3, nil
+        MOVLT   a2, nil
+        CMPS    w1, #1
+        MOVLT   a1, nil
+gcN     ADR     r0, gc0         ; fake function name
+        STMEA   rts!, {r0, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2, a3, w1, rb}
+        MOV     a1, #0
+        MOV     a2, rb
+        LDR     rb, [rg, #G_Rclm]
+        BL      CallGlob
+        LDMEA   rts!, {a1, a2, a3, w1, rb}
+        MOV     rts, rp         ; unwind our frame
+        LDMIB   rp, {rp, rl, r14}
+        BIC     w2, rb, #P_key  ; and enter the target function
+        ADD     pc, w2, #4
+
+bgc0    MOV     a1, nil
+bgc1    MOV     a2, nil
+bgc2    MOV     a3, nil
+bgc3    ADR     r0, gc0         ; fake function name
+        STMEA   rts!, {r0, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2, a3, w2, rb}
+        MOV     a1, #0
+        MOV     a2, w2
+        LDR     rb, [rg, #G_Rclm]
+        BL      CallGlob
+        LDMEA   rts!, {a1, a2, a3, w2, rb}
+        MOV     rts, rp         ; unwind our frame
+        LDMIB   rp, {rp, rl, r14}
+        BIC     pc, w2, #P_key  ; and enter the target function
+
+        &       -1
+        =       7,"Cons   "
+consgc  ADR     r0, consgc
+        STMEA   rts!, {r0, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2}
+        ADR     r1, cons_space_mess
+        MOV     a1, a1, LSR #2
+        LDR     rb, [rg, #G_Rclm]
+        BL      CallGlob
+        LDMEA   rts!, {a1, a2}
+        LDMEA   rts!, {r0, rp, rl, r14}
+        B       cons
+
+        &       -1
+        =       7,"List2* "
+gc_List2
+        MOV     a3, nil
+gc_List2Star
+        ADR     r0, gc_List2
+        STMEA   rts!, {r0, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2, a3}
+        ADR     r1, cons_space_mess
+        MOV     a1, a1, LSR #2
+        LDR     rb, [rg, #G_Rclm]
+        BL      CallGlob
+        LDMEA   rts!, {a1, a2, a3}
+        LDMEA   rts!, {r0, rp, rl, r14}
+        B       List2Star
+
+        &       -1
+        =       7,"List3  "
+gc_List3
+        ADR     r0, gc_List3
+        STMEA   rts!, {r0, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2, a3}
+        ADR     r1, cons_space_mess
+        MOV     a1, a1, LSR #2
+        LDR     rb, [rg, #G_Rclm]
+        BL      CallGlob
+        LDMEA   rts!, {a1, a2, a3}
+        LDMEA   rts!, {r0, rp, rl, r14}
+        B       List3
+
+cons_space_mess
+        =       10,"Cons space"
+        ALIGN 4
+
+qcall0  QCallBody 0
+        MOV     a3, #0
+Interpretn
+        MOV     a2, nil
+Interpretl
+        MOV     a4, nil
+        MOV     a1, w2
+        LDR     rb, [rg, #G_Funap]
+        MOV     pc, rb
+
+qcall1  QCallBody 1
+        STR     a1, [rg, #G_arg1]
+        MOV     a3, #1
+        B       Interpretn
+
+qcall2  QCallBody 2
+        ADD     r0, rg, #G_arg1
+        STMIA   r0, {a1, a2}
+        MOV     a3, #2
+        B       Interpretn
+
+qcall3  QCallBody 3
+        ADD     r0, rg, #G_arg1
+        STMIA   r0, {a1, a2, a3}
+        MOV     a3, #3
+        B       Interpretn
+
+qcallN  ADD     r0, rg, #G_arg1
+        STMIA   r0, {a1, a2, a3}
+        MOV     a3, w1
+        B       Interpretn
+
+qcallL  MVN     a3, #1    ; -2
+        MOV     a2, a1
+        B       Interpretl
+
+qcallF  MOV     a3, #0    ; -1
+        MOV     a2, a1
+        B       Interpretl
+
+qcallFN CMPS    w1, #2          ; may have had any number of arguments -
+                                ; make them all safe
+        MOVLE   a3, nil
+        MOVLT   a2, nil
+        CMPS    w1, #1
+        MOVLT   a1, nil
+        ADD     r0, rg, #G_arg1
+        STMIA   r0, {a1, a2, a3}
+        MOV     a2, w1
+        MOV     a1, w2
+        LDR     rb, [rg, #G_LinkFexprn]
+        MOV     pc, rb
+
+xcar_a4         MOV     w2, rb
+xcar_w2         MOV     w1, w2
+xcar_w1         MOV     a3, w1
+xcar_a3         MOV     a1, a3
+xcar_a1         MOV     a2, a1
+xcar_a2         MOV     a1, #E_car
+                LDR     rb, [rg, #G_MixError]
+                MOV     pc, rb
+
+xcdr_a4         MOV     w2, rb
+xcdr_w2         MOV     w1, w2
+xcdr_w1         MOV     a3, w1
+xcdr_a3         MOV     a1, a3
+xcdr_a1         MOV     a2, a1
+xcdr_a2         MOV     a1, #E_cdr
+                LDR     rb, [rg, #G_MixError]
+                MOV     pc, rb
+
+xrplaca_a4      MOV     w2, rb
+xrplaca_w2      MOV     w1, w2
+xrplaca_w1      MOV     a3, w1
+xrplaca_a3      MOV     a1, a3
+xrplaca_a1      MOV     a2, a1
+xrplaca_a2      MOV     a1, #E_rplaca
+                LDR     rb, [rg, #G_MixError]
+                MOV     pc, rb
+
+xrplacd_a4      MOV     w2, rb
+xrplacd_w2      MOV     w1, w2
+xrplacd_w1      MOV     a3, w1
+xrplacd_a3      MOV     a1, a3
+xrplacd_a1      MOV     a2, a1
+xrplacd_a2      MOV     a1, #E_rplacd
+                LDR     rb, [rg, #G_MixError]
+                MOV     pc, rb
+
+xrplacw1_a4     MOV     w2, rb
+xrplacw1_w2     MOV     w1, w2
+xrplacw1_w1     MOV     a3, w1
+xrplacw1_a3     MOV     a1, a3
+xrplacw1_a1     MOV     a2, a1
+xrplacw1_a2     MOV     a1, #E_rplacw1
+                LDR     rb, [rg, #G_MixError]
+                MOV     pc, rb
+
+xrplacw2_a4     MOV     w2, rb
+xrplacw2_w2     MOV     w1, w2
+xrplacw2_w1     MOV     a3, w1
+xrplacw2_a3     MOV     a1, a3
+xrplacw2_a1     MOV     a2, a1
+xrplacw2_a2     MOV     a1, #E_rplacw2
+                LDR     rb, [rg, #G_MixError]
+                MOV     pc, rb
+ ]
+
+divideby0
+        ADR     a1, div0mess
+        B       Call_Fault
+div0mess
+        =       17, "Division by zero",10
+
+        ALIGN   4
+
+ErrorBuffer
+        &       0
+ErrorNumber
+        &       0
+ErrorString
+        %       80
+
+
+ GlobDef 106,TKRErr
+ ; TKRErr(buffer, maxlength)
+ ; Moves the most recent error string into the given buffer.
+ ; returns the (bcpl address of the) beffer, just as passed
+        MOV     a3, a1, ASL #2
+        ADR     a4, ErrorString
+        MOV     w2, #0
+TKRErr1
+        LDRB    rb, [a4],#+1
+        CMPS    rb, #0
+        BEQ     TKRErr2
+        ADD     w2, w2, #1
+        STRB    rb, [a3, w2]
+        CMPS    w2, a2
+        BLT     TKRErr1
+TKRErr2
+        STRB    w2, [a3]
+        MOVS    pc, r14
+
+
+ GlobDef 104,OSByte
+
+        MOV     r0, a1
+        MOV     r1, a2
+        MOV     r2, a3
+        SWI     KByte
+        STR     r2, [rg, #G_result2]
+        MOV     a1, r1
+        MOVS    pc, r14
+
+ GlobDef 105,OSWord
+
+        ANDS    r0, a1, #255
+        MOV     r1, a2, ASL #2
+        BEQ     rdline
+        SWI     KWord
+        MOVS    pc, r14
+
+rdline    ; ReadLine has to be done by a seperate kernel call:
+          ; OSWORD 0 won't do it.
+        LDR     r0, [r1, #0]    ; address of buffer
+        MOV     r4, r0
+        LDRB    r3, [r1, #6]    ; max input byte
+        LDRB    r2, [r1, #5]    ; min  "     "
+        LDRB    r1, [r1, #4]    ; max input length
+        SWI     Kreadl
+        MOV     r2, #0          ; the carry flag goes to Result2
+        MVNCS   r2, r2
+        STR     r2, [rg, #G_result2]
+        MOVS    pc, r14
+
+ GlobDef 96,OSArgs
+ ; result := osargs(op, handle, ptr)
+
+        MOV     r0,     a1
+        MOV     r1,     a2
+        MOV     r2,     a3
+        SWI     KArgs
+        MOV     a1,     r0
+        STR     r2,     [rg, #G_result2]
+        MOVS    pc,     r14
+
+
+ GlobDef 99,OSFind
+
+ ; OSFind(op, arg)
+ ; op=0, (close) arg is file handle
+ ; op ~=0 (open) arg is file name, returns handle
+ ;        filename is BCPL string: must be made into
+ ;        CR-terminated one
+        STMEA   rts!, {r14}
+        MOVS    r0, a1
+        MOV     r1, a2
+        MOV     r2, #0
+        BEQ     doosf
+
+        MOV     r1, r1, ASL #2
+        BL      crterm
+
+doosf
+        SWI     KFind
+        MOVVS   r0, #0          ; I suppose you can get an error here
+afterosf
+        CMPS    r2, #0          ; r2 non-zero means an argument string needs
+        MOVEQ   a1, r0          ; shuffling up again
+        LDMEQEA rts!, {pc}^
+ ; r3 points to the last byte of the string as was, now its
+ ; terminating CR.  r1 points to the first byte (was the
+ ; length). r2 is the length.
+osfc2
+        LDRB    r4, [r3, #-1]
+        STRB    r4, [r3], #-1
+        CMPS    r3, r1
+        BGT     osfc2
+        STRB    r2, [r3]
+        MOV     a1, r0
+        LDMEA   rts!, {pc}^
+
+crterm
+        LDRB    r2, [r1, #0]    ; length of filename
+        AND     r3, r2, #3
+        CMPS    r3, #3
+        BEQ     osfdown
+        MOV     r3, #&0D        ; if there's room, add a terminating
+        ADD     r1, r1, #1      ; CR on the end of the string
+        STRB    r3, [r1, r2]
+        MOV     r2, #0
+        MOV     pc, r14
+
+osfdown                         ; otherwise, shuffle the string down
+        MOV     r3, r1          ; one byte (remembering the length) and plant
+        ADD     r5, r1, r2      ; a CR at the end
+osfcopy
+        LDRB    r4, [r3, #1]
+        STRB    r4, [r3], #1
+        CMPS    r3, r5
+        BLT     osfcopy
+        MOV     r5, #&0D
+        STRB    r5, [r3]
+        MOV     pc, r14
+
+ GlobDef 100,OSFile
+
+ ; osfile what, filename, args
+ ; filename is a BCPL string (so needs conversion)
+ ; args is a BCPL vector, but the addresses in it are real.
+ ; If an error occurs, Result2 is returned non-zero
+        STMEA   rts!, {r14}
+        MOV     r0, a1
+        MOV     r1, a2, ASL #2
+        MOV     rb, a3
+        MOV     r2, #0
+        BL      crterm
+        MOV     rb, rb, ASL #2
+        STMEA   rts!, {r2, r3, rb}
+        LDMIA   rb, {r2, r3, r4, r5}  ; u-k call wants args in registers
+        SWI     KFile
+        LDMEA   rts!, {rb}            ; (this register destroyed on error)
+        STMIA   rb, {r2, r3, r4, r5}  ; and returns them likewise
+        MOV     r2, #0
+        MVNVS   r2, #0
+        STR     r2, [rg, #G_result2]
+        LDMEA   rts!, {r2, r3}
+        B       afterosf
+
+ GlobDef 102,OSWrCh
+
+        MOV     r0, a1
+        SWI     KWrch
+        MOVS    pc, r14
+
+ GlobDef 103,OSRdCh
+
+        SWI     KRdch
+        MOV     a1, r0
+        MOV     r2, #0          ; the carry flag goes to Result2
+        MVNCS   r2, r2
+        STR     r2, [rg, #G_result2]
+        MOVS    pc, r14
+
+ GlobDef 98,OSBPut
+
+ ; osbput(byte, channel)
+        MOV     r0, a1
+        MOV     r1, a2
+        SWI     KBput
+        MOV     a1, #0
+        MOVS    pc, r14
+
+ GlobDef 97,OSBGet
+
+ ; osbget(channel)
+ [ a1<>r1
+        MOV     r1, a1
+ ]
+        SWI     KBget
+        MOV     a1, r0
+        MOVCCS  pc, r14
+        MOV     a1, #&FF        ; carry set -> endoffile
+        MOV     a1, a1, ASL #1
+        MOVS    pc, r14
+
+
+ GlobDef 66,ReadBytes
+;
+;LET readbytes(v,b,n) = VALOF
+;$( FOR j = 0 TO n - 1 DO
+;   $(
+;      LET c = rdch()
+;      IF c = endstreamch then RESULTIS j
+;      v%(b+j) := c
+;   $)
+;   RESULTIS n
+;$)
+;
+        STMEA   rts!, {rb, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a3}
+        CMPS    a3, #0
+        BLE     ReadBytesExit
+        ADD     a2, a2, a1, ASL #2
+ReadBytesLoop
+        STMEA   rts!, {a2, a3}
+        LDR     rb, [rg, #G_Rdbch]
+        MOV     r14, pc
+        MOV     pc, rb
+        LDMEA   rts!, {a2, a3}
+        MOV     w2, a1, LSR #1
+        CMPS    w2, #&ff
+        BEQ     ReadBytesReturnJ
+        STRB    a1, [a2], #+1
+        SUBS    a3, a3, #1
+        BGT     ReadBytesLoop
+ReadBytesExit
+        LDMEA   rts!, {a1}
+        MOV     rts, rp
+        LDMIB   rts, {rp, rl, pc}^
+
+ReadBytesReturnJ
+        LDMEA   rts!, {a1}
+        SUB     a1, a1, a3
+        MOV     rts, rp
+        LDMIB   rts, {rp, rl, pc}^
+
+
+ GlobDef 67,WriteBytes
+
+;AND writebytes(v,b,n) BE
+;   FOR i = 0 TO n - 1 DO binarywrch(v%(b+i))
+;
+        STMEA   rts!, {rb, rp, rl, r14}
+        SUB     rp, rts, #16
+        CMPS    a3, #0
+        BLE     WriteBytesExit
+        ADD     a2, a2, a1, ASL #2
+WriteBytesLoop
+        LDRB    a1, [a2], #+1
+        STMEA   rts!, {a2, a3}
+        LDR     rb, [rg, #G_Wrbch]
+        MOV     r14, pc
+        MOV     pc, rb
+        LDMEA   rts!, {a2, a3}
+        SUBS    a3, a3, #1
+        BGT     WriteBytesLoop
+WriteBytesExit
+        MOV     rts, rp
+        LDMIB   rts, {rp, rl, pc}^
+
+
+ GlobDef 16,MulDiv
+ ; muldiv(a, b, c)
+ ; result = a*b/c
+ ; result2 = a*b REM c
+ ; the intermediate product is 64 bits long
+ ; do everything using moduluses, and sort out signs later
+
+        STMEA   rts!, {rb, rp, rl, r14}
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2, a3}
+
+ ; first, the double-length product, returned in a3 & a4
+ ; uses r0, a1 and a2 as workspace
+        MOV     a3, #0
+        MOV     a4, #0
+        MOV     r0, #0
+        CMPS    a2, #0
+        RSBLT   a2, a2, #0      ; abs b
+        MOV     rb, a2
+        CMPS    a1, #0
+        RSBLT   a1, a1, #0      ; abs a
+muldiv0
+        MOVS    a2, a2, LSR #1
+        BCC     muldiv1
+        ADDS    a4, a4, a1
+        ADC     a3, a3, r0
+muldiv1
+        MOVS    a1, a1, ASL #1
+        ADC     r0, r0, r0
+        CMPS    a2, #0
+        BNE     muldiv0
+
+ ; now the 64*32 bit divide
+ ; dividend in a3 and a4
+ ; remainder ends up in a4; quotient in r0
+ ; uses a1 and a2 to hold the (shifted) divisor;
+ ;      w2 for the current bit in the quotient
+        LDMEA   rts, {a2}
+        CMPS    a2, #0
+        BEQ     divideby0
+        RSBLT   a2, a2, #0      ; abs c
+        MOV     rb, a2
+        MOV     r0, #0
+        MOV     a1, #0
+        MOV     w2, #0
+        MOV     r14, #1
+muldiv2
+        CMPS    a1, #&80000000
+        BCS     muldiv3
+        CMPS    a1, a3
+        CMPEQS  a2, a4          ; compare of [a1, a2] against [a3, a4]
+        BCS     muldiv3
+        MOVS    a2, a2, ASL #1
+        MOV     a1, a1, ASL #1
+        ADC     a1, a1, #0
+        ADD     w2, w2, #1
+        B       muldiv2
+
+muldiv3
+        CMPS    a1, a3
+        CMPEQS  a2, a4
+        BHI     muldiv4
+        CMPS    w2, #31
+        ADDLE   r0, r0, r14, ASL w2
+        SUBS    a4, a4, a2
+        SBC     a3, a3, a1
+muldiv4
+        MOVS    a1, a1, ASR #1
+        MOV     a2, a2, RRX
+        SUBS    w2, w2, #1
+        BGE     muldiv3
+
+ ; now all we need to do is sort out the signs.
+        LDMEA   rts!, {a1, a2, a3}
+        EOR     a2, a2, a1      ; a2 has the sign of a*b: a3 is the sign of c
+        MOV     a1, r0
+        TEQS    a2, a3          ; if a*b and c have opposite signs,
+        RSBMI   a1, a1, #0      ; negate the quotient
+        CMPS    a2, #0          ; and if the dividend was negative,
+        RSBLT   a4, a4, #0      ; negate the remainder
+        STR     a4, [rg, #G_result2]
+        LDMEA   rts!, {rb, rp, rl, pc}^
+
+freeHeapChain
+        &       0
+
+ GlobDef 54,GetVec
+
+        ADD     r1, a1, #2      ; actual number of words required
+        CMPS    r1, #1
+        BLE     gvfail
+
+        ADR     r0, freeHeapChain-4 ; previous free chain entry
+        LDR     r3, freeHeapChain ; free chain (BCPL address)
+gv0     MOV     rb, r3, ASL #2
+        LDMIA   rb, {r4, r5}
+        CMPS    r4, #0
+        BEQ     gvfail
+
+ ; a free block has been found.  Amalgamate later blocks
+        MOV     r2, r3          ; start of free space (saved for later)
+gv1     ADD     r3, r4, r3      ; adjacent block above
+        MOV     rb, r3, ASL #2
+        LDMIA   rb, {r4, rb}
+        CMPS    r4, #0
+        MOVGT   r5, rb
+        BGT     gv1             ; this block is free too
+
+ ; end of adjacent free blocks.
+ ; r2 = start of free space
+ ; r3 = end of free space (both BCPL addresses)
+        SUB     r4, r3, r2      ; amount free (words)
+        CMPS    r4, r1          ; compare against request
+        MOV     rb, r2, ASL #2
+        STMLTIA rb, {r4, r5}    ; not enough - rewrite length and next
+        MOVLT   r0, rb          ; new previous
+        MOVLT   r3, r5
+        BLT     gv0 ; not enough
+
+        SUB     r4, r4, r1
+        CMPS    r4, #1          ; don't bother with single-word blocks
+                                ; (they're unallocatable anyhow)
+        ADDGT   r3, r2, r1      ; if not exact fit, free remainder
+        STRGT   r3, [r0, #4]
+        MOVGT   r3, r3, ASL #2
+        STMGTIA r3, {r4, r5}
+
+        STRLE   r5, [r0, #4]
+        ADDLE   r1, r1, r4
+
+        RSB     r1, r1, #0      ; mark block allocated
+        STR     r1, [rb]
+        ADD     a1, r2, #1      ; vector returned omits the header
+        MOVS    pc, r14
+
+gvfail  MOV     a1, #0
+        MOVS    pc, r14
+
+ GlobDef 55,FreeVec
+
+        CMPS    a1, #0
+        MOVLES  pc, r14
+        TSTS    a1, #&ff000000
+        BNE     FVError
+        SUB     r1, a1, #1
+        MOV     r2, r1, ASL #2
+        LDR     r3, [r2]
+        RSBS    r3, r3, #0
+        BLE     FVError
+        ADR     r0, freeHeapChain-4
+FV1
+        LDR     r4, [r0, #4]
+        CMPS    r1, r4
+        MOVGT   r0, r4, ASL #2
+        BGT     FV1
+        STR     r1, [r0, #4]
+        STMIA   r2, {r3, r4}
+        MOVS    pc, r14
+
+FVError
+        ADR     a1, FVErrMess
+        B       Call_Fault
+FVErrMess
+        =       13,"FreeVec error"
+        ALIGN   4
+
+
+ GlobDef 41,Level
+
+        MOV     a1, rp
+        MOVS    pc, r14
+
+ GlobDef 42,LongJump
+ ; longjump(stack, lab)
+
+        CMPS    rp, a1
+        MOVEQ   pc, a2          ; filter out silly case of local longjump
+        MOV     w1, rp
+        ; must chain down stack to find rl
+        ; (stored in the linkage for the frame above)
+lj1     LDR     w2, [w1, #frrp]
+        CMPS    w2, w1
+        BEQ     LongJumpError
+        CMPS    w2, a1
+        MOVNE   w1, w2
+        BNE     lj1
+        LDR     rl, [w1, #frrl] ; no need to load rb
+        MOV     rts, w1
+        MOV     rp, a1
+        MOV     pc, a2
+
+LongJumpError
+        MOV     a3, a1
+        ADR     a1, LongJumpErrMess
+        B       Call_Fault
+
+LongJumpErrMess
+        =       51,"Destination frame %n for LongJump not in the stack",10
+        ALIGN   4
+
+ GlobDef 43,Aptovec
+ ; aptovec (proc, vec ub)
+ ; Wants its own frame so that RTS gets reset on return
+ ; note: needs replacement for downward-growing stacks
+
+        STMEA   rts!, {r14, rb, rl, rp}
+        SUB     rp, rts, #16
+        MOV     rb, r1
+        MOV     a1, rts, LSR #2          ; vector (BCPL) address
+        ADD     rts, rts, a2, ASL #2
+        ADD     rts, rts, #4            ; increment tos by vector size
+        BL      CallGlob
+        MOV     rts, rp
+        LDMFD   rp, {pc, rb, rl, rp}^
+
+ GlobDef 15,GetByte
+ ; getbyte(vec, offset)
+
+        LDRB    a1, [a2, a1, ASL #2]
+        MOVS    pc, r14
+
+ GlobDef 14,PutByte
+ ; putbyte(vec, offset, value)
+
+        STRB    a3, [a2, a1, ASL #2]
+        MOVS    pc, r14
+
+ GlobDef 37,GBytes
+ ; gbytes(ba,  size)
+
+        MOV     r0, a1
+        MOV     a1, #0
+gb1     LDRB    a3, [r0], #+1
+        ADD     a1, a3, a1, ASL #8
+        SUBS    a2, a2, #1
+        BGT     gb1
+        MOVS    pc, r14
+
+ GlobDef 38,PBytes
+ ; pbytes(ba,  size,  data)
+
+        ADD     a1, a1, a2
+pb1     STRB    a3, [a1, #-1]!
+        MOV     a3, a3, LSR #8
+        SUBS    a2, a2, #1
+        BGT     pb1
+        MOVS    pc, r14
+
+ GlobDef 140,MoveWords
+; movewords(direction, length, from, to)
+;  direction = R1, length = R2, from = R3, to = R4
+; from and to are BCPL addresses
+        MOV     a4,     a4, ASL #2
+        MOV     a3,     a3, ASL #2
+mw1
+        LDR     r0,     [a3], r1, ASL #2
+        STR     r0,     [a4], r1, ASL #2
+        SUBS    a2,     a2,     #1
+        BGT     mw1
+        MOVS    pc,     r14
+
+ GlobDef 141,FillWords
+; wordfill(base, length, value)
+; Initialise !base to base!(length-1) to value.
+; base is a BCPL address.
+
+        MOV     a1,     a1,ASL #2
+wf1
+        STR     a3,     [a1],#+4
+        SUBS    a2,     a2,     #1
+        BGT     wf1
+        MOVS    pc,     r14
+
+; *** co-routine management stuff
+;
+
+ GlobDef 52,CoWait
+; CoWait(cptr)
+
+        STMEA   rts!, {rb, rl, rp, r14} ; proper entry sequence
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1}
+        LDR     a2, [rg, #G_stackbase]
+        MOV     a2, a2, ASL #2
+        LDR     a3, [a2, #cb_caller]
+        CMN     a3, #1
+        BEQ     CoError                 ; the root coroutine can't wait
+
+        STR     a3, [rg, #G_stackbase]
+        MOV     a4, #0
+        STR     a4, [a2, #cb_caller]
+        STR     rp, [a2, #cb_resume_rp]
+        MOV     a3, a3, ASL #2
+        LDR     rts, [a3, #cb_resume_rp]
+        LDMED   rts, {rl, rp, pc}^
+
+
+ GlobDef 48,CreateCo
+; CreateCo(function, stacksize)
+
+        STMEA   rts!, {rb, rl, rp, r14} ; proper entry sequence
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2}
+        MOV     a1, a2                  ; acquire the stack
+        LDR     rb, [rg, #G_GetVec]
+        BL      CallGlob
+
+        CMPS    a1, #0
+        BEQ     CoError
+
+        LDMEA   rts!, {r4, r14}         ; get this function's arguments back
+        ADD     r14, a1, r14            ; (BCPL) stack end
+        MOV     a2, a1, ASL #2           ; (hw) stack base
+        LDR     rb, [rg, #G_stackbase]  ; callers (BCPL) stack base
+        MOV     a3, rb, ASL #2
+        LDR     w2, [a3, #cb_next]      ; chain new coroutine after creator
+        STR     a1, [a3, #cb_next]
+        STMEA   a2, {w2, rb, r14}       ; sets cb_next: cb_caller: cb_stackend
+        STR     r4, [a2, #cb_fn]
+        STR     rp, [a3, #cb_resume_rp]
+        STR     a1, [rg, #G_stackbase]
+        ADD     rp, a2, #cb_real_stack
+CreateCo2
+        MOV     rts, rp
+        LDR     rb, [rg, #G_CoWait]
+        BL      CallGlob
+        LDR     rb, [rp, #cb_fn-cb_real_stack]
+        BL      CallGlob
+        B       CreateCo2
+
+
+ GlobDef 49,DeleteCo
+; successcode := DeleteCo(cptr)
+
+        STMEA   rts!, {rb, rl, rp, r14} ; proper entry sequence
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1}
+        MOV     a2, a1, ASL #2
+        LDR     a3, [a2, #cb_caller]
+        CMPS    a3, #0
+        BNE     CoError                 ; can't - it's still active
+
+        LDR     a3, [rg, #G_stackbase]  ; down the caller chain to the root
+DeleteCo1
+        MOV     a4, a3, ASL #2
+        LDR     a4, [a4, #cb_caller]
+        CMN     a4, #1
+        BNE     DeleteCo1
+
+; a3 is now the root coroutine
+; Search starting from it for the target coroutine
+        MOV     r0, #0
+DeleteCo2
+        MOV     a4, a3
+        LDR     a3, [r0, a3, ASL #2]
+        CMPS    a3, #0
+        BEQ     CoError                 ; not found - end of chain
+        CMPS    a1, a3
+        BNE     DeleteCo2
+
+        LDR     a2, [r0, a1, ASL #2]
+        STR     a2, [r0, a4, ASL #2]     ; unlink the target coroutine
+        LDR     rb, [rg, #G_FreeVec]    ; relinquish its stack
+        BL      CallGlob
+        MOV     rts, rp
+        LDMED   rts, {rl, rp, pc}^
+
+
+ GlobDef 50,CallCo
+; CallCo(cptr, arg)
+
+        STMEA   rts!, {rb, rl, rp, r14} ; proper entry sequence
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2}
+        MOV     a3, a1, ASL #2
+        LDR     a4, [a3, #cb_caller]
+        CMPS    a4, #0
+        BNE     CoError                 ; already active
+
+        LDR     rb, [rg, #G_stackbase]
+        STR     rb, [a3, #cb_caller]
+        MOV     rb, rb, ASL #2
+
+CoEnter
+ ; enter coroutine a1.  a3 is hw version of a1.
+ ; rb is hw address of current coroutine
+        STR     a1, [rg, #G_stackbase]
+        STR     rp, [rb, #cb_resume_rp]
+        LDR     rts, [a3, #cb_resume_rp]
+        MOV     a1, a2
+        LDMED   rts, {rl, rp, pc}^
+
+
+ GlobDef 51,ResumeCo
+; ResumeCo(cptr, arg)
+
+        STMEA   rts!, {rb, rl, rp, r14} ; proper entry sequence
+        SUB     rp, rts, #16
+        STMEA   rts!, {a1, a2}
+        LDR     rb, [rg, #G_stackbase]
+        CMPS    rb, a1
+        BEQ     ResumeCo1               ; its the current coroutine
+        MOV     a3, a1, ASL #2
+        LDR     a4, [a3, #cb_caller]
+        BNE     CoError                 ; target is already active
+        MOV     rb, rb, ASL #2
+        LDR     a4, [rb, #cb_caller]
+        CMN     a4, #1
+        BEQ     CoError                 ; caller is root
+        STR     a4, [a3, #cb_caller]    ; activate target
+        MOV     a4, #0
+        STR     a4, [rb, #cb_caller]    ; and deactivate current
+        B       CoEnter
+
+ResumeCo1
+        MOV     a1, a2
+        MOV     rts, rp
+        LDMED   rts, {rl, rp, pc}^
+
+
+CoError
+        ADR     a1, CoErrMess
+Call_Fault
+        MOV     a1, a1, LSR #2
+        LDR     rb, [rg, #G_fault]
+        BL      CallGlob
+        B       WindUp
+
+CoErrMess
+        =       16,"Coroutine error",10
+        ALIGN   4
+
+        LTORG
+
+ [ aof
+        EndModule
+        AREA    |BCPL$$Data|
+
+localData
+        = "VERN"
+        = LibraryMinorVersion
+        = LibraryMajorVersion
+        ALIGN 4
+ |
+
+localData
+        = "VERN"
+        = LibraryMinorVersion
+        = LibraryMajorVersion
+        ALIGN 4
+        EndModule
+ ]
+ END
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  End of McLibR
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+  And here's FpMath
+
+;*******************-*- Mode: Assembler -*-****************************
+;*  Title:      FP functions for BCPL                                 *
+;*  Author:     Harry Meekings                                        *
+;*  Lastedit:   13 Aug 86 13:17:30 by Harry Meekings                  *
+;*              Copyright (c) 1986 by Acorn Computers Ltd             *
+;**********************************************************************
+
+        GET     $.Alib.BCPLMacs
+
+        Module FPMath, "13 Aug 86 11:47:02"
+
+MajorVersion * 0
+MinorVersion * 1
+
+LocalDataP
+        Address localData
+        &       -1
+        =       7, "Initial"
+
+f0      FN      0
+f1      FN      1
+
+        GlobDef 120,SSin
+; a1 := Sin(a1)
+        MVF     f0, a1
+        SINS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 121,SCos
+; a1 := Cos(a1)
+        MVF     f0, a1
+        COSS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 122,STan
+; a1 := Tan(a1)
+        MVF     f0, a1
+        TANS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 123,SASin
+; a1 := ASin(a1)
+        MVF     f0, a1
+        ASNS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 124,SACos
+; a1 := ACos(a1)
+        MVF     f0, a1
+        ACSS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 125,SATan
+; a1 := Atan(a1)
+        MVF     f0, a1
+        ATNS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 126,SLogE
+; a1 := Log(a1) (base e)
+        MVF     f0, a1
+        LGNS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 127,SLog10
+; a1 := Log(a1) (base 10)
+        MVF     f0, a1
+        LOGS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 128,SExp
+; a1 := Exp(a1)
+        MVF     f0, a1
+        EXPS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 129,SPower
+; a1 := a1**a2
+        MVF     f0, a1
+        MVF     f1, a2
+        POWS    f0, f0, f1
+        MVF     a1, f0
+        MOVS    pc, r14
+
+        GlobDef 130,SSqrt
+; a1 := Sqrt(a1)
+        MVF     f0, a1
+        SQTS    f0, f0
+        MVF     a1, f0
+        MOVS    pc, r14
+
+localData
+        = "VERN"
+        = MinorVersion
+        = MajorVersion
+        ALIGN 4
+
+        EndModule
+
+        END
+
+    End of FpMath
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    End of macros document                                                      
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -1,0 +1,24 @@
+*spool :4.tmp.compKER  
+*| compKER DSH Version 1.0 14.9.87
+*| system kernel & window manager
+*|
+*time
+*dir $.DSH.KE
+c comp
+*dir ^.DH
+c comp
+*dir ^.UD
+c comp
+*dir ^.SC
+c comp
+*dir ^.WM
+c comp
+*dir ^.VH
+c comp
+*dir ^.UT
+c comp
+*dir ^.SI
+c comp
+*dir $.DSH.utils
+*time 
+*spool

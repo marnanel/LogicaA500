@@ -1,0 +1,4 @@
+/*op decs for testing by rb only, remove for real use*/
+?- op(650,xfx,[:]).
+?- op(100,xfy,[or]).
+?- op(90,xfy,[and]).

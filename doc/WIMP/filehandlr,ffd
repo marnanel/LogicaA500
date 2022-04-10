@@ -1,0 +1,761 @@
+ REM > Acc*.filehandlr : crunched
+ REM (c) Acorn Computers 1987
+ REM Version 0.5
+  
+ DEFFNinstall_file_filehandlr
+ LOCALfloppies%,winnies%,network%
+ DIMdata 1032
+ DIMdirectory$(32), directory%(32), directorymark%(32)
+ directoryindex%=0
+ DIMselectname$(32), selecttype$(32)
+  selectindex%=0
+ SYS"OS_Byte",161,&87 TO ,,winnies%
+ floppies%=winnies%AND7
+  IFfloppies%>4 floppies%=1
+ winnies%=winnies%>>3
+  IFwinnies%>2 winnies%=1
+ SYS"XOS_SWINumberFromString",,"NetFS_DoFSOp" TO R0;network%
+ network%=(network% AND1)=0
+ IFfloppies%>0 PROCsys_addtoiconbar_left("floppy0","disc3.5",&301A,icon_fgcol,icon_bgcol, 128)
+ IFfloppies%>1 PROCsys_addtoiconbar_left("floppy1","disc3.5",&301A,icon_fgcol,icon_bgcol, 128)
+ IFwinnies%>0  PROCsys_addtoiconbar_left("winnie4","harddisc",&301A,icon_fgcol,icon_bgcol, 128)
+ IFnetwork% PROCsys_addtoiconbar_left("network","network",&301A,icon_fgcol,icon_bgcol, 128)
+ =0
+
+ DEFFNselect_winnie4
+ =0
+
+ DEFFNmenu_winnie4
+ =0
+
+ DEFFNaction_winnie4
+ winnie4%=FNfilehandler_open_dir("-adfs-:4","Hard disc")
+ =winnie4%
+
+ DEFFNmenuselect_winnie4
+ CASEitem0% OF
+ ENDCASE
+ =0
+
+ DEFFNselect_floppy0
+ =0
+
+ DEFFNmenu_floppy0
+ PROCsys_definetextmenu("floppy0","floppy :0","Format")
+ =0
+
+ DEFFNaction_floppy0
+ floppy0%=FNfilehandler_open_dir("-adfs-:0","Floppy :0")
+ =floppy0%
+
+ DEFFNmenuselect_floppy0
+ CASEitem0% OF
+   WHEN-1
+   WHEN0
+   PROCfilehandler_formatfloppy("0")
+ ENDCASE
+ =0
+
+ DEFFNselect_floppy1
+ =0
+
+ DEFFNmenu_floppy1
+ PROCsys_definetextmenu("floppy1","floppy :1","Format")
+ =0
+
+ DEFFNaction_floppy1
+ floppy1%=FNfilehandler_open_dir("-adfs-:1","Floppy :1")
+ =floppy1%
+
+ DEFFNmenuselect_floppy1
+ CASEitem0% OF
+   WHEN-1
+   WHEN0
+    PROCfilehandler_formatfloppy("1")
+ ENDCASE
+ =0
+
+ DEFFNselect_network
+ =0
+
+ DEFFNmenu_network
+ =0
+
+ DEFFNaction_network
+ LOCALi%,FSsta%,FSnet%
+ LOCALERROR
+ ONERRORLOCALIFERR=67007 PROCfilehandler_logonbox
+ =-1 ELSEPROCfilehandler_report
+ =-1
+ fsptr%=data
+  urptr%=data+20
+  psptr%=data+50
+ $fsptr%=""
+  $urptr%=""
+  $psptr%=""
+  i%=&9E
+ SYS"OS_Byte",161,1 TO ,,FSsta%
+  SYS"OS_Byte",161,2 TO ,,FSnet%
+ CASEFSsta% OF
+   WHEN0
+   WHILE FSnet%<>0 ANDLEN($fsptr%)<15
+     $fsptr%+=CHR$(FSnet%)
+      SYS"OS_Byte",161,i% TO ,,FSnet%
+      i%+=1
+   ENDWHILE
+   OTHERWISE 
+    $fsptr%=STR$FSnet%+"."+STR$FSsta%
+   SYSMultiple,10,"-net-",data,1,1,500,"*"
+   network%=FNfilehandler_open_dir("-net-&","Econet")
+   =network%
+
+ DEFFNmenuselect_network
+  CASEitem0% OF
+  ENDCASE
+ =0
+ 
+ DEFFNclose_filehandler
+  LOCALfound%
+  found%=FNsys_searchI(handle%,directory%(),directoryindex%)
+  PROCsys_removeSII(found%,directory$(),directory%(),directorymark%(),directoryindex%)
+ =2
+   
+ DEFFNredraw_filehandler
+  WHILE more%
+    SYSGetR,0,b TO more%
+  ENDWHILE
+ =0
+
+ DEFFNbutton_filehandler
+  LOCALindex%, dir$, name$, type$
+  index%=directoryindex%
+  REPEAT
+    index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid directory window"
+    STOP
+  UNTILdirectory%(index%)=handle%
+  dir$=directory$(index%)
+  IFicon%>=0 PROCfilehandler_name_type(handle%,icon%, name$,type$)
+  filehandler_path$=dir$
+  filehandler_name$=name$
+  filehandler_type$=type$
+  CASETRUE OF
+   WHEN(button%AND&400)=&400 ANDicon%>=0
+    PROCfilehandler_selectobject(dir$+"."+name$,type$,handle%,icon%OR1)
+   WHEN(button%AND&2)=&2
+    IFselectindex%=0 PROCsys_definetextmenu("filehandler","File menu","New dir.|<Copy to|<Move to|<Delete|<Rename")
+    IFselectindex%<>0 PROCsys_definetextmenu("filehandler","File menu","New dir.|Copy to|Move to|Delete|Rename")
+   WHEN(button%AND&100)=&100 ANDfilehandler_type$="directory"
+    LOCALfilehandler%
+    filehandler%=FNfilehandler_open_dir(filehandler_path$+"."+filehandler_name$,filehandler_name$)
+    IFfilehandler% >=0 PROCpopup(filehandler%)
+   WHEN(button%AND&100)=&100 ANDicon%>=0 
+     PROCfilehandler_open_file(dir$,name$,type$)
+   WHEN(button%AND4)=4 ANDfilehandler_type$="directory"
+    PROCfilehandler_selectobject(dir$+"."+name$,type$,handle%,icon%OR1)
+    LOCALfilehandler%
+    filehandler%=FNfilehandler_open_dir(filehandler_path$+"."+filehandler_name$,filehandler_name$)
+    IFfilehandler% >=0 PROCpopup(filehandler%)
+   WHEN(button%AND4)=4 ANDicon%>=0 
+     PROCfilehandler_selectobject(dir$+"."+name$,type$,handle%,icon%OR1)
+     PROCfilehandler_open_file(dir$,name$,type$)
+   ENDCASE
+ =0
+
+ DEFFNmenuselect_filehandler
+  filehandler_dest_path$=filehandler_path$
+  filehandler_dest_name$=""
+  CASEitem0% OF
+     WHEN-1
+     WHEN0
+      PROCfilehandler_createdirectory
+     WHEN1
+      PROCfilehandler_copyselection
+     WHEN2
+      PROCfilehandler_moveselection
+     WHEN3
+      PROCfilehandler_deleteselection
+     WHEN4
+      PROCfilehandler_renameselection
+  ENDCASE
+ =0
+
+ DEFPROCfilehandler_name_type(handle%,entry%, RETURN name$, RETURN type$)
+  LOCALi%
+  PROCsys_geticoninfo(handle%,entry%AND-2, i%,type$)
+  PROCsys_geticoninfo(handle%,entry%OR1, i%,name$)
+ ENDPROC
+  
+ DEFPROCfilehandler_open_file(dir$,name$,type$)
+  filehandler_srce$=dir$+"."+name$
+  filehandler_command%=&700
+  PROCsys_yesnobox("filehandler","Do you really want to","run file "+name$+"?","")
+ ENDPROC
+
+ DEFFNfilehandler_open_dir(dir$,title$)
+  LOCALfound%, filehandler%
+  found%=FNsys_searchS(dir$,directory$(),directoryindex%)
+  IFfound%>=0 
+  =directory%(found%)
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =-1
+  filehandler%=FNsys_definewindow("filehandler",title$,&1F,7,0 ,1280,1024, 0,0,1000,460)
+  ONERRORLOCAL
+   PROCdelete(filehandler%)
+   PROCfilehandler_report
+   =-1
+  PROCsys_setwindowextent(0,-156*37-32,1238,0)
+  PROCfilehandler_filldirwindow(dir$,filehandler%)
+  directory%(directoryindex%)=filehandler%
+  directory$(directoryindex%)=dir$
+   directorymark%(directoryindex%)=0
+  directoryindex%+=1
+ =filehandler%
+
+ DEFPROCfilehandler_updatealldirwindows
+  LOCALi%,found%
+  FORi%=1 TO 4
+    found%=FNsys_searchI(i%,directorymark%(),directoryindex%)
+    WHILE found%>=0
+      PROCfilehandler_updatedirwindow(directory$(found%),directory%(found%),directorymark%(found%))
+      found%=FNsys_searchI(i%,directorymark%(),directoryindex%)
+    ENDWHILE
+  NEXT
+ ENDPROC
+
+ DEFPROCfilehandler_update(dir$)
+  LOCALfound%
+  found%=FNsys_searchS(dir$,directory$(),directoryindex%)
+  IFfound%>=0 THEN
+    directorymark%(found%)=-1
+    PROCfilehandler_updatedirwindow(dir$,directory%(found%))
+    directorymark%(found%)=0
+  ENDIF
+ ENDPROC
+
+ DEFPROCfilehandler_updatedirwindow(dir$,handle%, RETURN mark%)
+  LOCALdat2%,type%
+  LOCALERROR
+  CASEmark% OF
+    WHEN0,1,3
+    ONERRORLOCAL
+     mark%=-1
+     PROCclose_window(handle%)
+     PROCfilehandler_report
+     ENDPROC
+    WHEN2,4
+    ONERRORLOCAL
+     PROCclose_window(handle%)
+     ENDPROC
+    WHEN-1
+    ONERRORLOCAL
+     ENDPROC
+ ENDCASE
+  SYSFile,5,dir$ TO type%
+  IFtype%<>2 PROCclose_window(handle%)
+   ENDPROC
+  dat2%=data
+   !b=handle%
+  SYSWhichI,handle%,dat2%,0,0
+  
+  WHILE !dat2% <> -1
+    b!4=!dat2%
+     SYSDeleteI,0,b
+     dat2%+=4
+  ENDWHILE
+  PROCfilehandler_filldirwindow(dir$,handle%)
+   mark%=0
+  PROCsys_forceredraw(handle%)
+ ENDPROC
+
+ DEFPROCfilehandler_filldirwindow(dir$,handle%)
+  LOCALinstallL%,installB%,installR%,installT%,installM%
+  LOCALfileindex%,filename$,filetype%,filetype$,numread%
+  LOCALselected%
+  installT%=130
+   installM%=installT%-100
+   installB%=installM%-32
+  SYSMultiple,10,dir$,data,1,fileindex%,500,"*" TO ,,,numread%
+  WHILE numread%=1
+    filename$=FNstring_zero(data+20)
+     filetype%=data!16
+    CASEfiletype% OF
+      WHEN1
+      CASE(data!1) AND&FFF OF
+        WHEN&FFF   ,&FFE,&FFD,&FFC,&FFA,&FF9 
+         filetype$="file"
+        WHEN&FFB 
+         filetype$="file_basic"
+        WHEN&FEF 
+         filetype$="diary"
+        WHEN&FEE 
+         filetype$="notepad"
+        WHEN&FED 
+         filetype$="palette"
+        WHEN&FE0 
+         filetype$="access"
+        OTHERWISE 
+         filetype$="file"
+      ENDCASE
+      WHEN2 
+       filetype$="directory"
+      OTHERWISE MODE12
+       PRINT"Unknown filetype "; filetype%
+       STOP
+    ENDCASE
+    selected%=FNfilehandler_selected(dir$+"."+filename$) AND&200000
+    IF(fileindex% MOD7)=0 installL%=12
+     installR%=installL%+10*16
+     installB%-=156
+     installM%-=156
+     installT%-=156
+    PROCsys_defineicon(installL%+2*16,installM%,installR%-2*16,installT%,&A03A,7,1,filetype$)
+    PROCsys_defineicon(installL%,installB%,installR%,installM%,&A029ORselected%,7,1,filename$)
+    installL%+=11*16
+     installR%+=11*16
+     fileindex%+=1
+    SYSMultiple,10,dir$,data,1,fileindex%,500,"*" TO ,,,numread%
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCfilehandler_mark(dir$,mark%)
+  LOCALfound%
+  found%=FNsys_searchS(dir$,directory$(),directoryindex%)
+  IFfound%>=0 directorymark%(found%)=mark%
+ ENDPROC
+
+ DEFPROCfilehandler_selectobject(name$,type$,handle%,icon%)
+  LOCALfound%
+  found%=FNsys_searchS(name$,selectname$(),selectindex%)
+  IFfound%<0 THEN
+    IFselectindex%>DIM(selectname$(),1) THEN
+      filehandler_command%=&081
+      PROCsys_warningbox("filehandler","Don't select any more files","","","o--")
+      ENDPROC
+    ENDIF
+    selectname$(selectindex%)=name$
+     selecttype$(selectindex%)=type$
+    selectindex%+=1
+    PROCsys_seticonstate(handle%,icon%,&00200000,&00200000)
+  ENDIF
+  IFfound%>=0 THEN
+    PROCsys_removeSS(found%,selectname$(),selecttype$(),selectindex%)
+    PROCsys_seticonstate(handle%,icon%,&00000000,&00200000)
+  ENDIF
+ ENDPROC
+
+ DEFPROCfilehandler_deselectobject(path$,name$)
+  LOCALhandle%,iname$,itype$,i%
+  handle%=FNsys_searchS(path$,directory$(),directoryindex%)
+  IFhandle%<0 ENDPROC
+  handle%=directory%(handle%)
+   i%=-1
+  REPEAT
+    i%+=2
+    
+    PROCfilehandler_name_type(handle%,i%, iname$,itype$)
+  UNTILname$=iname$
+  PROCsys_seticonstate(handle%,i%,&00000000,&00200000)
+ ENDPROC
+
+ DEFPROCfilehandler_copyselection
+  LOCALsubdir%,file%,dir%
+  PROCfilehandler_nextitem(dir%,file%)
+  subdir%=INSTR(filehandler_dest_path$,filehandler_srce$+".")=1
+  subdir%=subdir% ORfilehandler_srce$=filehandler_dest_path$
+  filehandler_dest_name$=filehandler_srce_name$
+  samedir%=filehandler_srce_path$=filehandler_dest_path$
+  CASETRUE OF
+    WHENsubdir% 
+     filehandler_command%=&3FE
+    PROCsys_warningbox("filehandler","I can't copy directory "+filehandler_srce_name$,"as it contains the destination","","o--")
+    WHENsamedir% ANDfile%
+     filehandler_command%=&306
+    PROCfilehandler_renamebox("filehandler","COPY","File",filehandler_srce_name$,"as")
+    WHENsamedir% ANDdir% 
+     filehandler_command%=&307
+    PROCfilehandler_renamebox("filehandler","COPY","Dir.",filehandler_srce_name$,"as")
+    WHENfile% 
+     filehandler_command%=&300
+    PROCsys_yesnobox("filehandler","Do you really want to","copy file "+filehandler_srce_name$+"?","")
+    WHENdir%  
+     filehandler_command%=&301
+    PROCsys_yesnobox("filehandler","Do you really want to","copy directory "+filehandler_srce_name$+"?","")
+    OTHERWISE  
+     filehandler_command%=&3FD
+    PROCsys_warningbox("filehandler","I can't copy "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_moveselection
+  LOCALsubdir%,file%,dir%,samedir%
+  PROCfilehandler_nextitem(dir%,file%)
+  subdir%=INSTR(filehandler_dest_path$,filehandler_srce$+".")=1
+  subdir%=subdir% ORfilehandler_srce$=filehandler_dest_path$
+  filehandler_dest_name$=filehandler_srce_name$
+  samedir%=filehandler_srce_path$=filehandler_dest_path$
+  CASETRUE OF
+    WHENsubdir%
+     filehandler_command%=&2FE
+    PROCsys_warningbox("filehandler","I can't move directory "+filehandler_srce_name$,"as it contains the destination","","o--")
+    WHENsamedir% ANDfile%
+     filehandler_command%=&206
+    PROCfilehandler_renamebox("filehandler","MOVE","File",filehandler_srce_name$,"as")
+    WHENsamedir% ANDdir% 
+     filehandler_command%=&207
+    PROCfilehandler_renamebox("filehandler","MOVE","Dir.",filehandler_srce_name$,"as")
+    WHENfile% 
+     filehandler_command%=&200
+    PROCsys_yesnobox("filehandler","Do you really want to","move file "+filehandler_srce_name$+"?","")
+    WHENdir%  
+     filehandler_command%=&201
+    PROCsys_yesnobox("filehandler","Do you really want to","move directory "+filehandler_srce_name$+"?","")
+    OTHERWISE  
+     filehandler_command%=&2FD
+    PROCsys_warningbox("filehandler","I can't move "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_deleteselection
+  LOCALdir%,file%
+  PROCfilehandler_nextitem(dir%,file%)
+  CASETRUE OF
+    WHENfile% 
+     filehandler_command%=&100
+    PROCsys_yesnobox("filehandler","Do you really want to","delete file "+filehandler_srce_name$+"?","")
+    WHENdir%  
+     filehandler_command%=&101
+    PROCsys_yesnobox("filehandler","Do you really want to","delete directory "+filehandler_srce_name$+"?","")
+    OTHERWISE 
+     filehandler_command%=&1FE
+    PROCsys_warningbox("filehandler","I can't delete "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_renameselection
+  LOCALdir%,file%
+  PROCfilehandler_nextitem(dir%,file%)
+  filehandler_dest_path$=filehandler_srce_path$
+  CASETRUE OF
+    WHENfile%
+     filehandler_command%=&406
+    PROCfilehandler_renamebox("filehandler","RENAME","File",filehandler_srce_name$,"as")
+    WHENdir% 
+     filehandler_command%=&407
+    PROCfilehandler_renamebox("filehandler","RENAME","Dir.",filehandler_srce_name$,"as")
+    OTHERWISE 
+     filehandler_command%=&4FE
+    PROCsys_warningbox("filehandler","I can't rename "+filehandler_srce$,"","","o--")
+  ENDCASE
+ ENDPROC
+
+ DEFPROCfilehandler_createdirectory
+  filehandler_command%=&907
+  PROCfilehandler_renamebox("filehandler","Create dir.","","","Dir.")
+ ENDPROC
+
+ DEFPROCfilehandler_path_name(filename$, RETURN path$,RETURN name$)
+  name$=filename$
+  WHILE INSTR(name$,".")>0
+    name$=RIGHT$(name$, LENname$-INSTR(name$,"."))
+  ENDWHILE
+  path$=LEFT$(filename$, LENfilename$-LENname$-1)
+ ENDPROC
+
+ DEFFNfilehandler_selected(name$)
+  IFselectindex%=0 
+  =FALSE
+  LOCALi%
+   i%=selectindex%
+  REPEATi%-=1
+  UNTILi%=0 ORselectname$(i%)=name$
+  =(selectname$(i%)=name$)
+
+ DEFPROCfilehandler_nextitem(RETURN dir%, RETURN file%)
+  IFselectindex%<=0 ERROR&0100000C,"No selected file"
+  filehandler_command%=-1
+  filehandler_srce$=selectname$(0)
+   filehandler_type$=selecttype$(0)
+  PROCfilehandler_path_name(filehandler_srce$,filehandler_srce_path$,filehandler_srce_name$)
+  PROCsys_removeSS(0,selectname$(),selecttype$(),selectindex%)
+  dir%=filehandler_type$="directory"
+  file%=NOTdir%
+ ENDPROC
+
+ DEFFNdialogueselect_filehandler
+  LOCALyes%,no%
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =0
+  yes%=icon%=0
+   no%=icon%=1
+  CASEfilehandler_command% OF
+    WHEN&080
+     PROCfilehandler_updatealldirwindows
+     PROCsys_closedialogue
+    =0
+    WHEN&081
+     PROCsys_closedialogue
+    =0
+  ENDCASE
+  IFyes% THEN
+    CASEfilehandler_command% OF
+      WHEN&200,&201,&300,&301
+      filehandler_dest$=filehandler_dest_path$+"."+filehandler_dest_name$
+      WHEN&206,&207,&306,&307,&406,&407,&907
+      filehandler_dest$=filehandler_dest_path$+"."+$data
+    ENDCASE
+    CASEfilehandler_command% OF
+      WHEN&100,&101 
+       PROCfilehandler_mark(filehandler_srce_path$,3)
+      WHEN&200,&201,&300,&301
+      PROCfilehandler_mark(filehandler_srce_path$,3)
+      PROCfilehandler_mark(filehandler_dest_path$,1)
+      WHEN&206,&207,&306,&307,&406,&407,&907
+      PROCfilehandler_mark(filehandler_dest_path$,1)
+    ENDCASE
+    CASEfilehandler_command% OF
+      WHEN&100
+      PROCoscli("ACCESS "+filehandler_srce$)
+      PROCoscli("DELETE "+filehandler_srce$)
+      WHEN&101
+      PROCfilehandler_delete_dir(filehandler_srce$)
+      WHEN&200,&206,&406
+      PROCoscli("ACCESS "+filehandler_srce$+" WR")
+      PROCoscli("RENAME "+filehandler_srce$+" "+filehandler_dest$)
+      WHEN&201,&207,&407
+      PROCfilehandler_rename_dir(filehandler_srce$,filehandler_dest$)
+      WHEN&300,&306
+      PROCoscli("COPY "+filehandler_srce$+" "+filehandler_dest$)
+      WHEN&301,&307
+      PROCoscli("COPY "+filehandler_srce$+" "+filehandler_dest$+" R")
+      WHEN&600
+       PROCfilehandler_logon
+      WHEN&700
+      MOVE0,-500
+       OSCLI"FX200"
+      PROCoscli("RUN "+filehandler_srce$)
+       RUN
+      WHEN&800
+       filehandler_command%=&801
+      PROCsys_warningbox("filehandler","Formatting this disc","will destroy","any data on it","oq-")
+      WHEN&801
+       filehandler_command%=&802
+      MOVE0,-200
+       PROCoscli("FORMAT "+filehandler_srce$+" D Y")
+      PROCsys_warningbox("filehandler","Formatting complete","","","o--")
+      WHEN&802
+      PROCsys_closedialogue
+      WHEN&907
+      PROCoscli("CDIR "+filehandler_dest$)
+    ENDCASE
+  ENDIF
+  IF(filehandler_command% AND&80)>0 ORNOTyes% THEN
+    CASEfilehandler_command% AND&FF00 OF
+      WHEN&100,&200,&300,&400
+      PROCfilehandler_deselectobject(filehandler_srce_path$,filehandler_srce_name$)
+      WHEN&700 
+       PROCsys_closedialogue
+      WHEN&800 
+       PROCsys_closedialogue
+    ENDCASE
+  ENDIF
+  CASEfilehandler_command% AND&FF00 OF
+    WHEN&100,&200,&300,&400
+    IFselectindex%=0 THEN
+      PROCsys_closedialogue
+       PROCfilehandler_updatealldirwindows
+      =0
+    ENDIF
+  ENDCASE
+  PROCfilehandler_updatealldirwindows
+  CASEfilehandler_command% AND&FF00 OF
+    WHEN&100 
+     PROCfilehandler_deleteselection
+    WHEN&200 
+     PROCfilehandler_moveselection
+    WHEN&300 
+     PROCfilehandler_copyselection
+    WHEN&400 
+     PROCfilehandler_renameselection
+    WHEN&600,&900 
+     PROCsys_closedialogue
+  ENDCASE
+  =0
+
+ DEFPROCfilehandler_rename_dir(from$,to$)
+  LOCALi%
+  PROCoscli("ACCESS "+from$)
+  PROCoscli("RENAME "+from$+" "+to$)
+  PROCoscli("ACCESS "+to$+" DL")
+  FORi%=0 TO directoryindex%-1
+    CASETRUE OF
+      WHENdirectory$(i%)=from$
+       directory$(i%)=to$
+      WHENINSTR(directory$(i%),from$+".")=1
+      directory$(i%)=to$+MID$(directory$(i%),1+LENfrom$)
+      directorymark%(i%)=2
+    ENDCASE
+  NEXT
+  i%=0 
+  
+  WHILE i%<selectindex%
+    IFINSTR(selectname$(i%),from$+".")=1 THEN
+      selectname$(i%)=to$+MID$(selectname$(i%),1+LENfrom$)
+    ENDIF
+    i%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCfilehandler_delete_dir(dir$)
+  LOCALi%
+  i%=selectindex%-1     
+  WHILE i%>=0
+    IFINSTR(selectname$(i%),dir$+".")=1 PROCsys_removeSS(i%,selectname$(),selecttype$(),selectindex%)
+    i%-=1
+  ENDWHILE
+  FORi%=0 TO directoryindex%-1
+    IFINSTR(directory$(i%)+".",dir$+".")=1 directorymark%(i%)=2
+  NEXT
+  PROCoscli("WIPE "+dir$+" FR")
+ ENDPROC
+
+ DEFPROCfilehandler_logon
+  LOCALstr$
+  IF$fsptr%<>"" str$=":"+$fsptr%+" "
+  str$+=$urptr%+" "+$psptr%
+  IFstr$=STRING$(LENstr$," ") ENDPROC
+  IFstr$=":"+STRING$(LEN(str$)-1," ") ENDPROC
+  PROCoscli("-NET-LOGON"+str$)
+  network%=FNfilehandler_open_dir("-net-&","Econet")
+  IFnetwork% >=0 PROCpopup(network%)
+ ENDPROC
+
+ DEFPROCfilehandler_formatfloppy(drive$)
+  filehandler_command%=&800
+  filehandler_srce$=drive$
+  PROCsys_yesnobox("filehandler","Do you really want to","format drive "+drive$+"?","")
+ ENDPROC
+
+ DEFPROCfilehandler_renamebox(suffix$,text0$,text1$,text2$,text3$)
+  LOCALboxW%,boxH%
+  LOCALbutL%,butB%,butR%,butT%, butW%
+  boxW%=22*16
+  boxH%=9*32 +32* 2*((text1$="") AND(text2$=""))
+  butW%=16*4
+  butL%=(boxW%-butW%)/2
+  butR%=butL%+butW%
+  B0%=-32*2
+  B1%=-32*4
+  B2%=-32*6
+  B3%=16-boxH%
+  T1%=B1%+48
+  T2%=B2%+48
+  T3%=B3%+48
+  IFtext1$="" ANDtext2$="" B2%=B1%
+  T2%=T1%
+  L0%=16*2
+  L1%=16*9
+  L3%=L0%
+  R0%=16*8
+  R1%=16*(9+11)
+  R3%=L3%+16*6
+  R2%=R1%
+  L2%=R2%-16*6
+  butB%=16-boxH%
+  butT%=butB%+48
+  PROCsys_createdialogue(suffix$,boxW%,boxH%)
+  PROCsys_defineicon(L3%,B3%,R3%,T3%,&403D,7,1,"OK")
+  PROCsys_defineicon(L2%,B3%,R2%,T3%,&403D,7,1,"Quit")
+  $data=""
+  PROCsys_defineiconW(L1%,B2%,R1%,T2%,&F11D,7,1, data,-1,11)
+  PROCsys_defineicon(L0%,B2%,R0%,T2%,&0011,7,1,text3$)
+  IFtext1$<>"" PROCsys_defineicon(L0%,B1%,R0%,T1%,&0011,7,1,text1$)
+  PROCsys_defineicon(0,B0%,boxW%,0,&0039,7,1,text0$)
+  IFtext2$<>"" PROCsys_defineicon(L1%,B1%,R1%,T1%,&0011,7,1,text2$)
+  PROCsys_opendialogue
+  PROCsys_claiminputfocus(handle%,2, 0,0,-1,0)
+ ENDPROC
+
+ DEFPROCfilehandler_logonbox
+  LOCALboxW%,boxH%,slt0W%,slt1W%,slotH%
+  LOCALbutL%,butB%,butR%,butT%, butW%
+   B0%=-32*2
+   B1%=-32*4
+   B2%=-32*6
+   B3%=-32*8
+   B4%=-32*10
+   T1%=B1%+48
+   T2%=B2%+48
+   T3%=B3%+48
+   T4%=B4%+48
+   boxH%= 2*16-B4%
+   L0%=2*16
+   R0%=L0%+13*16
+   L1%=R0%+2*16
+   R1%=L1%+22*16
+   boxW%=R1%+2*16
+  PROCsys_createdialogue("filehandler",boxW%,boxH%)
+  PROCsys_defineicon(L0%,B4%,R0%,T4%,&403D,7,1,"OK")
+  PROCsys_defineicon(L1%,B4%,R1%,T4%,&403D,7,1,"Quit")
+  PROCsys_defineicon(L0%,B1%,R0%,T1%,&0011,7,1,"File server")
+  PROCsys_defineicon(L0%,B2%,R0%,T2%,&0011,7,1,"User name  ")
+  PROCsys_defineicon(L0%,B3%,R0%,T3%,&0011,7,1,"Password   ")
+  PROCsys_defineiconW(L1%,B1%,R1%,T1%,&F11D,7,1, fsptr%,-1,17)
+  PROCsys_defineiconW(L1%,B2%,R1%,T2%,&F11D,7,1, urptr%,-1,22)
+  PROCsys_defineiconW(L1%,B3%,R1%,T3%,&F11D,7,1, psptr%,-1,7) 
+  PROCsys_defineicon(0,B0%,boxW%,0,&0039,7,1,"Logon")
+  PROCsys_opendialogue
+  PROCsys_claiminputfocus(handle%,6, 0,0,-1,0)
+  filehandler_command%=&600
+ ENDPROC
+
+ DEFFNfilehandler_loadfile(filename$,start%,end%,type%)
+  LOCALpath$,name$,numread%,dir%,file%
+  LOCALobj%,adr%,exe%,len%
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =TRUE
+  IFfilename$="" THEN
+    PROCfilehandler_nextitem(dir%,file%)
+    filename$=filehandler_srce$
+  ENDIF
+  PROCfilehandler_path_name(filename$,path$,name$)
+  PROCfilehandler_mark(path$,1)
+  SYSFile,5,filename$ TO obj%,,adr%,exe%,len%
+  IFobj%=0  ERROR&01000008,"File not found"
+  IFobj%<>1 ERROR&01000009,"Not a file"
+  IFadr%>=0 OR((adr%>>8)AND&FFF)<>type% ERROR&0100000A,"Wrong file type"
+  IFlen%>(end%-start%) ERROR&0100000B,"File too big"
+  OSCLI"LOAD "+filename$+" "+STR$~start%
+  PROCfilehandler_updatealldirwindows
+  =FALSE
+
+ DEFFNfilehandler_savefile(name$,start%,end%,typ%)
+  LOCALERROR
+  ONERRORLOCAL
+   PROCfilehandler_report
+   =TRUE
+  directorymark%()=1
+  OSCLI"SAVE "+name$+" "+STR$~start%+" "+STR$~end%
+  OSCLI"SETTYPE "+name$+" &"+STR$~typ%
+  OSCLI"STAMP "+name$
+  PROCfilehandler_updatealldirwindows
+  =FALSE
+
+ DEFPROCfilehandler_report
+  IFERR=17 VDU4
+   PRINT TAB(0,1);"filehandler_report sez : ";REPORT$;"  "
+   END                                                   
+  filehandler_command%=&080
+  PROCsys_warningbox("filehandler","System reported error",REPORT$,"","o-w")
+ ENDPROC
+
+ DEFPROCoscli(str$)
+  OSCLIstr$
+ ENDPROC

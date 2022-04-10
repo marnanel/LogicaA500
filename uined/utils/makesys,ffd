@@ -1,0 +1,26 @@
+mode 7
+*| makesys - 18.2.87 NRY
+*| Creates a skeleton system floppy.
+*| Must be run on a blank floppy; must be followed by 'updatesys'
+*dir :4
+*opt 4,3
+*cdir b
+*cdir basic
+*cdir UINED
+*cdir UINED.h
+*cdir l
+*cdir r
+*cdir s
+*cdir sys
+*copy :4.!boot @
+*copy :4.utils.floputils.aform @
+*copy :4.utils.floputils.backup @
+*copy :4.sys.cmos @
+*copy :4.compactit @
+*copy :4.utils.condev @
+*copy :4.sys.* sys
+*copy :4.basic.cmos basic
+*copy :4.basic.veditor basic
+*copy :4.basic.weditor basic
+*back
+*| ***** NOW RUN UPDATESYS... *****

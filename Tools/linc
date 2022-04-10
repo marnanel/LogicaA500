@@ -1,0 +1,10 @@
+*|
+*| Link the tools
+*|
+Join :4.alib.lib c.fix     -to r.Fix
+*|
+Join :4.alib.lib c.replace -to R.Replace
+*|
+Join :4.alib.lib c.Search  -to R.Search
+*|
+Join :4.alib.lib c.Convert -to R.Convert

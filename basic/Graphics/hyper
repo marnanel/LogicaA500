@@ -1,0 +1,87 @@
+   10REM > hyper
+   20REM quadric surfaces program from dec '86 BYTE pg 219
+   30REM this version for hyperboloids
+   40MODE 12: OFF : b% = 2
+   50DR=PI/180
+   60BLUE=6: PURPLE=4: WHITE=7
+   70HMIN=0: HMAX=1279
+   80LMIN=0: LMAX=1023
+   90HRES=HMAX-HMIN: LRES=LMAX-LMIN
+  100YOFF=0
+  110REM ------ define function and set parameters ---------
+  120DEF FNF1(X,Y)=SQR(X*X+Y*Y-2)*2
+  130HC=HMIN+INT(HRES/2)
+  140LC=LMIN+INT(LRES/2)
+  150SCALEH=50
+  160SCALEV=35
+  170REM ------ find angles from centre to corners ---------
+  180C1=ATN((LC-LMIN)/(HMAX-HC))        : REM TO NE
+  190C2=PI-ATN((LC-LMIN)/(HC-HMIN))     : REM TO NW
+  200C3=PI+ATN((LMAX-LC)/(HC-HMIN))     : REM TO SW
+  210C4=2*PI-ATN((LMAX-LC)/(HMAX-HC))   : REM TO SE
+  220REM -------------- X Y Z AXES -------------------------
+  230KOLOR=WHITE
+  240INPUT "Angles for x,y,z axes"; degX,degY,degZ
+  250REM degX=15:degY=-15:degZ=90
+  260CLS:CLG
+  270PROCdegrad( degX )
+  280sinXA=SIN(A): cosXA=COS(A)
+  290PROCaxes( degX )
+  300PROCdegrad( degY )
+  310sinYA=SIN(A): cosYA=COS(A)
+  320PROCaxes( degY )
+  330PROCdegrad( degZ )
+  340sinZA=SIN(A): cosZA=COS(A)
+  350PROCaxes( degZ )
+  360REM ----------- plot the surface ----------------------
+  370FOR TY= -4 TO 4 STEP 0.2
+  380FOR TX= -4 TO 4 STEP 0.1
+  390IF (TX*TX+TY*TY)<2 THEN 470 ELSE TZ=FNF1(TX,TY)
+  400PROCproj
+  410IF TX<0 THEN KOLOR=BLUE ELSE KOLOR=PURPLE
+  420GCOL 0, KOLOR
+  430PLOT 69,MH,MV-YOFF
+  440TZ=-TZ
+  450PROCproj
+  460PLOT 69,MH,MV-YOFF
+  470NEXT TX
+  480NEXT TY
+  490END
+  500SYS "OS_Byte", 112,b%
+  510SYS "OS_Byte", 113,3-b%
+  520b%=3-b%
+  530degX=degX+10:degY=degY+10:degZ=90+RND(10)-RND(10)
+  540GOTO260
+  550END
+  560DEF PROCdegrad( degS ) : REM degrees to radians
+  570WHILE degS<0
+  580degS=degS+360
+  590ENDWHILE
+  600WHILE degS>=360
+  610degS=degS-360
+  620ENDWHILE
+  630A=RAD(degS) :REM *DR
+  640ENDPROC
+  650DEF PROCaxes( degS ) : REM extend a line through centre to borders
+  660tanA=TAN(A)
+  670PROCendp
+  680H1=HZ: L1=LZ
+  690PROCdegrad( degS+180 )
+  700PROCendp
+  710H2=HZ: L2=LZ
+  720MOVE H1,L1-YOFF
+  730GCOL 0, KOLOR
+  740REM DRAW H2,L2-YOFF
+  750ENDPROC
+  760DEF PROCendp : REM find endpoint (hz,lx) of ray (hc,lc), angle a
+  770IF A<=C1 OR A>C4 THEN HZ=HMAX: LZ=LC-(HMAX-HC)*tanA: ENDPROC
+  780IF A<=C2 THEN LZ=LMIN: HZ=HC+(LC-LMIN)/tanA: ENDPROC
+  790IF A<=C3 THEN HZ=HMIN: LZ=LC+(HC-HMIN)*tanA: ENDPROC
+  800IF A<=C4 THEN LZ=LMAX: HZ=HC-(LMAX-LC)/tanA
+  810ENDPROC
+  820DEF PROCproj
+  830PX=TX*cosXA+TY*cosYA+TZ*cosZA
+  840PY=TX*sinXA+TY*sinYA+TZ*sinZA
+  850MH=INT(HC+PX*SCALEH)
+  860MV=INT(LC+PY*SCALEV)
+  870ENDPROC

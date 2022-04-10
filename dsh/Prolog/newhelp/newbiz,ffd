@@ -1,0 +1,1577 @@
+                                                          /* Kon Howl  April'87
+
+                          ADMINISTRATOR AUI                */
+
+              /* DES O'CARTE : IF IN DOUBT LOOK IN "THE BIZ" */
+
+:- assert(print_num(1)).
+
+
+
+
+
+/* GET INPUT reads in message and returns its associated word in lower
+        case for the DM
+*/
+%get_input(Input) :-
+%   wait_c_message(Type),
+%   toggle_check_wait_for_message(Type, Input).
+%        
+%get_input(Input) :-
+%   output_error_message,
+%   get_input(Input).
+%
+%output_error_message :-
+%   new_output(error, ".COM", no_env).
+%
+%toggle_check_wait_for_message('TOGGLE', toggle).
+%toggle_check_wait_for_message(Type, Input) :-
+%        \+ Type = 'TOGGLE',
+%        wait_c_message(Value),
+%        look_at_input(Type, Value, Input).
+%
+/* LOOK AT INPUT compares the selected input and returns its lower case 
+         match
+*/
+%look_at_input('BUTTON', 'NO', no).      
+%look_at_input('BUTTON', 'YES', yes).
+%look_at_input('BUTTON', 'WHERE', where).
+%look_at_input('BUTTON', 'WHY', why).
+%look_at_input('BUTTON', 'WHICH', which).
+%look_at_input('BUTTON', 'SUMMARY', summary).
+%look_at_input('BUTTON', 'NEXT', next).
+%look_at_input('BUTTON', 'STACK', stack).
+%look_at_input('BUTTON', 'HELP', help).
+%look_at_input('BUTTON', 'QUIT', quit).          
+%look_at_input('BUTTON', 'REMEDIATION', remediation).
+%look_at_input('BUTTON', 'HOW', how).
+%look_at_input('PROCEDURE', Procedure_Num, procedure(Procedure_Name)) :-
+%        fm_proc(Procedure_Num, Procedure_Name).
+%look_at_input('DDU SELECT', Ddu_Num, monitor(Ddu_name)) :-
+%        fm_ddu(Ddu_Num, Ddu_name).
+%fm_proc('DOME', 'Correlate two data sets over the same area of interest').
+
+fm_ddu('BR DI 007', di_br_007).  
+fm_ddu('SM 066', sm_066).  
+fm_ddu('SM 223', sm_223).
+fm_ddu('TMA TAB', ssc_tma_table_maintenance_a).
+%fm_ddu('SM 60', sm_60_table_maintenance).
+
+
+
+
+/* sends menu choices for this step to the option area */
+
+
+send_to_menu_option_area(Off_Options, On_Options) :-
+        send_message('OPT'),
+        change_option(Off_Options, '#'),
+        change_option(On_Options, '+'),
+        send_message('ENDOPT').
+
+change_option([], _).
+change_option([Option|Options], Toggle) :-
+        determine_option(Option, Button),
+        send_message(Button),
+        send_message(Toggle),
+        change_option(Options, Toggle).  
+
+
+
+
+/* determining the right button for the intended option */
+
+determine_option(how, 'B0').
+determine_option(where, 'B1').
+determine_option(why, 'B2').
+determine_option(which, 'B3').
+determine_option(summary,'B4').
+determine_option(next, 'B5').
+determine_option(yes, 'B6').
+determine_option(no, 'B7').
+determine_option(stack, 'B8').
+determine_option(help, 'B9').
+determine_option(remediation, 'B10').
+determine_option(quit, 'B11').
+
+
+
+
+/* generic output of text to any area */
+
+output(Match, Area) :-
+        generate_text(Match, Text),
+        tell_window(Area),
+        ordered_text_format(Area, Header),
+        send_text(Text),
+        send_end_marker(Area),
+        told_window(Area),
+        highlight_text(Area,Header). 
+
+send_end_marker(com) :-
+        send_message('
+
+
+'),
+        send_message('-- 
+'),     send_message('
+').
+
+send_end_marker(proc) :-
+        send_message('
+'),
+         send_message('======
+').   
+
+write_to_proc_area(Step) :-
+        output(Step, proc).
+
+ordered_text_format(proc, Header) :-
+        print_num(Num),
+        name(Num, Step_list), 
+        name(Header,[36|Step_list]),
+        send_message(Header),
+        New_num is Num + 1,
+        abolish(print_num, 1),
+        assert(print_num(New_num)).
+ordered_text_format(Area, _) :- \+ Area = proc. 
+        
+highlight_text(proc, Header) :-
+        send_message('OPT'),
+        send_message('H'),
+        name(Header, X),X=[36|Highlight],
+        name(Highlight_Num, [43|Highlight]),
+        send_message(Highlight_Num),
+        send_message('-'),
+        send_message('ENDOPT').
+highlight_text( Area, _) :- \+ Area = proc.
+
+/* generation of text via relative text predicate */
+
+generate_text(Thing, Text) :- generate_text1(Thing, Text), !.
+generate_text(Thing, _) :-
+        write('Failed to GENERATE_TEXT for: '), write(Thing), nl,
+        abort.    %stop_aui.
+
+generate_text1(error, Text) :-
+        text(error, Text).
+generate_text1(welcome, Text) :-
+        send_message('CLP'),
+        reset_commentary_window,
+        text(welcome, Text).
+generate_text1(generic_step(Step), Text) :-
+        get_text(generic_step(Step), [], Text, []).
+generate_text1(step(generic_step(Step)), Text) :-
+        get_text(generic_step(Step), [], Text, []).
+
+generate_text1(step(Step), Text) :-
+        text(Step, Text).
+generate_text1(step(Step), [Text]) :-
+        \+ text(Step, _),
+        fm(Step, Text).
+
+generate_text1([_, substep(Step), _], Text) :-
+        generate_text1(Step, Text).
+
+generate_text1(Step, Text) :-
+        text(Step, Text).
+
+generate_text1(Step, [Text]) :-
+        \+ text(Step, _),
+        fm(Step, Text).
+
+
+/* opening and closing of window display area */
+
+tell_window(com) :- send_message('COM').
+tell_window(opt) :- send_message('OPT').
+tell_window(proc) :- send_message('PRO').
+
+told_window(com) :- send_message('
+'), send_message('ENDCOM').
+told_window(opt) :- send_message('ENDOPT').
+told_window(proc) :- send_message('
+'),  send_message('%'),
+                    send_message('ENDPRO').
+
+
+
+/* actual sending of text devoid of any nasty square brackets embedded in it */
+
+send_text([]).
+send_text([Atom|Text]) :-
+        atom(Atom),
+        \+ Atom = [],
+        write_message(Atom),
+        send_text(Text).
+send_text([List|Text]) :-
+        list(List),
+        send_text(List),
+        send_text(Text).
+send_text([tab(Tab)|Text]) :-
+        send_tab(Tab),
+        send_text(Text).
+
+list([]).
+list([_|_]).    
+
+send_nl :- name(NL, [10]), send_message(NL). 
+
+send_tab(Num) :- spaces(Num, Spaces), name(Space, Spaces), se2_message(Space).
+
+spaces(0, []).
+spaces(N, [32 | Spaces]) :- N > 0, N1 is N-1, spaces(N1, Spaces).                                                                  
+write_message(nl) :- send_nl.
+write_message(Atom) :-
+  \+ Atom = nl,
+  send_message(Atom).
+
+
+
+
+
+
+formt(cent(Thing1), Thing1, ' centrigrade' ).
+formt(rpm(Thing1), Thing1, ' RPM').
+formt(psia(Thing1), Thing1, ' PSIA').
+formt(psi_hr(Thing1), Thing1,' PSI / Hr').
+formt(lb_hr(Thing1), Thing1, ' Lb Hr').
+
+formt(psia_min(Thing1), Thing1, ' PSIA / Min').
+formt(psia_hr(Thing1), Thing1, ' PSIA / Hr').
+formt(gmt(Thing1), Thing1, ' GMT').
+
+reset_commentary_window :-
+        send_message('COM'),
+        send_nl,
+        send_message(' '),
+        send_message('ENDCOM').
+
+
+
+/* MID LEVEL TEXT FORMAT PREDICATES */
+
+
+text(end_proc(Proc), ['End of Procedure : ', Proc_Text]) :-
+        fm(Proc, Proc_Text).
+text(where(Objs), Obj_Text) :-
+        where_texts(Objs, Obj_Text).
+text(which(Obj_Type/Objs), [Obj_Type_Text, Objs_Text]) :-
+        obj_type_text(Obj_Type, Obj_Type_Text),
+        obj_text(Objs, Objs_Text).
+
+text(instance(Instance, Last_Seen),
+     ['You have performed a step similar to this, ie ', nl, F_Instance, nl,
+      F_Last_Seen]) :-
+        generate_text1(Instance, F_Instance),
+        text(Last_Seen, F_Last_Seen).   
+
+text(welcome, ['WELCOME TO THE AUI/CWS DEMONSTRATOR ', nl,
+                'Use the AUI Toggle to enable/disable AUI',nl,nl,
+                'Press option " NEXT " to begin ']).
+text(error, ['That request is not in my knowledge base. ',nl,
+                'Please re-enter option']).
+
+text(conclusion(null_conclusion),[' ']).  %dummy conclusion
+
+text(conclusion(trend(incubator_temp1, incubator_temps)), 
+                ['Incubator 1 temperature reading is in the', nl,
+                 'same trend as the rest of the incubator', nl, 
+                 'temperatures']).
+
+
+text(conclusion(failure_of_temp_control_system),
+                ['Indication of the failure of the temperature ', nl, 
+                 'control system']).
+        
+text(conclusion(trend(incubator_temp4, incubator_temps)),
+                ['Incubator 4 temperature reading is in the', nl,
+                 'same trend as the rest of the incubator', nl, 
+                 'temperatures - 1/2/3']).
+
+text(conclusion(failure_of_t4_thermometer),
+                ['This indicates failure of T4 thermometer']).
+
+
+text(conclusion(false_alarm),
+                ['Conclude that the alarm is false - false alarm ']).
+
+
+text(conclusion(failure_air_circulation_fan),
+                ['Indication of failure of air circulation fan']).
+
+
+text(conclusion(failure_0_45_electronics),
+                ['Indication of failure of 0 - 45 electronics']).
+
+
+text(conclusion(centrifuge_overloaded),
+                ['Conclude that centrifuge overloading is responsible for',
+                nl, 'the alarm']).
+
+text(conclusion(failure_temp_control_system),
+                ['The temperature control system has failed']).
+                
+text(conclusion(malfunction_angular_velocity_control),
+                ['Indication of malfunction of centrifuge angular velocity',
+                nl, 'control']).
+
+
+text(conclusion(failure_cent_secondary_power_supply),
+                ['Indication of failure of centrifuge secondary power supply']).
+
+
+text(conclusion(centrifuge_velocity,'0'),
+                ['The centrifuge velocity is equal to 0']).
+
+
+text(conclusion(loss_main_centrifuge_power),
+                ['Indication of loss of main centrifuge power']).
+
+
+text(conclusion(failure_dc_converter),
+                ['Indication of failure of DC converter']).
+
+
+/*  library procedure steps */
+
+
+text(verify(Alarm_Type, update),
+     ['Verify that the ', Alarm_Type_Text, ' alarm is now updated']) :-
+        fm(Alarm_Type, Alarm_Type_Text).
+text(goto(procedure(Procedure)), ['Go to procedure : ', Fm_Procedure]) :-
+        fm(Procedure, Fm_Procedure).
+text(enter(procedure, Procedure_name), [' Go to the procedure : ', Fm_procedure]) :-
+        fm(Procedure_name, Fm_procedure).
+text(enter(Page, Page_Title), ['Enter ', PT_Text, ' ', P_Text]) :-
+        \+ Page = procedure,
+        fm(Page, P_Text),
+        fm(Page_Title, PT_Text).
+/* locate(Valve),
+locate(Fuse_id)
+locate(Indicator), */
+
+/* system knowledge base call on location of valve, fuse identification, indicator light */
+
+text(locate(Thing), ['Locate the ', Fm_thing]) :-
+        fm(Thing, Fm_thing).
+
+/*
+verify_alarm_inhib(Alarm_Type)
+*/
+
+text(verify_alarm_inhib(Alarm_Type),
+     ['Verify that the ', Alarm_Type_Text,' alarm is now inhibited']) :-
+        fm(Alarm_Type, Alarm_Type_Text).
+
+
+/* exec */
+
+text(exec(item15, inhibit), ['Inhibit the alarm by entering 15 in the ddu input window']).
+
+/* action_close(Valve)  */
+
+text(action_close(Thing), ['Close the ', Fm_Thing]) :-
+        fm(Thing, Fm_Thing).
+
+/*
+action_switch_off(Unit_switch  */
+
+text(action_switch_off(Unit_switch), ['Switch OFF the unit switch ', nl, F_unit_switch]) :-
+        fm(Unit_switch, F_unit_switch).
+
+/*
+action_switch_on(Unit_switch) */
+
+text(action_switch_on(Unit_switch), ['Switch ON the unit switch ', nl, F_Unit_switch]) :-
+        fm(Unit_switch, F_Unit_switch).
+
+/*
+action_wait(Time),  */
+
+text(action_wait(Time), ['Wait ', F_Time, ' before going to the next step']) :-
+        fm(Time, F_Time).
+
+/*
+action_wait_until_true(Conditions),  */
+
+text(action_wait_until_true(Conditions), ['Wait until the following conditions are true before', nl,  'going to the next step : ', nl, Text]) :-
+        text(Conditions, Text).
+
+/*
+action_quit_procedure,  */
+
+text(action_quit_procedure, ['Quit this procedure']).
+
+/*
+action_d1_report  */
+
+text(action_d1_report, ['Report to D1 MUENCHEN and explain situation - ',nl,
+                         'replanning of experiments may be required']).
+
+/*
+action_place_egg_container_glovebox(Number) */
+
+text(action_place_egg_container_glovebox(Number), ['Place ' , Number, ' egg containers in the glovebox']).
+
+/*
+action_determine(Object_status)  */
+
+text(action_determine(Object_status), ['Determine the present status of the', F_Object_status]) :-
+        fm(Object_status, F_Object_status).
+
+/*
+action_open(Thing) */
+
+text(action_open(Thing), ['Open the ', F_Thing]) :-
+        fm(Thing, F_Thing).
+
+/*
+action_enable(Thing) */
+text(action_enable(Thing, Params), ['Enable ', F_Thing, 'DDU ', nl,
+                                    'by entering : ', F_Params, nl,
+                                    'in the DDU input area']) :-
+        fm(Thing, F_Thing),
+        fm(Params, F_Params).
+
+text(action_enable(Thing), ['Enable ', F_Thing]) :-
+        fm(Thing, F_Thing).
+
+/*
+action_press(Button), */
+
+text(action_press(Button), ['Press the ', F_Button ]) :-
+        fm(Button, F_Button ).
+
+/*
+action_change_fuse(Thing), */
+
+text(action_change_fuse(Thing), ['Carry out fuse change procedure for ',F_Thing ]) :-
+        fm(Thing, F_Thing).
+
+/* action inhibit - thing by entering params */
+
+text(action_inhibit(Thing), ['Inhibit ', F_Thing]) :- fm(Thing, F_Thing).
+text(action_inhibit(Thing, Params), ['Inhibit the ', F_Thing, ' by ', nl,
+                                     'entering : ', F_Params, ' in the DDU input area']) :-
+  fm(Thing, F_Thing),
+  fm(Params, F_Params).
+
+text(action_inhibit(Thing, Entry_Code, Params), 
+        ['Inhibit the ', F_Thing, ' by', nl,
+        'entering : ', Params, nl,
+        'followed by ', Entry_Code, nl,
+         'in the DDU input area']) :-
+        fm(Thing, F_Thing).
+/*
+action_open(Valve), */
+
+/*
+text(action_open(Valve), ['Open the valve ', F_Valve]) :-
+        fm(Valve,  F_Valve).
+*/
+
+/*
+determine_state(Fuse_id), */
+
+text(determine_state(Thing), ['Verify the status of ', Thing_Text]) :-
+        fm(Thing, Thing_Text).
+text(determine_state(Thing, Status), 
+     ['Verify that ', F_Thing, ' is ', F_Status]) :-
+        fm(Thing, F_Thing),
+        fm(Status, F_Stan).
+
+text(action_record(Thing), ['Record  ', F_Thing ]) :-
+        fm(Thing, F_Thing).
+
+
+
+/* ACTION REPEAT UNTIL */
+
+text(action_repeat_until(Steps, or(Condition1, Condition2)),
+        ['Carry out the following steps until ', nl,
+          Fm_condition1, ' OR', nl, Fm_condition2,nl,
+          'STEPS : ', Fm_steps]) :-
+        text(Condition1, Fm_condition1),
+        text(Condition2, Fm_condition2),
+        redo_steps(Steps, [], Fm_steps).
+
+text(action_repeat_until(Steps, Condition),
+        ['Carry out the following steps until ', nl,
+          Fm_condition1,
+        'STEPS : ', Fm_steps]) :-
+        text(Condition, Fm_condition1),
+        redo_steps(Steps, [], Fm_steps).
+
+/*  CONCLUSION TIME AT THE OKAY CORAL - OR SOMETHING LIKE THAT */
+
+text(conclusion(electrical_overload), 
+     ['Indication of an electrical overload on the system ' ]).
+
+
+text(conclusion(trend(Inc_temp_no, incubator_temps)),
+        [ 'the temperature of ',Fm_thing,' is in the same trend as', nl,
+          ' incubator temps 2, 3 and 4 ']) :-
+        fm(Inc_temp_no,Fm_thing).
+
+text(conclusion(n2_reg_press_increase),
+        ['Indication that the N2 regulator pressure is increasing ']).
+
+text(conclusion(failed(Thing)),
+        ['The ', Fm_thing, ' has failed ']) :-
+        fm(Thing, Fm_thing).
+
+text(conclusion(blown(fuse(Fuse_id))),
+        ['The fuse ',Fm_fuse_id, ' has blown']) :-
+        fm(Fuse_id, Fm_fuse_id).
+
+text(conclusion(n2_reg_press_decrease),
+        ['The N2 regulator pressure is decreasing']).
+text(conclusion(n2_reg_press(decrease)),
+        ['The N2 regulator pressure is decreasing']).
+
+text(conclusion(n2_line_leak),
+        ['There is a N2 line leak ']).
+
+text(conclusion(xdcr_failure(n2_reg_press, low)),
+        ['The XDCR has failed resulting in low N2 pressure reading']).
+
+text(conclusion(blockage(Thing)),
+        ['There is a blockage in the ', Fm_thing]) :-
+        fm(Thing, Fm_thing).
+
+text(conclusion(cabin_press_reg_1_2_failed),
+        ['The cabin press regulator 1 has failed ']).
+
+text(conclusion(cabin_press_reg_1_2_shifted_high),
+        ['The cabin pressure regulator 1(2) is shifted high']).
+
+text(conclusion(line_or_leak_manifold_isolated),
+        ['The leak in the line or mainfold is now isolated']).
+text(conclusion(line_or_manifold_leak_isolated),
+        ['The leak in the line or mainfold is now isolated']).
+ 
+text(conclusion(flow_xdcr_failed_high),
+        [ 'The XDCR has failed high ']).
+
+text(conclusion(or(class3_alarm_sw(failure), class3_alarm_sw(transient))),
+        [ 'There is either a class 3 alarm  - sw failure or a ', nl,
+          'there is a class 3 alarm  - sw transient' ]).
+
+text(conclusion(more_than_one_ppo2_sensor_high),
+        ['There is more than one PPO2 sensor high']).
+
+text(conclusion(or(sys_1_2_o2_n2_cntl_vlv_failed_closed,
+                      ppo2_2_3_sensor_shifted_low)),
+        ['The system 1(2) O2/N2 control valve has failed closed or the', nl,
+         'the PPO2 2(3) sensor has shifted low']).
+
+
+text(conclusion(controlling_ppo2_sensor_failed, sys_reconfig_required),
+        ['The controlling PPO2 sensor has failed - a system', nl,
+         'reconfiguration is required']).
+
+text(conclusion(or(sys_1_2_o2_n2_cntl_vlv_failed_open,
+                      ppo2_3_sensor_shifted_high)),
+        ['The O2/N2 control valve 1(2) has failed open or the', nl,
+         'PPO2 (3) sensor has shifted high']).
+
+text(conclusion(n2_leak_into_cabin_causing_cabin_press_reg_lockup),
+        ['There is an N2 leak into the cabin causing cabin pressure', nl,
+         'lock up ']).
+
+text(conclusion(n2_leak_not_isolated),
+        ['The N2 leak is not isolated']).
+
+text(conclusion(n2_leak_isolated), ['the N2 leak has been isolated']).
+
+text(conclusion(orb_n2_sys_leak),
+        ['There is an N2 system leak']).
+
+text(conclusion(sl_n2_tk_leak_nonisolable),
+        ['The SL N2 tank leak is nonisolable']).
+
+text(conclusion(failed_sensor_not_controlling, no_action_required),
+        ['There is a failed sensor not controlling - no action', nl,
+        'is required']).
+
+text(conclusion(Conclusion), 
+        ['The ', Fm_thing, ' is increasing ']) :-
+        Conclusion =.. [Thing, increasing],
+        fm(Thing, Fm_thing).
+
+text(conclusion(Conclusion),
+        ['The ', Fm_thing,' is decreasing ']) :-
+        Conclusion =.. [Thing, decreasing],
+        fm(Thing, Fm_thing).
+
+
+/* CONDITION BASED TEXT FOR ADMINISTRATOR */
+
+/* AND CONDITION - TOP LEVEL STUFF */
+
+
+text(and(Condition1, Condition2),[ Condition_text, nl, ' AND ',  nl, Condition_text2]) :-
+        text(Condition1, Condition_text),
+        text(Condition2, Condition_text2). 
+
+/* OR - the double text you can always trust */
+
+text(or(Condition1, Condition2) , [ Fm_condition1, nl, ' OR ', nl, Fm_condition2 ]) :-
+        text(Condition1, Fm_condition1),
+        text(Condition2, Fm_condition2).
+
+/* XOR */
+
+text(xor(Condition1, Condition2), [ Fm_condition1, nl, ' XOR ', nl, Fm_condition2]) :-
+        text(Condition1, Fm_condition1),
+        text(Condition2, Fm_condition2).
+
+
+/* GREATER THAN */
+
+
+text(cond(Atom), [Atom]).
+
+text(cond(count(Thing1), gt, Thing2), ['Is the number of ', Fm_thing, ' greater than ', Fm_Thing2]) :-
+        fm(Thing1, Fm_thing),
+        fm(Thing2, Fm_Thing2).
+
+
+text(cond(Thing1, gt, Thing2), ['Is ', Fm_thing, ' greater than ',
+                                   Number2, Atom2]) :-
+        fm(Thing1, Fm_thing),
+        formt(Thing2,  Number2, Atom2).
+
+text(cond(Thing1, gt, Thing2), ['Is ', Fm_thing, ' greater than ',
+                                 Fm_Thing2]) :-
+        fm(Thing1, Fm_thing),
+        fm(Thing2, Fm_Thing2).
+
+
+
+
+text(cond(status(enabled(Thing1)), eq, Thing2), [ 'Is  ', Fm_thing,
+                ' enabled to ', Fm_thing2, ' status']) :-
+        fm(Thing1, Fm_thing),
+        fm(Thing2, Fm_thing2).
+
+
+text(cond(status(Thing1), eq, Thing2), 
+        ['Is the status of ', Fm_thing1, ' ', Fm_thing2]) :-
+        fm(Thing1, Fm_thing1),
+        fm(Thing2, Fm_thing2).
+
+
+
+text(cond(Thing1, eq, high), ['Is the ', Fm_thing, ' reading high ']) :-
+        fm(Thing1, Fm_thing).
+
+text(cond(decrease(Thing), eq, detectable), ['Is a decrease in the ', Fm_thing,
+                nl, ' detectable']) :-
+        fm(Thing, Fm_thing).
+
+
+text(cond(Thing1, eq, Thing2), ['Is ', Fm_thing, ' equal to ',
+                                  Number2, ' ', Atom2]) :-
+        fm(Thing1, Fm_thing),
+        formt(Thing2,  Number2, Atom2).
+
+
+text(cond(Thing1, eq, Thing2), ['Is ', Fm_thing, ' ', Fm_thing2]) :-
+        fm(Thing1, Fm_thing),
+        fm(Thing2, Fm_thing2).
+        
+
+text(cond(Thing1, dt, Thing2), ['Is ', Fm_thing, ' decreasing at less than ',nl, Number, ' ', Atom1]) :-
+        fm(Thing1, Fm_thing),
+        formt(Thing2,  Number, Atom1).
+
+
+text(cond(Thing1, dft, Thing2), [ 'Is the ', Fm_thing1, ' decreasing ', nl,
+                        'faster than ', Number, Atom]) :-
+        fm(Thing1, Fm_thing1),
+        formt(Thing2, Number, Atom).
+
+
+text(cond(Thing1, lt, Thing2), ['Is ', Fm_thing, ' less than ',
+          Number2, ' ', Atom2]) :-
+        fm(Thing1, Fm_thing),
+        formt(Thing2,  Number2, Atom2).
+
+
+text(cond(Thing1, le, Thing2), ['Is ', Fm_thing, ' less than or ', nl,
+                                'equal to ', Number2, ' ', Atom2]) :-
+        fm(Thing1, Fm_thing),
+        formt(Thing2,  Number2, Atom2).
+
+text(cond(Thing1, ge, Thing2), ['Is ', Fm_thing, ' greater than or equal to ', Number2,' ', Atom2]) :-
+        fm(Thing1, Fm_thing),
+        formt(Thing2,  Number2, Atom2).
+
+
+
+/* THING IS OFF */
+
+text(cond(Thing1, off), ['Is ', Fm_thing, ' OFF ']) :-
+        fm(Thing1, Fm_thing).
+
+
+/* THING IS ON */
+
+text(cond(fuse_light(Fuse_Id), on), ['Is the fuse light ON for fuse ', Fuse_Id]).
+
+text(cond(Thing, on), [ 'Is the ', Fm_thing, ' ON ']) :-
+        fm(Thing, Fm_thing).
+
+
+/* THE DREADED TREND */
+
+text(cond(incubator_temps, trend, Object2),
+        ['Are the incubator temperature readings in the same trend ', nl,
+         'as ' ,Number, Descrip2]) :-
+        formt(Object2,Number,Descrip2).
+
+
+text(cond(Object1, trend, Object2),
+        ['Is ', Fm_thing, nl, 'in the same trend as ',Fm_Thing2]) :-
+        fm(Object1, Fm_thing),
+        fm(Object2, Fm_Thing2).
+        %formt(Object2,Number,Descrip2).
+
+
+
+
+/* CLOSED THING */
+
+text(cond(Thing, closed), ['Is the ', Fm_thing, ' closed ']) :-
+        fm(Thing, Fm_thing).
+
+
+/* OVERLOADED TRAIN */
+
+text(cond(Thing, overloaded), [ 'Is the ', Fm_thing, ' overloaded ']) :-
+        fm(Thing, Fm_thing).
+
+ 
+/* NORMAL OPERATION */
+
+text(cond(Thing, normal_operation),
+         ['If ', Fm_thing, ' is operating normally']) :-
+        fm(Thing, Fm_thing).
+
+
+/* MECHANICAL INTERFERENCE */
+
+text(cond(Thing, mechanical_interference), [ 'Is there any mechanical interference with', nl, 'the ', Fm_thing ]) :-
+        fm(Thing, Fm_thing).
+
+
+/* POWER LOSS */
+
+text(cond(Thing, power_loss), ['Is there is a power loss to the ', Fm_thing]) :-
+        fm(Thing, Fm_thing).
+
+
+/* POWER ON */
+
+text(cond(Thing, power_on), ['Is there power ON at the ', nl, Fm_thing]) :-
+        fm(Thing, Fm_thing).
+
+
+/* INDICATOR ON */
+
+text(cond(Thing, indicator_on), [ 'Is the ', Fm_thing, ' indicator ON ']) :-
+        fm(Thing, Fm_thing).
+
+
+/*  ENABLED */
+
+text(cond(Thing, enabled), ['Is the ', Fm_thing, ' enabled ']) :-
+        fm(Thing, Fm_thing).
+
+/* STATUS  */
+
+text(cond(status(Thing),status), [ 'Is the status of ', Fm_thing, ' ', Status]) :-
+        fm(Thing, Fm_thing).
+
+/* INCREASING */
+
+text(cond(Thing, increasing), [ 'Is the ', Fm_thing, ' increasing']) :-
+        fm(Thing, Fm_thing).
+
+/* DECREASING */
+
+text(cond(Thing1, decreasing), ['Is the ', Fm_thing, ' decreasing ']) :-
+           fm(Thing1, Fm_thing).
+
+/* NORMAL */
+
+text(cond(Thing, normal), ['Is the ', Fm_thing, 
+                           ' within its normal limits']) :-
+        fm(Thing, Fm_thing).
+
+
+/* TEXT FOR COMMENTARY BOX */
+
+
+text(seen_last(procedure(_), last_seen(empty, never_seen)),
+     ['You have never seen this procedure']).
+text(seen_last(procedure(_), last_seen(Proc, When)),
+     ['You last saw this procedure ', F_When]) :-
+        \+ Proc= empty,
+        \+ When = never_seen,
+        fm_time(When, F_When).
+text(seen_last(Step, last_seen(empty, never_seen)),
+     ['You have never seen this step']) :-
+        \+ Step = procedure(_).
+text(seen_last(Step, last_seen(Procedure, When)),
+     ['You last saw this step ', F_When, nl, 'in the procedure ', Fm_procedure]) :-
+        \+ Step = procedure(_),
+        \+ Procedure = empty,
+        \+ When = never_seen,
+        get_proc(Procedure, Fm_procedure),
+        fm_time(When, F_When).
+
+text(last_seen(empty, never_seen), ['You have never seen this step']).
+text(last_seen(Procedure, When),
+     ['You last saw this step ', F_When, nl, 'in the procedure ', Fm_procedure]) :- 
+        \+ Procedure = empty,
+        \+ When = never_seen,
+        get_proc(Procedure, Fm_procedure),
+        fm_time(When, F_When).
+
+text(summary(Procedure, Steps_Done, Step_Doing, Steps_To_Do),
+             ['SUMMARY OF PROCEDURE: ', FM_Procedure, nl, nl,
+              'Completed Steps: ', Steps_Done_Text, nl, nl,
+              'Current Step: ', nl, Step_Doing_Text, nl, nl,
+              'Future Steps: ', Steps_To_Do_Text]) :-
+        reset_commentary_window,
+        get_proc(Procedure, FM_Procedure),
+        steps_text(5, Procedure, Steps_Done, Steps_Done_Text),
+        step_doing_text(5, Procedure, Step_Doing, Step_Doing_Text),
+        steps_text(5, Procedure, Steps_To_Do, Steps_To_Do_Text).
+
+/*
+text(summary([Current_procedure,
+             Completed_generics,
+             Current_generic,
+             Completed_Steps_In_Current_Generic,
+
+             Current_Step,
+             Future_Steps_in_Current_Generic,
+             Future_Generics]),
+        ['PROCEDURE SUMMARY : ', Fm_Current_procedure,nl,nl,
+         'Completed parts : ',nl, Fm_Completed_generics, nl,nl,
+         'Current activity : ',nl,Fm_Current_generic,nl,nl,
+         'Completed steps in current activity : ',nl, Fm_Completed_Steps_In_Current_Generic, nl,nl,
+         'Currently on step : ',nl, Fm_Current_Step,nl,nl,
+         'Further possible steps to complete : ',nl, Fm_Future_Steps_in_Current_Generic,nl,nl,
+         'Further parts to complete : ',nl, Fm_Future_Generics,nl]) :-
+
+        reset_commentary_window,
+        get_proc(Current_procedure, Fm_Current_procedure),
+        get_text_completed_generics(Completed_generics,[], Fm_Completed_generics),
+        get_text_current_generic(Current_generic, Fm_Current_generic),
+        get_text_completed_steps(Completed_Steps_In_Current_Generic,[],
+                                 Fm_Completed_Steps_In_Current_Generic),
+        get_text(Current_Step, [], Fm_Current_Step, []),
+        get_text_completed_steps(Future_Steps_in_Current_Generic,[],
+                                         Fm_Future_Steps_in_Current_Generic),
+        get_text_completed_generics(Future_Generics, [],Fm_Future_Generics).
+*/
+
+
+
+text(stack(Curr_Proc_State, Pending_Proc_State),
+     ['PROCEDURE STACK STATUS', nl, nl, Curr_Proc_State_Text, Pending_Proc_State_Text]) :-
+        curr_proc_state_text(Curr_Proc_State, Curr_Proc_State_Text),
+        pending_proc_state_text(Pending_Proc_State, Pending_Proc_State_Text).
+        
+
+/*      
+text(stack(stack_state(Current_Procedure, Goal_States),
+                      goal_stack(Other_Procedures)),
+                  ['STACK - INFORMATION ', nl,nl,
+                   'Current Procedure : ', Fm_Current_Procedure,nl,
+                   Goal_State_Text, nl,
+                   'Procedure Stack :- ', Fm_Procedure_Stack]) :-
+        reset_commentary_window,
+        get_proc(Current_Procedure, Fm_Current_Procedure),
+        get_goal_state_text(Goal_States, Goal_State_Text),
+        get_procedure_stack_text(Other_Procedures, Fm_Procedure_Stack).
+*/
+
+/* start up text for procedure - user history given in Time_Status 
+  where Fm returns the appropriate structure */                         
+
+text(procedure(Procedure_Name,Type, last_seen(_, Time_Status)),
+        ['PROCEDURE : ', Fm_Procedure_Name, nl,nl,
+         'Type : ', Fm_Type,nl,
+         'Last Completed : ', Fm_Time_Status]) :-
+        send_message('CLP'),
+        reset_commentary_window,
+        fm(Procedure_Name,Fm_Procedure_Name ),
+        fm(Type, Fm_Type),
+        fm_time(Time_Status, Fm_Time_Status).
+
+text(procedure(Procedure_Name), ['PROCEDURE - ',F_Procedure_Name]) :-
+        send_message('CLP'),
+        reset_commentary_window,
+        fm(Procedure_Name, F_Procedure_Name).
+
+text(resume(Procedure, Type),
+        ['RESUMING PROCEDURE : ', Fm_Procedure,nl,
+         'Type : ', Fm_type]) :-
+        send_message('CLP'),
+        reset_commentary_window,
+        fm(Procedure, Fm_Procedure),
+        fm(Type, Fm_type).
+
+text(why(Explanation), ['You''re doing this as part of :', nl, Why_Text]) :-
+        get_text(Explanation, [], Why_Text, _).
+text(why(Explanation), ['You''re doing this as part of :', nl, Why_Text]) :-
+        fm(Explanation, Why_Text).
+
+text(how_intro, ['You should :', nl]).
+
+/*
+text(how(Step/[]), ['You should :', nl, Text]) :-
+        \+ list(Step),
+        get_text(Step, [], Text, []).
+text(how(Step_List/[]), ['You should :', nl, Text]) :-
+        list(Step_List),
+        get_texts(Step_List, Text).
+text(how(Step/Conditions), Step_Text) :-
+        \+ Conditions = [],
+        output_conditions(Conditions, com),
+        verify_condition(com, yes),
+        disable_conditions,
+        text(Step, Step_Text).
+text(how(Steps), ['You should :', nl, Text]) :-
+        list(Steps),
+        get_texts(Steps, Text).
+text(how(Step), ['You should :', nl, Text]) :-
+        \+ list(Step),
+        \+ Step = _/_,
+        get_text(Step, [], Text, []).
+*/
+
+text(help(Options), ['Current Options are :', nl, [Options_Text, Other_Option_Text]]) :-
+        get_help_text(Options, Options_Text),
+        get_other_option_text(Other_Option_Text).
+
+text(remediation(Steps),
+        ['Remediation - you need to brush up on the following', nl, 'procedures :',nl,
+         Remediated_steps]) :-
+        get_text_for_remediation(Steps, Remediated_steps).
+
+
+steps_text(_, _, [], 'None').
+steps_text(Tab, Procedure, [Step|Steps], [nl, Steps_Text]) :-
+        pp_steps(Tab, generic, Procedure, [Step|Steps], Steps_Text).
+
+step_doing_text(Tab, Procedure, [Step], [Step_Text]) :-
+        pp_step(Tab, generic, Procedure, Step, Step_Text).
+step_doing_text(Tab, Procedure, [Step, Generic | Steps],
+                [Step_Text, tab(Tab), 'as part of', nl, Steps_Text]) :-
+        pp_step(Tab, generic, Procedure, Step, Step_Text),
+        step_doing_Text(Tab, Procedure, [Generic | Steps], Steps_Text).
+
+where_texts([], []).
+where_texts([Obj|Objs], [Obj_Text|Obj_Texts]) :-
+        where_text(Obj, Obj_Text),
+        where_texts(Objs, Obj_Texts).
+
+where_text([Object, [Rel1, Object1], [Rel2, Object2]],
+           ['The ', Obj_Text, ' is ', Rel1_Text, ' ', Object1_Text,
+            ' ', Rel2_Text, ' ', Object2_Text, nl, nl]) :-
+        fm(Object, Obj_Text),
+        fm(Rel1, Rel1_Text),
+        fm(Object1, Object1_Text),
+        fm(Rel2, Rel2_Text),
+        fm(Object2, Object2_Text).
+
+obj_type_text(Obj_Type, ['The ', Obj_Type_Text, ' you require is :', nl]) :-
+        fm(Obj_Type, Obj_Type_Text).
+
+obj_text([], []).
+obj_text([Obj|Objs], [Obj_Text, nl|Objs_Text]) :-
+        fm(Obj, Obj_Text),
+        obj_text(Objs, Objs_Text).
+
+get_text_for_remediation([], []).
+get_text_for_remediation([Step|Steps], [Step_Text, nl|Step_Texts]) :-
+        fm(Step, Step_Text),
+        get_text_for_remediation(Steps, Step_Texts).
+
+get_help_text([], []).
+get_help_text([Option|Options], [Option_Text, nl|Options_Text]) :-
+        fm(Option, Option_Text),
+        get_help_text(Options, Options_Text).   
+
+get_other_option_text(['AUI Toggle - enable/disable AUI', nl,
+                       'Procedure Entry - enter procedure id to enter procedure', nl,
+                       'DDU Entry - enter DDU page to display page', nl,
+                       'Peephole Toggle - open/close peephole on user modelling']).
+
+get_texts([], []).
+get_texts([Step|Steps], [Text, nl|Texts]) :-
+        get_text(Step, [], Text, []),
+        get_texts(Steps, Texts).
+        
+get_text_completed_generics([], [], ['None']).
+get_text_completed_generics([], [Text|More_Text], [Text|More_Text]).
+get_text_completed_generics([Completed_generic|Rest_of_Generics], 
+                            Old_Generic_list, 
+                            Text) :-
+        fm(Completed_generic, Temp_text),
+        listise(Temp_text, T_text),
+        append(T_text, [nl], Append_text),
+        append(Old_Generic_list,Append_text, Frog),
+        get_text_completed_generics(Rest_of_Generics, Frog, Text).
+
+listise(Atom, [Atom]) :- \+ list(Atom).
+listise(List, List) :- list(List).
+
+disable_conditions :-
+        send_text(['OPT', 'B6', '#', 'B7', '#', 'ENDOPT']).
+
+get_text_current_generic(Current_generic,Text) :-
+        get_text(Current_generic,[],Text,[]).
+
+get_text_completed_steps([], [], ['None']).
+get_text_completed_steps([Completed_Step|Rest_of_Steps],
+                         Transient_Text_List,
+                         Text) :-
+        get_text(Completed_Step, [], Temp_Text,[]),
+        append(Temp_Text, [nl], T_Text),
+        append(Transient_Text_List, T_Text, New_Text),
+        get_text_completed_steps(Rest_of_Steps, New_Text, Text).
+get_text_completed_steps([], Text, Text).
+
+curr_proc_state_text(stack_state(Proc, Type, Step),
+                      ['Current Procedure : ', Fm_Proc, nl,
+                       'Type : ', Fm_Type, nl,
+                       'Current Step : ', Fm_Step, nl, nl]) :-
+        get_proc(Proc, Fm_Proc),
+        fm(Type, Fm_Type),
+        get_text(Step, [], Fm_Step, []).
+
+pending_proc_state_text(Pending_Proc_State,
+                        ['Pending Procedures :- ', Pending_Proc_State_Text]) :-
+                        get_pend_proc_text(Pending_Proc_State, Pending_Proc_State_Text).
+
+get_pend_proc_text([], none).
+get_pend_proc_text([Pend_Proc|Pend_Procs], Pending_Proc_State_Text) :-
+        get_pend_proc_text1([Pend_Proc|Pend_Procs], Pending_Proc_State_Text).
+
+get_pend_proc_text1([], []).
+get_pend_proc_text1([stack_state(Proc, Type, Step)|Stack_States],
+                    [nl, nl, 'Procedure : ', Fm_Proc, nl,
+                     'Type : ', Fm_Type, nl,
+                     'Current Step : ', Fm_Step|Stack_Text]) :-
+        get_proc(Proc, Fm_Proc),
+        fm(Type, Fm_Type),
+        get_text(Step, [], Fm_Step, []),
+        get_pend_proc_text1(Stack_States, Stack_Text).
+
+
+/*
+get_goal_state_text([goal_state(Current_Step,_,_)|_],
+                    ['Current Step : ', Fm_Current_Step, nl]) :-
+        get_text(Current_Step, [], Fm_Current_Step, []).
+get_goal_state_text(no_goal_states, ['']).
+
+get_procedure_stack_text([], ['Empty']).
+get_procedure_stack_text([Goal|Goals], Text) :-
+        procedure_stack_text([Goal|Goals], Text).
+
+procedure_stack_text([], []).
+procedure_stack_text([goal(Proc, Type, Goal_States, 
+                          Resume_Time)|Rest],
+                         [nl, nl, 'Procedure : ', Fm_Proc, nl,
+                          'Type : ', Fm_Type, nl,
+                          Goal_State_Text,
+                          'To Be Resumed : ', Fm_Resume_Time |
+                          Rest_Text]) :-
+        get_proc(Proc, Fm_Proc),
+        fm(Type, Fm_Type),
+        get_goal_state_text(Goal_States, Goal_State_Text),
+        fm(Resume_Time, Fm_Resume_Time),
+        procedure_stack_text(Rest, Rest_Text).
+*/
+
+
+get_proc(Proc, Text) :- generic_text(Proc, Text).
+get_proc(Proc, Text) :- \+ generic_text(Proc, _), fm(Proc, Text).
+
+redo_steps([Hd|Next], Old_list, Fm_list) :-
+        step(step/Hd,ppo2_increase_decrease,_, _, Step, _, _),
+        get_text(Step, [], Text,_),
+        append(Old_list, Text, New_list),
+        redo_steps(Next, New_list, Fm_list).
+redo_steps(_, Fm_list, Fm_list).
+
+
+get_text(generic_step(Step), [], Text, []) :-
+        generic_text(Step, Text).
+
+get_text(conclusion(Step), [], Text, []) :-
+        text(conclusion(Step), Text).
+
+get_text(generic(Step), [],[Text],[]) :-
+        fm(Step, Text).
+
+get_text(step(Step), _,Text, _) :- 
+        text(Step, Text).
+
+get_text(Step, _, Text, _) :-
+        \+ member(Step, [generic_step(_), generic(_), conclusion(_), step(_)]),
+        text(Step, Text).
+
+get_text(Step, _, [Text], _) :-
+        \+ member(Step, [generic_step(_), generic(_), conclusion(_), step(_)]),
+        fm(Step, Text). 
+
+get_text(step(Step), _, [Text], _) :-
+        \+ text(Step, _),
+        fm(Step, Text).
+
+% itos(1, one).
+% itos(2, two).
+% itos(3, three).
+% itos(4, four).
+% itos(5, five).
+% itos(6, six).
+% itos(7, seven).
+% itos(8, eight).
+% itos(9, nine).
+% itos(Integer, String) :-
+%    Integer > 9,
+%    String=Integer.
+
+fm_time(ago(Time, 1), ['one', ' ', F_Time, ' ago']) :- fm(Time, F_Time).
+fm_time(ago(Time, Amount), [F_Amount, ' ', F_Time, ' ago']) :-
+        Amount > 1,
+        fm(Time, Time1),
+        plural(Time1, F_Time),
+        itos(Amount, F_Amount).
+fm_time(Time, F_Time) :-
+        \+ Time = ago(_, _),
+        fm(Time, F_Time).
+
+
+/* FORMAT OF SYSTEM FUNCTION TERMS FOR TEXT GENERATION */
+
+
+
+fm(Thing, Text) :- fm1(Thing, Text) -> true
+                |  write('**WARNING**  NO fm FOR '), writeln(Thing),
+                   fm_bug(Thing, Text).
+
+fm_bug(Thing, ['<', F, '>']) :- functor(Thing, F, _).
+
+fm1(o2_reg_increase, 'O2 REG Increase').
+fm1(o2_n2_flow_rate_increase, 'O2/N2 Flow Rate Increase').
+fm1(o2_pressure_increase, 'O2 Pressure Increase').
+fm1(n2_reg_increase_decrease, 'N2 REG Increase/Decrease').
+fm1(biorack_activation, 'Biorack Activation').
+fm1(temp_off_limits, 'Temperature Off Limits').
+fm1(centrifuge_warning, 'Centrifuge Warning - br 7').
+fm1(cent_warning, 'Centrifuge Warning - br 8').
+fm1(loss_dc_main_bus, 'Loss of DC Main Bus').
+fm1(power_interrupt, 'Power Interrupt').
+fm1(fuse_change, 'Fuse Change').
+fm1(pe_ce_warning, 'PE/CE Warning').
+fm1(activate_br_fc, 'Activate Biorack Freezer/Cooler').
+fm1(br_switch_on, 'Switch On Biorack').
+fm1(br_checkout, 'Biorack Checkout').
+
+
+fm1(generic(Step), Fm_Text) :-
+        fm1(Step, Fm_Text).
+
+fm1(end_of_timeline, 'You have completed the timeline.').
+fm1(never_seen, 'never seen before ').
+fm1(empty, 'Empty').
+fm1(ppo2_increase_decrease, 'PPO2 increase/decrease').
+fm1(verify_indicator_lights, 'verify indicator lights').
+fm1(verify_centrifuge_system, 'verify the centrifuge system').
+fm1(switch_off_main_bus, 'switch off main bus').
+fm1(wait_and_verify_again, 'wait and verify system checkout ').
+fm1(determine_experiment_time, 'determine the experiment time').
+fm1(experiment_interrupt, 'experiment interrupt').
+fm1(load_containers, 'load containers').
+fm1(reload_containers, 'reload containers').
+fm1(verify_incubator_temps, 'verify incubator temperatures').
+fm1(verify_cent_condition, 'verify centrifuge condition').
+fm1(stow_egg_containers, 'stow egg containers').
+fm1(locate_fault_and_report, 'locate fault and report').
+fm1(test_unit_power, 'test unit power').
+fm1(main_bus, 'main bus').
+fm1(sm_223, 'SM 223').
+fm1(di_br_007,'BR DI 007').
+fm1(sm_066, 'SM 066').
+fm1('0', '0').
+fm1(ssc_tma_table_maintenance_a, 'TMA TAB').
+fm1(sm_60_table_maintenance, 'SM 60 TMA').
+fm1(determine_increase_or_decrease, 'Determine increase or decrease').
+fm1(determine_number_of_pressure_high_low, 'Determine number of pressure sensors high or low').
+fm1(deal_with_pressure_problem, 'Deal with cabin pressure problem').
+fm1(take_appropriate_action, 'Take appropriate action').
+fm1(establish_n2_reg_press_status, 'establish N2 REG press status').
+fm1(close_inlet_valve, 'close inlet valve').
+fm1(deal_with_o2_n2_flow, 'deal with O2/N2 flow').
+fm1(deal_with_o2_increase, 'deal with O2 increase').
+fm1(determine_number_sensors_high_or_low,
+ 'Determine number of sensors high or low ').
+fm1(egg_load_time, 'the egg load time').
+
+fm1(activate_biorack_units, 'activate biorack units').
+fm1(yesterday, 'yesterday').
+fm1(second, 'second').
+fm1(minute, 'minute').
+fm1(hour, 'hour').
+fm1(day, 'day').
+fm1(month, 'month').
+fm1(last_month, 'last month').
+fm1(last_year, 'last year').
+fm1(year, 'year').
+fm1(call_page(Page), ['Call page display ', Fm_Page]) :-
+        fm1(Page, Fm_Page).
+fm1(light, 'light').
+fm1(yes, 'YES ').
+fm1(no, 'NO ').
+fm1(di_bi_007, 'BR DI 007').
+fm1(just_now, 'just now').
+fm1(cabin_pressure_increase_decrease, 'Cabin Pressure Increase/Decrease ').
+fm1(nominal, 'NOMINAL').
+fm1(contingency, 'CONTINGENCY').
+fm1(sl_n2_tk_p, 'SL N2 tank pressure').
+fm1(orb_n2_qty, 'ORB N2 quantity').
+fm1(orb_n2_tk_qty_1_2, 'ORB N2 tank quantity 1(2)').
+fm1(o2_n2_cntl_vlv_2_1, 'O2/N2 control valve 2(1)').
+fm1(o2_n2_cntl_vlv_1_2, 'O2/N2 control valve 1(2)').
+fm1(o2_n2_cntl_vlv, 'O2/N2 control valve').
+fm1(ppo2_sensor_high, 'PPO2 sensor high').
+fm1(ppo2_1, 'PPO2 1').
+fm1(ppo2_2_3, 'PPO2 2(3)').
+fm1(ppo2_sensor_low, 'PPO2 sensor low').
+fm1(ppo2_sensor_high, 'PPO2 sensor high').
+fm1(o2_n2_cntl_vlv_1, 'O2/N2 control valve 1').
+fm1(o2_n2_cntl_vlv_2, 'O2/N2 control valve 2').
+fm1(cabin_press,'cabin pressure').
+fm1(ppo2, 'PPO2').
+fm1(pe_temp, 'PE temperature').
+fm1(pe_ce_indicator_light, 'PE/CE indicator light').
+fm1(fan_indicator_light, 'FAN indicator light').
+fm1(incubator_temp1, 'incubator temperature reading 1').
+fm1(incubator_temp4, 'incubator temperature reading 4').
+fm1(incubator_temps, 'the incubator temperature readings').
+fm1('0-45 light', '0 - 45 indicator light').
+fm1(fan_light, 'FAN indicator light').
+fm1(incubator_load, 'incubator load').
+fm1(s_l_ambient_temp, 'SL ambient temperature').
+fm1(incubator_door, 'incubator door').
+fm1(centrifuge, 'centrifuge').
+fm1(centrifuge_rpm, 'centrifuge RPM').
+fm1(centrifuge_micro_switch, 'centrifuge micro switch').
+fm1(centrifuge1_rpm, 'centrifuge 1 RPM').
+fm1(centrifuge2_rpm, 'centrifuge 2 RPM').
+fm1(centrifuge_lamp, 'centrifuge lamp').
+fm1(centrifuge_a, 'centrifuge - A').
+fm1(main_power, 'main power').
+fm1(unit_dc_supply, 'unit DC supply').
+fm1(br_unit, 'biorack unit').
+fm1(epsp_indicator, 'EPSP indicator').
+fm1(epsp, 'EPSP panel').
+fm1(cabin_pressure, 'cabin pressure').
+fm1(cabin_pressure1, 'cabin pressure 1').
+fm1(cabin_pressure2, 'cabin pressure 2').
+fm1(sl_o2_n2_flow, 'SL O2/N2 flow').
+fm1(decay_rate, 'decay rate').
+fm1(o2_flow, 'O2 flow').
+fm1(n2_pressure, 'N2 pressure').
+fm1(n2_reg_pressure, 'N2 regulator pressure').
+fm1(n2_tk_pressure,'N2 tank pressure').
+fm1(n2_flow, 'N2 flow').
+fm1(o2_n2_flow, 'O2/N2 flow').
+fm1(ppo2_1, 'PPO2 (1)').
+fm1(o2, 'O2').
+fm1(on, 'ON').
+fm1(off, 'OFF').
+fm1(whenever, 'as soon as possible').
+fm1([], 'Nothing').
+fm1(n2, 'N2').
+fm1(xdcr,'XDCR').
+fm1(f5, 'F-5').
+fm1(n2_supply_line, 'N2 supply line').
+fm1(n2_reg_1_2, 'N2 regulator 1(2)').
+fm1(dc_1, 'DC switch 1').
+fm1(dc_2, 'DC switch 2').
+fm1(dc_3, 'DC switch 3').
+fm1(dc_4, 'DC switch 4').
+fm1(five_minutes, '5 mins').
+fm1(clx, 'CLX').
+fm1(t3, 'Temp 3').
+fm1(centrifuge_amplifier_light, 'centrifuge amplifier light').
+fm1(centrifuge_main_power_fuse, 'centrifuge main power fuse').
+fm1(main_br_power_pb, 'main power push button').
+fm1('MET','MET').
+fm1(gmt(Time), ['GMT ', Time]) :- fm(Time).
+fm1(br_22, 'BIORACK - 22').
+fm1(dc_epss, 'DC EPSS').
+fm1(main_br_fuse, 'main biorack fuse').
+fm1(power_bus, 'power bus').
+fm1(loss_dc_main_bus(step_4), 'Loss of DC main bus - STEP 4').
+fm1(met, 'MET').
+fm1(cooler_freezer, 'COOLER/FREEZER').
+fm1(incubator_b, 'incubator- B').
+fm1(centrifuges, 'centrifuges').
+fm1(o2_n2_flow_rate_up('3.4b'), '3.4b - O2/N2 flow rate increase').
+fm1(o2_n2_flow_rate_up('3 .4 b'), '3.4b - O2/N2 flow rate increase').
+fm1(n2_1, 'N2 1').
+fm1(cabin_pressure_1_reg_inlet, 'cabin pressure 1 regulator inlet').
+fm1(cabin_pressure_2_reg_inlet, 'cabin pressure 2 regulator inlet').
+fm1(cabin_o2_n2_flow_rate_high('3.4g'), '3.4g - Cabin pressure O2/N2 flow rate high').
+fm1(o2_direct, 'O2 direct').
+fm1(cabin_press_reg_inlet_1_2, 'cabin pressure regulator inlet 1(2)').
+fm1(cabin_press_reg_inlet_2_1, 'cabin pressure regulator inlet 2(1)').
+fm1(o2_supply, 'O2 supply').
+fm1(configure_orbiter_pcs, 'Configure for orbiter PCS').
+fm1(n2_2_1, 'N2 2(1)').
+fm1(incubator_a, 'incubator A').
+fm1(incubator_b, 'incubator B').
+fm1(fp_8, 'FP- 8').
+fm1(n2_1_2, 'N2 1(2)').
+fm1(cabin_p_inlet_1, 'cabin pressure inlet 1').
+fm1(cabin_p_inlet_2, 'cabin pressure inlet 2').
+fm1(orbiter(pcs_sl_eclss), 'Orbiter PCS SL ECLSS').
+fm1('6_8', '6(8)').
+fm1('7_5', '7(5)').
+fm1(exp_vent_line_bleed_1, 'EXP vent bleed line -1').
+fm1(sl_n2_tk, 'SL N2 tank').
+fm1(n2_qty_decrease('6.3g'), '6.3g - N2 quantity decrease').
+fm1(orb_n2_tk1_qty, 'Orb N2 tank -1 quantity').
+fm1(orb_n2_tk2_qty, 'Orb N2 tank -2 quantity').
+fm1(how, 'HOW - advice on how to perform current step').
+fm1(where, 'WHERE - location of specified object').
+fm1(why,  'WHY - explanation of current step').
+fm1(which, 'WHICH - description of specified object').
+fm1(summary, 'SUMMARY - summary of status of current procedure'). 
+fm1(next,  'NEXT - next procedure step').
+fm1(stack, 'STACK - breakdown of current and pending steps/procedures ').
+fm1(remediation, 'REMEDIATION - procedures requiring remediation').
+fm1(help, 'HELP - advice on meaning of options').
+fm1(yes_option, 'YES - affirmative response to conditional question').
+fm1(no_option, 'NO - negative response to conditional question').
+fm1(quit, 'QUIT - end session').
+fm1(close, close).
+fm1(open, open).
+fm1(closed, closed).
+fm1(opened, opened).
+fm1(no_substep, ' ').
+fm1(verify_all_br_doors_closed, 'verify that the biorack doors are closed').
+fm1(verify_all_dc_ac_switches_off, 'verify that all DC/AC switches are OFF').
+fm1(turn_on_switches, 'turn on switches').
+fm1(br_cooler_mainbus, 'biorack cooler mainbus').
+fm1(br_freezer_mainbus, 'biorack freezer mainbus').
+fm1(br_lamptest_pb, 'press the biorack lamp test push-button').
+fm1(verify_all_lights_on, 'verify that all lights are ON').
+fm1(check_power_lights_2_plus_2_on, 'check that the power lights 2+2 are ON').
+fm1(check_warning_lights_2_plus_3_on, 'check that the warning lights 2+3 are ON').
+fm1(check_temp_status_lights_on, 'check that the temperature status lights are ON').
+fm1(br_clx_pb, 'press the biorack clear circuit push-button').
+fm1(verify_warn_lights_3_plus_2_off, 'verify that warning lights 3+2 are OFF').
+fm1(ddu_brc, 'BR DI 007').
+fm1(note_cooler_temp, 'note the cooler temperature').
+fm1(verify_c_air_circ_warn_blank, 'verify that the cooler air circulation warning is BLANK').
+fm1(verify_c_pe_ce_temp_warn_blank, 'verify that the cooler PE/CE temperature warning is BLANK').
+fm1(verify_c_zero_45_temp_warn_blank, 'verify that the cooler 0-45 temperature warning is BLANK').
+fm1(verify_c_temp_status_star, 'verify that the cooler temperature status has a star').
+fm1(note_freezer_temp, 'note freezer temperature').
+fm1(verify_f_pe_ce_temp_warn_blank, 'verify that the freezer PE/CE temperature warning is BLANK').
+fm1(verify_f_zero_45_temp_warn_blank, 'verify that the freezer 0-45 temperature warning is BLANK').
+fm1(verify_f_temp_status_star, 'verify that the freezer temperature status has a star').
+fm1(cl_cf_doors_v_fl_off_v_acw_blank, 'close the cooler/freezer doors and verify').
+fm1(op_cf_doors_v_fl_on_v_acw_star, 'open the cooler/freezer doors and verify').
+fm1(activate_switches, 'activate the switches').
+fm1(verify_all_doors_closed, 'verify that all doors are closed').
+fm1(br_cooler_mainbus_switch_on, 'switch on biorack cooler mainbus').
+fm1(br_freezer_mainbus_switch_on, 'switch on biorack freezer mainbus').
+fm1(lamptest, 'carry out lamp test').
+fm1(cooler_status, 'check cooler status').
+fm1(freezer_status, 'check freezer status').
+fm1(doors_test, 'carry out doors test').
+fm1(checkout, 'biorack checkout').
+fm1(cool_door, 'cooler door').
+fm1(freezer_door, 'freezer door').
+fm1(in, 'in').
+fm1(on, 'on').
+fm1(top, 'top').
+fm1(bottom, 'bottom').
+fm1(behind,'behind').
+fm1(above,'above').
+fm1(below,'below').
+fm1(right_of,'right of').
+fm1(left_of,'left of').
+fm1(incubator_rack, 'incubator rack').
+fm1(inc_rack, 'incubator rack').
+fm1(down_door, 'down door').
+fm1(incubator_control, 'incubator control').
+fm1(inc_cont, 'incubator control').
+fm1(up_door, 'up door').
+fm1(cooler_rack, 'cooler rack').
+fm1(cool_rack, 'cooler rack').
+fm1(down_door, 'down door').
+fm1(freezer_stowage, 'freezer stowage').
+fm1(freezer_door, 'freezer door').
+fm1(stowage, stowage).
+fm1(dc_utility, 'DC utility').
+fm1(lab_port, 'laboratory port').
+fm1(cooler, cooler).
+fm1(freezer, freezer).
+fm1(ac_1, 'AC 1').
+fm1(ac_2, 'AC 2').
+fm1(br_unit_epsp, 'biorack unit EPSP').
+fm1(br_unit_rau_access, 'biorack unit rau access').
+fm1(glove_box, 'glove box').
+fm1(gppf_bio_incubator_mvi, 'biorack incubator').
+fm1(p_h_c, 'dodgy').
+fm1(gppf_bio_inc_mvi_epsp, 'biorack incubator EPSP').
+fm1(g_b_i_m_rau_access, 'biorack rau access').
+fm1(g_t_r, 'g t r').
+fm1(m_e, 'm e').
+fm1(g_r, 'g r').
+fm1(g_c_r, 'g c r').
+fm1(g_c, 'g c').
+fm1(g_vtrg, 'dodgy').
+fm1(g_vtrf, 'dodgy').
+fm1(msb, 'm s b').
+fm1(cube_subt, 'cube substitute').
+fm1(rack_stowage, 'rack stowage').
+fm1(panel(1), 'panel 1').
+fm1(panel(2), 'panel 2').
+fm1(stow_mde, 'stow mde').
+fm1(stoe_fes,'anybody''s guess').
+fm1(stow_spe, 'stow specimens').
+fm1(left, left).
+fm1(right, right).
+fm1(panel(Num), [panel, Num_Text]) :- fm1(Num, Num_Text).
+fm1(rack(Num), [rack, Num_Text]) :- fm1(Num, Num_Text).
+fm1(Num, String) :-
+        integer(Num), name(Num, N), name(String, [32|N]).
+fm1(orb_reg_p1_p2, 'ORB REG P1(P2)').
+fm1(fuse(Fuse), ['the fuse ', Fuse_Text]) :- fm(Fuse, Fuse_Text).
+fm1(change_fuse, ['change fuse']).
+fm1('2', '2').
+fm1('9021731', '9021731').
+fm1('9021104', '9021104').
+fm1('10', '10').
+fm1('14', '14').
+fm1('9021122', '9021122').
+fm1('6', '6').
+fm1('1', '1').
+fm1('9021711','9021711'). 
+fm1(increasing, increasing).
+fm1(decreasing, decreasing).
+fm1(low, low).
+fm1(o2_n2_cnt_vlv, 'O2(N2) control valve').
+fm1(cabin_press2, 'cabin pressure 2').
+
+fm1(check_number_of_high_sensors, 'establish the number of high sensors').
+fm1(check_number_of_low_sensors, 'establish the number of low sensors').
+fm1(no_primitive, 'None').
+fm1(still_increasing, 'still increasing').
+fm1(t4, 'Temp 4').
+fm1(br_unit_cooler, 'Biorack cooler unit').
+fm1(ddu_call,'in the ddu call area').
+fm1(procedure_call, 'in the procedure call window').
+fm1(ddu_input, 'in the ddu input window').
+fm1(item1, 'item 1').
+fm1(item15, 'item 15').
+fm1(inhibit, inhibit).
+
+
+
+/* Text for top level generic procedures */
+
+generic_text(d1_report, Text) :-
+        text(action_d1_report, Text).
+generic_text(determine(container_reload_time,unfinished_experiment_containers),
+        ['Determine the reload time for the unfinished', nl, 'egg containers']). 
+generic_text(normal_operation, ['Continue normal operations ']).
+generic_text(ppo2_low_readings,['Record the PPO2 readings']).
+generic_text(remove_mechanical_interference, ['Remove mechanical interference']).
+generic_text(call_page(Page), Text) :-
+        fm(call(Page), Text).
+generic_text(close_valve(Valve), ['Close the ', Fm_valve]) :-
+        fm(Valve, Fm_valve).
+generic_text(ddu_call(Page), ['Call DDU display ', Fm_Page]) :-
+        fm(Page, Fm_Page).
+generic_text(determine(egg_load_time), ['Determine the egg reload time']).
+generic_text(determine(unfinished_experiment_containers),
+                      ['Determine which experiment containers have yet to finish',nl, 'their programs']).
+generic_text(enable(Thing, Params), Text) :-
+        text(action_enable(Thing, Params), Text).
+generic_text(enable(Thing), Text) :-
+        text(action_enable(Thing), Text).
+generic_text(goto(procedure(Procedure)), Text) :-
+        text(goto(procedure(Procedure)), Text).
+generic_text(open(Thing), Text) :-
+        text(action_open(Thing), Text).
+generic_text(open_valve(Valve), Text) :-
+        text(action_open(Valve), Text).
+generic_text(close(Thing), Text) :-
+        text(action_close(Thing), Text).
+generic_text(press_pb(Thing), Text) :-
+        text(action_press(Thing), Text).
+generic_text(record(Thing), Text) :-
+        text(action_record(Thing), Text).
+generic_text(replace_fuse(Fuse), Text) :-
+        text(action_change_fuse(Fuse), Text).
+generic_text(stow_egg_containers(container_reload_time), 
+        ['Place egg containers in glovebox at container reload time']).
+generic_text(stow_egg_containers(Num), Text) :-
+        text(action_place_egg_container_glovebox(Num), Text). 
+generic_text(stow_egg_containers(_, Num), Text) :-
+        text(action_place_egg_container_glovebox(Num), Text).
+generic_text(switch_off(Thing), Text) :-
+        text(action_switch_off(Thing), Text).
+generic_text(switch_on(Thing), Text) :-
+        text(action_switch_on(Thing), Text).
+generic_text(verify(close_valve(Valve)), ['Verify that the ', Fm_Valve, nl,
+                                          'is closed ']) :-
+        fm(Valve, Fm_Valve).
+generic_text(verify(fuse(Fuse)), ['Verify the condition of fuse ', Fm_Fuse]) :-
+        fm(Fuse, Fm_Fuse).
+generic_text(verify(Thing), ['Verify ', Fm_Thing]) :-
+        \+ member(Thing, [close_valve(_), fuse(_)]),
+        fm(Thing, Fm_Thing).
+generic_text(verify(Thing, Status),
+        ['Verify that ', Fm_Thing, ' is ', Fm_Status]) :-
+        fm(Thing, Fm_Thing),
+        fm(Status, Fm_Status). 
+generic_text(wait(Time), Text) :-
+        text(action_wait(Time), Text).
+generic_text(wait_until(Conditions), Text) :-
+        text(action_wait_until_true(Conditions), Text).
+generic_text(inhibit(Thing), Text) :-
+        text(action_inhibit(Thing), Text).
+generic_text(inhibit(Thing, Params), Text) :-
+        text(action_inhibit(Thing, Params), Text).
+generic_text(repeat_until(Steps, Conditions), Text) :-
+        text(action_repeat_until(Steps, Conditions), Text).             
+generic_text(inhibit_alarm(Thing, Num1, Params),
+        ['Inhibit the alarm for ', Fm_Thing, nl,
+         'Entry code : ', Num1_Text, nl,
+         'Parameter code : ', Param, nl]) :-
+        fm(Thing, Fm_Thing),
+        fm(Num1, Num1_Text),
+        fm(Params, Param).
+generic_text(switch_off_power(Thing),
+             ['Switch off the power for ', nl, Fm_Thing]) :-
+        fm(Thing, Fm_Thing).
+generic_text(locate(Thing), Text) :- text(locate(Thing), Text).
+

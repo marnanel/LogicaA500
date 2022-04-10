@@ -1,0 +1,200 @@
+//  DSH SOURCE  4.87
+
+section "Stinit"
+
+/**
+         SI.STINIT - Main Routine to Create State Tables
+         -----------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.stinit
+
+         Contains routine START to create the state tables
+         as a file 'states' in the 'SI.R' directory.
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         23.4.87     1     DNH      Created from stiniXX
+         15.5.87     2     PAC      Adopted for AES system
+         15.9.87     3     PAC      New version for DISH
+         13.04.88    4     SA       Chart states & icons added
+**/
+
+static $( iconptr = 0; limit = 0 $)
+
+GET "libhdr"
+GET ":4.DSH.GH.glhd"
+GET ":4.DSH.GH.glNFhd"
+GET ":4.DSH.GH.glNChd"
+GET ":4.DSH.H.sthd"
+GET ":4.DSH.H.stphd"
+// GET ":4.DSH.H.st2hd"       // offset defin's for state tables
+
+/**
+         START is not part of the retrieval software but defines
+         the start of a program called "STINIT" held in SI.r
+         used to create the state tables.  This used to be done
+         at boot time by the two overlays "STINIT1" and "STINIT2"
+         but these are now redundant. This saves considerable
+         time in booting and space on the system floppy.
+
+         It would be possible to split the state tables in two
+         (com. and nat.)
+         If they are split care will be needed to
+         duplicate HE states in both, giving HE the lowest state
+         numbers in SIHDR.
+**/
+
+
+LET start () be
+$(         
+   let pb = VEC 3
+   let p  = ? 
+   let st = ? 
+   let sz = ?
+
+   WRITES ("*NCreating DISH State Tables*N*N")
+   RUNPROG ("**TIME*c")
+
+// allocate a big vector for the whole state tables and point the globals
+// to the correct offsets within it
+
+   limit := MAXVEC()
+
+   g.states := GETVEC (limit)    
+
+   Fillwords( g.states, limit, 0 )
+
+   iconptr  := m.st.nostates*m.st.esize // set up icon pointer
+
+// now define the states
+
+// n.b. top level states are a bit hazy at the moment
+//
+   add.state( m.st.top.op, m.st.start.stop, @G.dummy )
+
+   end.icon.list()
+
+   add.state( m.st.top.op, m.st.top.level, @G.Dummy )
+
+   add.icon( 2, m.st.plan,       @g.pl.planini )
+   add.icon( 0, m.st.find,       @g.nf.findini )
+   add.icon( 1, m.st.contents,   @g.nt.conini  )
+   add.icon( 3, m.st.top.level,  @g.ov.shutdown)
+   add.icon( 7, m.st.help,       @g.he.helpini )
+   end.icon.list()
+
+   // Find functionality
+   //
+   add.state( m.st.find.op, m.st.find, @g.nf.find )
+
+   add.icon( 0,  m.st.help,        @g.he.helpini )  
+   add.icon( 2,  m.st.find,        @g.nf.handle.keys )
+   add.icon( 6,  m.st.find,        @g.nf.checkbox )
+   add.icon( 7,  m.st.find,        @g.nf.checkbox )
+   add.icon( 8,  m.st.find,        @g.nf.checkbox )
+   add.icon( 3,  m.st.top.level,   @g.ov.init.top )
+   add.icon( 13, m.st.find.review, @g.nf.revini )
+   add.icon( 16, m.st.find,        @g.nf.copy.query) 
+   add.icon( 20, m.st.find.review, @g.nf.revini )
+   end.icon.list()
+
+   add.state( m.st.find.op, m.st.find.review, @G.nf.rev.action )
+
+   add.icon( 1,   m.st.help,          @G.he.helpini )
+   add.icon( 2,   m.st.find,          @g.nf.findini )
+   add.icon( 104, m.st.find.dialogue, @g.nf.dialini )  // dummy icon for
+                                                       // changing state
+   end.icon.list()
+
+   add.state( m.st.find.op, m.st.find.dialogue, @G.nf.dial.action )
+
+   add.icon( 1, m.st.help,          @G.he.helpini )
+   add.icon( 2, m.st.find.review,   @g.nf.revini )      // cancel button
+   add.icon( 4, m.st.map.main,      @g.nm.map.ini )     // virtual icons
+   add.icon( 5, m.st.chart.main,    @g.nc.chartini )    // for NC, NM
+   end.icon.list()
+
+   // chart functionality SA 06.04.88
+   //
+   add.state( m.st.chart.op, m.st.chart.main, @G.nc.chart )
+   
+   add.icon( 1, m.st.help,        @G.he.helpini )
+   add.icon( 2, m.st.find.review, @g.nf.revini )          // cancel button
+   add.icon( 6, m.st.chart.main,  @g.nc.change.cat.icon ) // category icon
+   end.icon.list()
+
+   add.state( m.st.chart.op, m.st.categories, @G.nc.cats )
+
+   end.icon.list()
+
+   // Contents functionality
+   //
+   add.state( m.st.contents.op, m.st.contents, @g.nt.contents )
+
+   add.icon( 9, m.st.help,      @g.he.helpini )  
+   add.icon( 2, m.st.contents,  @g.nt.handle.keys )
+   add.icon( 3, m.st.top.level, @g.ov.init.top )
+   add.icon( 27, m.st.contents,  @g.nt.goto.top)
+   add.icon( 8, m.st.contents,  @g.nt.go.up)
+   add.icon( 12, m.st.contents.Xref, @g.nt.display.xrefs )
+   end.icon.list()
+
+   add.state( m.st.contents.op, m.st.contents.Xref, @g.nt.cross.ref )
+
+   add.icon( 1, m.st.help,     @g.he.helpini )      
+   add.icon( 2, m.st.contents, @g.nt.conini )
+   end.icon.list()     
+
+   st := g.states * bytesperword  // hardware address of start of data
+                                  // start, end addresses
+   sz := iconptr * bytesperword    
+
+   Writef("*nState table size : %n (&%x4) bytes*n", sz, sz )
+
+   pb!0, pb!1, pb!2, pb!3 := 0, 0, st, st + sz
+
+   Osfile( 0, ":4.DSH.R.states", pb ) // save the table
+
+   STOP (0)
+$)
+
+// defines a state for the given parameters -
+// sets the window handle to -1, sets the action
+// routine to that given, and sets up the icon
+// data offset
+//
+
+AND add.state( operation.number, state.number, action.routine.addr ) BE
+$(
+   g.states!(state.number * m.st.esize + m.st.op)      := operation.number
+   g.states!(state.number * m.st.esize + m.st.whandle) := m.st.invalid 
+   g.states!(state.number * m.st.esize + m.st.actr) := action.routine.addr- @G0
+   g.states!(state.number * m.st.esize + m.st.icons) := iconptr
+$)
+
+// adds an icon definition to the icon list for current state
+// and increments the static 'icon ptr' to point at the next 
+// free entry in the variable part of the state table.
+
+AND add.icon( icon.number, next.state, init.routine.addr ) BE
+$(
+   LET addr = g.states+iconptr
+
+   addr!m.st.icon.no := icon.number
+   addr!m.st.next.st := next.state
+   addr!m.st.initr   := init.routine.addr - @G0
+
+   iconptr := iconptr + m.st.isize
+
+   IF iconptr >= limit 
+   THEN 
+   $( Writef("*nERROR :state table size exceeded*N")
+      STOP(0)
+   $)
+$)
+
+AND end.icon.list() BE add.icon(m.st.invalid,0,@G0)
+.

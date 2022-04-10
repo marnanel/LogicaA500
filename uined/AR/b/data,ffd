@@ -1,0 +1,272 @@
+SECTION "ArealD - data action"
+
+/**
+         AREAL DATA ACTION ROUTINE
+         -------------------------
+
+         This section contains :
+
+            G.ar.areald and its utility routines
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+          1.6.87     1       SA        Initial version
+         12.6.87     2       SA        Add help control
+         22.6.87     3       SA        Highlight box regardless of x position
+         14.8.87     4       SA        Limit data value entry to numeric chs
+         10.9.87     5       SRY       Fix delete to start store bug
+**/
+
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.AREALD - SET UP DATA SCREEN
+         --------------------------------
+
+         Specific action routine for areal data screen
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.ar.buff
+
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ar.area []
+         ------------
+         IF exit THEN return
+         IF just selected THEN initialise
+         IF key = change
+         THEN IF pointer is on the left
+              THEN key = Fkey7
+              IF pointer is on the right
+              THEN key = Fkey8
+              IF pointer is in the middle
+              THEN beep
+
+         SWITCHON key INTO
+         CASE Fkey7 : page backwards or beep
+         CASE Fkey8 : page forwards or beep
+         CASE Fkey3 : screen state = 4
+         CASE Fkey5 : IF data is consistent
+                      THEN call save operation
+         CASE Fkey6 : IF data is consistent
+                      THEN save and exit
+         ENDCASE
+
+         IF pointer has moved
+         THEN status is on
+
+         SWITCHON screen state INTO
+         1 : IF on a box
+             THEN highlight box
+             screen state = 2
+         2 : TEST still on box
+             THEN screen state = 3
+             ELSE de-highlight box
+                  screen state = 1
+         3 : allow entry into box
+             IF key = return
+             THEN screen state = 2
+             IF no longer on box and nothing has been entered
+             THEN screen state = 2
+         4 : do find operation
+         default : screen state = 1
+**/
+
+
+LET G.ar.areald() BE
+$( LET mbar = TABLE m.sd.act,    m.sd.act, m.sd.act,
+                    m.sd.wBlank, m.sd.act, m.sd.act
+   IF g.menubar!m.box1 = m.wExit
+   THEN RETURN
+
+   IF G.context!m.justselected
+   THEN G.ar.arealdini()
+
+   IF (g.key = m.kd.change) &
+      (g.screen = m.sd.display)
+   THEN TEST g.Xpoint < m.ar.valueXstr/3
+        THEN g.key := m.kd.Fkey7
+        ELSE TEST g.xpoint > (m.ar.valueXstr/3)*2
+             THEN g.key := m.kd.Fkey8
+             ELSE g.sc.beep()
+
+   SWITCHON G.key INTO
+   $( CASE m.kd.Fkey1 : ENDCASE
+      CASE m.kd.Fkey7 :
+      CASE m.kd.Fkey8 : TEST valid.for.next.state()
+                        THEN g.ar.page ( (G.key = m.kd.Fkey7) -> m.ar.back,
+                                                                  m.ar.forward)
+                        ELSE g.key := m.kd.noact
+                        ENDCASE
+      CASE m.kd.Fkey3 : IF valid.for.next.state ()
+                        THEN screen (4)
+                        ENDCASE
+      CASE m.kd.Fkey5 : g.sc.mess ("Saving data")
+      CASE m.kd.Fkey2 :
+      CASE m.kd.Fkey6 : TEST valid.for.next.state()
+                        THEN g.ar.save (m.ar.data)
+                        ELSE g.key := m.kd.noact
+                        g.sc.clear (m.sd.message)
+                        ENDCASE
+      DEFAULT         : handle.states()
+                        ENDCASE
+   $)
+
+   IF g.redraw
+   THEN g.sc.menu (mbar)
+$)
+
+AND handle.states() BE
+$( IF g.ar.buff!m.ar.xpos ~= G.xpoint |
+      g.ar.buff!m.ar.ypos ~= G.ypoint |
+      g.ar.buff!m.ar.last.box ~= on.box()
+   THEN g.ar.buff!m.ar.status := m.ar.on
+
+   SWITCHON g.ar.buff!m.ar.screenstate INTO
+   $( CASE 1 : UNLESS (on.box() = m.ar.unknown) |
+                      (g.ar.buff!m.ar.status = m.ar.off)
+               $( LET box = g.ar.buff!m.ar.box
+                  LET g = G.key
+                                                  // initialise box - no action
+                  G.key := m.kd.noact
+                  g.ar.highlight (m.ar.values, m.sd.cyan, m.sd.blue, box)
+                  g.ar.char.input (m.ar.values, box)
+                  G.key := g
+
+                  g.ar.buff!m.ar.last.box := box
+                  g.ar.buff!m.ar.status   := m.ar.on
+                  screen(2)
+               $)
+               ENDCASE
+      CASE 2 : $( LET box = g.ar.buff!m.ar.last.box
+                  TEST (on.box() = box) & (g.ar.buff!m.ar.status = m.ar.on)
+                  THEN $( g.ar.buff!m.ar.oldstr := true
+                          screen(3)
+                       $)
+                  ELSE $( g.ar.highlight (m.ar.values, m.sd.blue,
+                                                              m.sd.yellow, box)
+                          screen(1)
+                       $)
+               $)
+               ENDCASE
+      CASE 3 : entry (g.ar.buff!m.ar.last.box)
+               ENDCASE
+      CASE 4 : g.ar.find ()
+               IF g.ar.buff!m.ar.firstfind
+               THEN screen(1)
+               ENDCASE
+      default: screen(1)
+   $)
+$)
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+//                  Utility routines used by AREALD only                     //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+AND valid.for.next.state() = VALOF
+$( LET key = g.key
+   LET screen = g.screen
+   LET x = g.xpoint
+   g.xpoint := 0
+   g.screen := m.sd.menu
+   g.key := m.kd.return
+   handle.states()
+   g.key := m.kd.noact
+   handle.states()
+   g.xpoint := x
+   g.screen := screen
+   g.key := key
+   resultis (g.ar.buff!m.ar.screenstate = 1)
+$)
+
+// controls highlighting and input to entry boxes in screen state 3
+AND entry (box) BE
+$( LET string = g.ar.buff + (box-1)*m.ar.val.len.words + m.ar.values.str
+   TEST g.key = m.kd.noact |
+        g.key = m.kd.up    |
+        g.key = m.kd.down
+   THEN IF g.ar.buff!m.ar.oldstr | string%0 = 0
+        THEN IF on.box() ~= box             // if moved off box without editing
+             THEN screen(2)
+   ELSE $( SWITCHON g.key INTO
+           $( CASE '-': UNLESS string%0 = 0 ENDCASE
+              CASE '0': CASE '1': CASE '2': CASE '3': CASE '4':
+              CASE '5': CASE '6': CASE '7': CASE '8': CASE '9':
+                                g.ar.buff!m.ar.oldstr := false
+              CASE m.kd.left  :
+              CASE m.kd.delete: unless string%0 = 0
+                                $( g.ar.buff!m.ar.oldstr := false
+                                   if (string%0 = 1) & (g.key = m.kd.delete)
+                                      // delete to start: store value
+                                   $( g.ar.char.input(m.ar.values, box)
+                                      g.ar.valid (m.ar.values, box)
+                                      ENDCASE
+                                   $)
+                                $)
+              CASE m.kd.return:
+              CASE m.kd.right :
+                        g.ar.char.input (m.ar.values, box)
+              DEFAULT : ENDCASE
+           $)
+        $)
+   IF g.key = m.kd.return
+   THEN TEST g.ar.valid (m.ar.values, box)
+        THEN $( g.ar.buff!m.ar.status := m.ar.off
+                g.ar.buff!m.ar.xpos   := G.xpoint
+                g.ar.buff!m.ar.ypos   := G.Ypoint
+                screen(2)
+             $)
+        ELSE $( LET g = G.key
+                G.key := m.kd.noact
+                g.ar.char.input (m.ar.values, box)
+                G.key := g
+             $)
+$)
+
+// Return identifier to the line the cursor is on.
+AND on.box() = VALOF
+$( LET box = m.ar.unknown
+   LET y = ?
+   y := m.sd.displines - G.ypoint/m.sd.linW
+   IF (g.screen = m.sd.display) &
+      (1 <= y <= m.sd.displines) &
+      (y <= g.ar.buff!m.ar.page.list)
+   THEN box := y
+   g.ar.buff!m.ar.box := box
+   RESULTIS box
+$)
+
+AND screen(state) BE g.ar.buff!m.ar.screenstate := state
+.
+
+
+
+

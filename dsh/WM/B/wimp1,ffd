@@ -1,0 +1,582 @@
+//  $MSC
+//  DSH SOURCE  9.87
+
+/**
+         WM.WIMP1 - Window Manager Interfaces
+         ------------------------------------
+
+         Procedures in Wimp1 are:
+
+         G.wm.Init            - initialise wimp
+         G.wm.Poll            - Poll for actions
+         G.wm.Mouse.rectangle - set mouse boundary box
+         G.wm.Packstr         - Pack a bcpl string
+         G.wm.Unpackstr       - Unpack string
+         G.wm.Iconaddr        - Find icon indirection address
+         G.wm.Error           - Generate an error (trap)
+         G.wm.Load.Template   - Load one window template
+         G.wm.Read.Templates  - Load a file of templates
+         G.wm.MoveA.Window    - Move to absolute position in window
+         G.wm.MoveA           - Move to absolute postion on screen
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         24.9.87   1        PAC     CREATED FOR DISH SYSTEM
+         07.04.88  2        SA      G.wm.MoveA.Window added
+         16.05.88  3        SA      G.wm.MoveA added
+**/
+
+Section "WM.Wimp1"
+
+GET "LIBHDR"
+GET ":4.DSH.GH.glhd"
+GET ":4.DSH.H.sdphd"
+GET ":4.DSH.H.kdhd"
+GET ":4.DSH.H.wmhd"
+GET ":4.DSH.H.sthd"
+
+/**
+         G.WM.Init - Initialise window manager
+         -------------------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         window manager version number 
+         (integer - divide by 100 to get it in the
+         'normal' version number range. i.e version 0.12 is
+         returned as 12)
+
+         GLOBALS MODIFIED:
+
+         G.wm.s
+         G.wm.q
+         G.wm.sprite.area
+
+         SPECIAL NOTES FOR CALLERS:
+
+         To be called once only, when the application starts
+         but AFTER the state tables have been defined.
+
+         initialises vectors, loads sprites,
+         loads window definitions, etc.
+
+         Expects to find a file called 'Sprites.DISHspr', 
+         which it uses to load sprites from, a file
+         called 'Templates.DISHtemp', for the template 
+         definitions for the main code, also a file called
+         'Templates.DISHsys' for 'system' templates.
+
+**/
+
+LET G.wm.init() = VALOF
+$( 
+   let version = ? 
+   let pb = vec 7 // for sprite setup
+
+   // initialise statics area
+   G.wm.s!m.wm.freeptr  := G.wm.s+2                 // first free word
+   G.wm.s!m.wm.limitptr := G.wm.s+m.wm.statics.size // end of free space
+
+   // initialise windows vectors
+   G.Windows!0 := 1
+
+   // system windows & help windows
+   for i = 0 to m.wm.sys.windows.size do G.sys.windows!i := 0
+
+   // load DISH sprite definitions
+   //
+   pb!0 := G.wm.sprite.area   
+   pb!1 := "Sprites.DISHspr*c" * bytesperword + 1
+
+   // now load our sprite definitions
+   UNLESS OsSprite( m.sd.load.sprite.file, pb ) // load sprites
+   DO G.wm.error("Sprite load failed")
+
+   // wake up the Wimp
+
+   version := OSWimpG( m.wm.Initialise,0,0 )
+
+   if version < m.wm.minv do
+      G.wm.error("Needs at least WIMP Vn. %i1.%i2", 
+                                     m.wm.minv / 100, 
+                                     m.wm.minv REM 100 )
+   // load state templates
+
+   G.wm.Read.Templates("Templates.DISHtemp*c")
+
+   // now read the system window templates
+   load.system.templates()
+
+   RESULTIS version
+$)
+
+/**
+         G.WM.Poll - Poll window manager
+         -------------------------------
+
+         INPUTS:
+
+         buffer of size m.wm.poll.buf.words (BCPL address)
+         reason code masks (set to m.wm.no.mask if not required)
+
+         OUTPUTS:
+
+         action code ( a manifest from wmhdr )
+         buffer updated as per window mamager specs
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         see window manager specs for list of reason codes
+**/
+
+AND G.wm.poll(buffer,mask) = OsWimpG( m.wm.poll, buffer, mask )
+
+/**
+         G.WM.Mouse.Rectangle - set mouse boundary box
+         ---------------------------------------------
+
+         INPUTS:
+
+         bottom left x,y (bbc graphics units)
+         top right x,y   (bbc graphics units)
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Constrains the mouse pointer within the given box.
+         Will swap the coordinates around if necessary to
+         make them sensible.
+**/
+
+AND G.wm.Mouse.Rectangle( x1,y1,x2,y2 ) BE
+$(
+   LET pb = VEC 6
+   LET tx,ty = x1,y1
+
+   if x1>x2 swap( @x1, @x2 )
+   if y1>y2 swap( @y1, @y2 ) 
+
+   pb%0 := 1 // opcode
+   pb%1 := x1
+   pb%2 := x1>>8
+   pb%3 := y1
+   pb%4 := y1>>8
+   pb%5 := x2
+   pb%6 := x2>>8
+   pb%7 := y2
+   pb%8 := y2>>8
+
+   Osword( #x15, pb )
+$)
+
+and swap( a,b ) be
+$( let t = !a
+   !a := !b
+   !b := t
+$)
+
+/**
+         G.wm.Packstr - Pack BCPL string for WIMP
+         ----------------------------------------
+
+         INPUTS:
+
+         string pointer
+
+         OUTPUTS:
+
+         returns string address, as passed
+         sets Result2 to string length
+
+         GLOBALS MODIFIED:
+
+         Result2
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Turns a bcpl string into a 'C' string, 
+         zero terminated.
+**/
+
+AND G.wm.Packstr( string ) = VALOF
+$(
+   let l = string%0
+   for i = 1 to l string%(i-1) := string%i
+   string%l := #x0
+   RESULT2  := l
+   RESULTIS string
+$)
+
+/**
+         G.wm.Unpackstr - Unpack BCPL string
+         --------------------------------------
+
+         INPUTS:
+
+         packed string pointer
+         original length
+
+         OUTPUTS:
+
+         string pointer, as passed
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Gives an error if string is too long
+**/
+AND G.wm.unpackstr( string, len ) = VALOF
+$(
+   IF len > 255 DO
+   G.wm.Error("String <%s> too long",G.wm.unpackstr(string,10))
+   for i = len to 1 by -1 string%i := string%(i-1)
+   string%0 := len
+   resultis string
+$)
+
+/**
+         G.WM.Iconaddr - Find buffer address for icon
+         --------------------------------------------
+
+         INPUTS:
+
+         window handle
+         icon number
+
+         OUTPUTS:
+
+         machine address of icon buffer
+
+         GLOBALS MODIFIED:
+
+         uses G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Gives an error if icon is not 'writeable'
+**/
+
+AND G.wm.iconaddr(h,i) = VALOF
+$(
+   !G.wm.q  := h
+   G.wm.q!1 := i
+   OSWimpG( m.wm.Get.Icon.Info, G.wm.q )
+
+   IF (G.wm.q!6 & #x100)=0 THEN G.wm.Error( "Icon is not indirected" )
+
+   RESULTIS G.wm.q!7
+$)
+
+/**
+         G.wm.Error - Error handler for Window manager
+         ---------------------------------------------
+
+         INPUTS:
+
+         writef string + up to 3 parameters
+
+         OUTPUTS:
+
+         none (does not return)
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Displays the error message, then calls 
+         abort with parameter 10
+**/
+AND G.wm.Error( str, p1,p2,p3 ) BE
+$(
+   VDU("22,0")
+
+   Writes("ERROR in Window Manager : ")
+   Writef( str, p1,p2,p3 )
+   NEWLINE()
+   Abort(10)
+$)
+
+/**
+         Load.system.Templates - Load the 'system' templates
+         ---------------------------------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.sys.windows - updated with window handles
+         G.wm.q        - trashed
+
+         SPECIAL NOTES FOR CALLERS:
+
+
+
+         Trashes G.wm.q (as usual)
+         Assumes that sprites will be in G.wm.sprite.area
+**/
+
+
+AND load.system.templates() BE
+$(
+   Let b = G.sys.windows
+
+   // -- Create system Windows
+
+   OSWimpG( m.wm.Open.Template, g.wm.packstr("Templates.DISHsys")) 
+
+// these two t.b.d.
+//   b!m.wm.mess.window     := G.wm.load.template("message")
+//   b!m.wm.ermess.window   := G.wm.load.template("errmess")
+
+   b!m.wm.options.window    := G.wm.load.template("options")
+   b!m.wm.procedure.window  := G.wm.load.template("procedure")
+   b!m.wm.commentary.window := G.wm.load.template("commentary")
+   b!m.wm.peephole.window   := G.wm.load.template("peephole")
+   b!m.wm.dlist.window      := G.wm.load.template("dlist")
+   b!m.wm.idusr.window      := G.wm.load.template("idusr")
+
+   OSWimpG( m.wm.Close.Template )
+$)
+
+
+/**
+         G.wm.Load.Template - Load a window template
+         -------------------------------------------
+
+         INPUTS:
+
+         template name (BCPL string)
+
+         OUTPUTS:
+
+         window handle, if load worked
+
+         GLOBALS MODIFIED:
+
+         G.wm.q - used as temporary buffer
+         G.wm.s - icon statics updated as necessary
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Assumes that the correct templates file is open
+         Trashes G.wm.q (as usual)
+         Assumes that sprites will be in G.wm.sprite.area
+         Returns the window handle for the window that it
+         has created.
+**/
+
+AND G.wm.Load.Template( string ) = VALOF
+$(
+   LET c,l = ?,?
+   LET pb  = VEC 6
+
+   g.wm.packstr( string ); l := result2
+
+   pb!1 := G.wm.q                // general workspace
+   pb!2 := G.wm.s!m.wm.freeptr   // used for indirected icon workspace
+   pb!3 := G.wm.s!m.wm.limitptr  // size of this area
+   pb!4 := -1                    // fontcounts (set to -1 = no fonts)
+   pb!5 := string                // template name
+   pb!6 := 0                     // search from start
+
+   FOR i = 1 TO 5 DO pb!i := pb!i * bytesperword // convert to M/C address
+
+   OSWimpS( m.wm.Load.Template, pb ) 
+
+   G.wm.s!m.wm.freeptr := pb!2/bytesperword
+   c := pb!6
+
+   G.wm.Unpackstr( string,l ) // restore the string
+
+   IF c=0 DO G.wm.error("Template '%s' not found", string )
+
+   G.wm.q!m.wm.sprite.offset := G.wm.sprite.area
+
+   c := OSWimpG( m.wm.Create.Window, G.wm.q ) 
+
+   RESULTIS c
+$)
+
+/**
+         G.wm.Read.Templates - Load file of templates
+         --------------------------------------------
+
+         INPUTS:
+
+         template file name (BCPL string)
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.q - used as temporary buffer
+         G.wm.s - icon statics updated as necessary
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Trashes G.wm.q (as usual)
+         Assumes that sprites will be in G.wm.sprite.area
+         Updates the DISH state tables with the window handles 
+         of the windows that it creates. (So make sure that 
+         the state table is initialised beforehand !).
+**/
+
+AND G.wm.Read.Templates(file.name) BE
+$(
+   Let tf.index = 0
+   Let pb       = VEC 7
+   Let name     = VEC 12/bytesperword
+   Let tspec    = "***c"  // wildcard template spec
+   Let i,st,h   = ?,?,?
+
+   Let fontcounts = GETVEC( 256/bytesperword )
+   Fillwords( fontcounts, 256/bytesperword, 0 )
+
+   OSWimpG( m.wm.Open.Template, G.wm.packstr(file.name))
+
+   $(
+      !name := !tspec               // set name to "*"
+
+      pb!1 := G.wm.q                // general workspace
+      pb!2 := G.wm.s!m.wm.freeptr   // used for indirected icon workspace
+      pb!3 := G.wm.s!m.wm.limitptr  // size of this area
+      pb!4 := fontcounts            // fontcounts (set to -1 = no fonts)
+      pb!5 := name*bytesperword + 1 // template name
+      pb!6 := tf.index              // search from start
+
+      FOR i = 1 TO 4 DO pb!i := pb!i * bytesperword // convert to M/C address
+$<debug
+      G.wm.Message("Loading template No. %n",tf.index)
+      G.ut.wait(10)
+$>debug
+
+      OSWimpS( m.wm.Load.Template, pb )
+        //  **** G.wm.Error("Template load failed at No. %n",tf.index)
+
+      G.wm.s!m.wm.freeptr := pb!2 / bytesperword  // update free space pointer
+      tf.index := pb!6
+
+      if tf.index = 0 break  // terminate if last one found
+
+      // inspect the name to determine the state number
+      i,st := 0,0
+      i := i+1 repeatuntil '0'<= name%i <='9'
+      $( st := 10*st + (name%i)-'0'
+         i  := i+1 
+      $) repeatuntil ~ ('0'<= name%i <='9')
+
+      UNLESS (0<st<m.st.nostates) & i<12 DO
+        G.wm.Error("Invalid state number found  (%n at %n)",st,i)
+
+      G.wm.q!m.wm.sprite.offset := G.wm.sprite.area
+
+      h := OSWimpG( m.wm.Create.Window, G.wm.q ) 
+
+      UNLESS G.states!( st * m.st.esize + m.st.whandle ) = m.st.invalid
+      DO G.wm.Error("State table invalid for %n",st)
+
+      G.states!( st * m.st.esize + m.st.whandle ) := h
+
+   $) repeatuntil tf.index = 0
+
+   OSWimpG( m.wm.Close.Template )
+   Freevec(fontcounts)
+$)
+
+/**
+         G.wm.MoveA.Window - Move to absolute position in specified window
+         -----------------------------------------------------------------
+
+         INPUTS:
+
+         handle of the window
+         x.position
+         y.position
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.q - used as temporary buffer
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Uses G.wm.q to obtain the window origin.
+         The window origin is the bottom left hand corner ( graphics coords ).
+         The x.position & y.position are relative to this origin.
+         Traps request for move outside the boundary of the window.
+**/
+
+LET G.wm.MoveA.Window( handle, x.pos, y.pos ) BE
+$(
+   LET x.orig = ?
+   LET y.orig = ?
+
+   LET x.abs = ?
+   LET y.abs = ?
+
+   g.wm.Get.Window.State( handle )
+   x.orig := G.wm.q!1
+   y.orig := G.wm.q!2
+
+   x.abs := x.orig + x.pos
+   y.abs := y.orig + y.pos
+   
+   VDU ("25,%,%;%;", m.wm.movA, x.abs, y.abs )
+$)
+
+/**
+         G.wm.MoveA - Move to absolute position on screen
+         ------------------------------------------------
+
+         INPUTS:
+
+         x.position
+         y.position
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+**/
+
+LET G.wm.MoveA( x.pos, y.pos ) BE VDU("25,%,%;%;", m.wm.movA, x.pos, y.pos )
+.

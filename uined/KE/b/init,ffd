@@ -1,0 +1,139 @@
+/**
+         INIT - MACHINE SPECIFIC INITIALISATION
+         --------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.init
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+       27.04.87    1        SRY     Adopted for Input Editor
+       14.10.87    2        MH      updated for uni version
+       04.11.87    3        MH      sideways ram initialisation taken out
+**/
+SECTION"b.Init"
+
+GET"LIBHDR"
+GET":4.UINED.gh.glhd"
+GET":4.UINED.gh.glDYhd"
+GET":4.UINED.h.sihd"
+GET":4.UINED.h.sdhd"
+GET":4.UINED.h.sdphd"
+GET":4.UINED.h.sthd"
+GET":4.UINED.h.kdhd"
+GET":4.UINED.h.uthd"
+GET":4.UINED.h.vhhd"
+
+LET G.in.dy.init() BE
+$(
+    OSbyte(144,255,0)     // Set display position and interlace
+    OSbyte(114,1,0)       // Set non shadow modes at next mode change
+                         // N.B. above two lines
+                         // must occur before Mode change
+    G.in.start()
+
+    OSbyte(21,0)          // Flush keyboard buffer as last act
+$)
+
+and G.in.dy.free() be
+$(
+   G.dummy()
+$)
+
+AND G.in.start() BE
+$(
+    LET blk   = VEC 5           // used for killing sideways ROM images
+
+    OSbyte(4,2)                  // Set cursor keys to give characters
+    OSbyte(225,m.kd.keybase,0)   // Set function keys to give ASCII
+    OSbyte(226,m.kd.shiftbase,0) // Set shift+func key to give ASCII
+    OSbyte(227,1,0)              // Set cntrl+func key to give strings
+    OSbyte(228,1,0)              // Set shift+cntrl+func to give strings
+    OSbyte(200,2,0)              // Clear memory on BREAK (inits BASIC)
+
+/*                                  // these lines moved here by PAC 26.9.86
+    g.vh.call.oscli ("MOUSE 0*c") // switch off mouse to ensure initialisation
+    G.sc.mode (1)                 // mode 1, join cursors, default palette
+    g.vh.call.oscli ("MOUSE 1*c") // switch on mouse
+//    RUNPROG("**TMAX 1280, %n",m.sd.disY0) // Set Icon switchover point
+    // earliest point for messages - screen has been initialised now
+*/
+    setup.screen()
+    $<debug
+    unless true // don't initialise player if in test environment
+    $>debug
+    $( G.sc.mess("Initialising videodisc; please wait")
+       runprog("**lvfs")      // switch temporarily to VFS -
+              runprog("**mount")     // ok if fails
+              G.vh.video(m.vh.micro.only)
+       G.vh.video(m.vh.video.off)
+       G.vh.audio(m.vh.no.channel)
+       g.vh.send.fcode("I0")  // Disable local controls
+       g.vh.send.fcode("J0")  // Disable handset
+       g.vh.send.fcode("$0")  // Disable replay switch
+       runprog("**adfs")
+           $)
+    G.sc.mess("DataEditor starting; please wait")
+
+    // G.vh.call.oscli ("FONT2*c") // load mode 2 special font
+
+/*  Set up various globals to the size of Vectors that ROOT must GET
+    for them (this module cannot GETVEC for general system use  */
+/* not used here
+    G.Context   := m.contextsize
+    G.stover    := 13            // DUMMY !! Thrown away by ovload
+    G.stactr    := m.st.nostates
+    G.menuwords := (m.wtotallength+4)/2
+*/
+
+    //  UT.WRITE globals
+
+    // G.ut.stream := 0      // file handle
+    // G.ut.sequence.no := 1 // file number
+$)
+
+//
+// Initialise display, mouse and sprite space
+//
+//
+AND setup.screen() BE
+$(
+   LET pb = VEC 7
+
+   // N.B. these two lines must occur before Mode change
+   OSByte(144,0,0)   // Set display position and interlace - mod for A500 PAC
+   OSByte(114,1,0)   // Set non shadow modes at next mode change
+
+   G.sc.mode(1)                  // mode 1, join cursors, default palette
+   G.sc.initialise.mouse()       // new mouse init
+
+// shd do something about this !!!
+// RUNPROG("**TMAX 1280, %n",m.sd.disY0) // Set Icon switchover point
+
+   // get user sprite space from the system heap
+   //
+   G.sc.sprite.area := GETVEC( m.sd.sprite.ws.size/bytesperword )
+
+   IF G.sc.sprite.area = 0 THEN G.ut.abort( m.ut.init.abort+1 )
+
+   //
+   // N.B. the values used below are obtained by trial and error
+   // using a BASIC program. The Acorn documentation is insufficient.
+   // The really dodgy value is the 100, which is the offset to first
+   // sprite. See the reference manual for details of control block
+   //
+
+   G.sc.sprite.area!0 := m.sd.sprite.ws.size  // set up header info
+   G.sc.sprite.area!1 := 1                    // so that the SNEW
+   G.sc.sprite.area!2 := 100                  // command will initialise
+   G.sc.sprite.area   := G.sc.sprite.area * bytesperword // m/c address
+
+   pb!0 := G.sc.sprite.area        // R1 = sprite workspace 
+
+   UNLESS OsSprite( m.sd.clear.sprite.area, pb ) // initialise sprite area
+   DO G.ut.abort( m.ut.init.abort+2 )
+
+$)
+.

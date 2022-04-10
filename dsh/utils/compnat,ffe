@@ -1,0 +1,21 @@
+*spool :4.tmp.compNAT
+*| compNAT DSH Version 1.0 14.9.87
+*| national disc overlays
+*|     
+*time
+cd NF
+c comp
+*|
+cd NC         
+c comp
+*| *dir ^.NA         
+*| c comp
+*| *dir ^.NM         
+*| c comp
+cd NN         
+c comp
+*| *dir ^.NT         
+*| c comp
+*dir $.DSH.utils
+*time
+*spool

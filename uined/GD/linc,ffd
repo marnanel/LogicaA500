@@ -1,0 +1,9 @@
+|*  join all the grid header code
+join c.grid0 c.grid c.grid2 c.grid3 c.grid4 c.grid5 c.save c.he -to head
+|* join the areal ranges code
+join c.manual1 c.manual2 -to manual
+join manual c.key2 -to range
+*delete manual
+join head range -to :4.UINED.l.gridh
+delete head
+delete range

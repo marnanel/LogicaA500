@@ -1,0 +1,1909 @@
+/*FILE PKBS*/
+
+/***********************************************
+ *  Started:  13.10.87 by RB
+ *
+ *   Update history:
+ *
+ *  Contains:  procedural knowledge for DISH
+ *
+ *   Uses files: bmethods
+ **********************/
+
+/****************************************************:
+ *
+ *  Format of the procedures is:
+ *
+ *          pkb(Procedure_name,Generic,List_of_steps).
+ *
+ *  where a step may be of one of the following forms
+ *
+ *    generic(Generic)  or
+ *    library(Generic_step)  or
+ *    if(Condtion,Conclusion,Then_steps,Conclusion,Else_steps)
+ *                                                                            
+ *    or a list of steps qualified by the predicates:  
+ *
+ *                          one_of
+ *                          some_of
+ *                          any_order    -   not used in initial implementation
+ *
+ *    Conditions may be of the form
+ *                 
+ *        system_state(Object,Status)  and/or user_state(Askable_flag,Question)
+ *
+ *    the askable_flag relates to whether the question should be asked of the 
+ *    user or an attempt made to elicit the information from the user model
+ *    the flag may be 
+ *                        a   ask user
+ *                        n   only ask user if info not in user model
+ *                        c   confirm user model info with user
+ *
+ *    For first implementation only askable flag a is recognised 
+ *
+ *    Askable questions will always be of a form which can be appended to 
+ *    'do you' in order to form a question for the user
+ *
+ *    n.b for a some_of list of steps, the quit procedure will be the first
+ *        item, but in presentation to the user it will be given last
+ *  
+ **********************************************************/
+
+/************************************************************
+*               Revision History                            *
+* Revised by   : S Ala'i                                    *
+* Description  : test with DISH prolog code                 *
+* 09/03/88   R1: user_states:                               *
+*                you want  REPLACED BY want                 *
+*                type REPLACED BY want to type              *
+*                wish REPLACED BY want                      *
+* 10/03/88   R2: top_box REPLACED BY top_level_box          *
+* 14/03/88   R3: 'mappable data' not implemented for        *
+*                ESPRIT demo on 16.06.88                    *
+*            R4: As per R3 for contents.                    *
+* 15/03/88   R5: pkb('quit dataset', 'clarify that you..   *
+*                REPLACED BY                                *
+*                pkb(library, 'clarify that you ....        *
+*            R6: procedures with no steps defined as        *
+*                basic methods.                             *
+*            R7: added pkb to link                          *
+*                generic('see text about chart')  to        *
+*                library('display text about chart')        *
+*            R8: missing generics for                       *
+*                'choose new chart type',                   *
+*                added dummy pkb clauses with no steps      *
+*            R9: square brackets removed from library       *
+*                procedure.                                 *
+*           R10: missing generic for                        *
+*                'carry out regrouping operations',         *
+*                added dummy pkb clause with no steps.      *
+*           R11: 'choose new dataset' REPLACED BY library  *
+*                FOR THE FOLLOWING GENERICS                 *
+*                'select from data list'                    *
+*                'select from summary'                      *
+*                'enter a named dataset'                   *
+*           R12: removed 'want to ' from generic name       *
+*                'want to finish using the special menu'    *
+*           R13: missing generic for                        *
+*                'finish using the special menu',           *
+*                added dummy pkb clauses with no steps      *
+*           R14: 'bookmark' operations not implemented for  *
+*                ESPRIT demo on 16.06.88                    *
+************************************************************/
+
+ 
+/* top level procedure which is attached to the root and for the first
+ * implementation forms the enter a plan option
+ */
+
+pkb('use dish',root,
+           [if(cond(system_state(top_level_box,displayed)),
+              null_conclusion,
+              [some_of([
+                   if(cond(user_state(a,'want to leave the system')),
+                             null_conclusion,
+                             [library(select:return_to_domesday)],
+                             null_conclusion,
+                             []),
+                   if(cond(user_state(a,'want some help with topics')),
+                           null_conclusion,
+                           [one_of([ 
+                            if(cond(user_state(a,'want to look at financial information')),
+                            null_conclusion,
+                            [generic('use find option with keywords banking, mortgages, housing tenure, insurance, building societies')],
+                             null_conclusion,
+                             []),
+                             if(cond(user_state(a,'want to look at advertising and marketing information')),
+                            null_conclusion,
+                            [generic('use find option with keywords ownership, consumption, super profiles, amenities')],
+                             null_conclusion,
+                             []),
+                             if(cond(user_state(a,'want to look at health and social services information')),
+                            null_conclusion,
+                            [generic('use find option with keywords mortality, births, accidents, social security, health services, cipfa')],
+                             null_conclusion,
+                             []),
+                             if(cond(user_state(a,'want to look at local government information')), 
+                            null_conclusion,
+                            [generic('use find option with keyword housing tenure, educational opportunity, local government grants, local government expenditure, cipfa')],
+                             null_conclusion,
+                             [])
+                           ])],  
+                           null_conclusion,
+                           []),
+                   if(cond(user_state(a,'know a particular dataset to examine')),
+                           null_conclusion,
+                           [generic('use find option to retrieve specific dataset')],
+                           null_conclusion,
+                           []),
+                   if(cond(user_state(a,
+                                  'want to browse through the information')),
+                           null_conclusion,
+                           [generic('use contents option')],
+                           null_conclusion,
+                           [])])],
+               null_conclusion,
+               [])]).          
+                                        
+%R4
+pkb('use dish','use contents option',
+               [library(contents_option:not_implemented)]).
+
+/*contents procedures*/                  
+%
+%pkb('use dish','use contents option',
+%                [generic('enter contents option'),
+%                generic('explore hierarchy until suitable dataset found'),
+%                library('select dataset'),
+%                generic('examine dataset'),
+%                generic('quit contents option')]).
+%
+%pkb('use contents option','enter contents option',
+%            [library(select:contents_button)]).
+%
+%pkb('use contents option','explore hierarchy until suitable dataset found',
+%             [some_of([ 
+%                       if(cond(user_state(a,'want to quit the contents option')),
+%                       null_conclusion,
+%                       [library(select:cancel_contents)],
+%                        null_conclusion,
+%                        []),
+%                       if(cond(system_state(contents_level,3) 
+%                       and 
+%                       user_state(a,'want to know more about hierarchy branch')),
+%                         null_conclusion,
+%                         [generic('read the overview essay')],
+%                         null_conclusion,
+%                         []),
+%                       if(cond((not system_state(contents_level,1)) 
+%                           and
+%                           user_state(a,'want to restart the contents hierarchy')),                           null_conclusion,
+%                              [library(select:top)],
+%                              null_conclusion, 
+%                              []),
+%                       if(cond(user_state(a,'interested in one of the branches')),
+%                            null_conclusion,
+%                            [generic('choose branch from hierarchy')],
+%                            null_conclusion,
+%                            []),
+%                       if(cond(system_state(up_button,enabled)
+%                                     and
+%                                      user_state(a,'want to go up hierachy')),
+%                                 null_conclusion,
+%                                 [library(select:up_button)],
+%                                 null_conclusion,
+%                                 [])
+%                       ])]).
+%                                    
+%pkb('use contents option','quit contents option',
+%                                  [library(select:cancel_contents)]).
+%
+%pkb('explore hierarchy until suitable dataset found','choose branch from hierarchy',
+%             [generic('examine list for item you want to look at'),
+%              generic('select item')]).                  
+%
+%pkb('choose branch from hierarchy','examine list for item you want to look at',
+%                   [library(read:list)]).
+%
+%pkb('choose branch from hierarchy','select item',
+%                          [library(position_cursor_over:Item),
+%                           library(click_mouse)]).
+%
+%pkb('explore hierarchy until suitable dataset found','read the overview essay',
+%            [library(look_at:top_of_list),
+%             library(select:top_text_item),
+%             library(read:information_page),
+%             library(select:done_button)]).
+%
+
+/*find procedures*/
+  
+pkb('use dish','use find option with keyword housing tenure, educational opportunity, local government grants, local government expenditure, cipfa',
+                           [library('use find option to enter a topic')]).  
+
+pkb('use dish','use find option with keywords banking, mortgages, housing tenure, insurance, building societies', [library('use find option to enter a topic')]).                            
+
+pkb('use dish','use find option with keywords mortality, births, accidents, social security, health services, cipfa', [library('use find option to enter a topic')]).                                   
+
+pkb('use dish','use find option with keywords ownership, consumption, super profiles, amenities', [library('use find option to enter a topic')]).               
+pkb('use dish','use find option to retrieve specific dataset',
+             [library('enter find option'),
+             generic('type in dataset title'),
+             library('select dataset'),
+             generic('examine dataset'),
+             library('quit find option')]).
+
+pkb(library,'use find option to enter a topic',
+            [library('enter find option'),
+            generic('submit a query to the system'),
+            library('choose dataset'),
+            library('select dataset'),
+            generic('examine dataset'),
+            library('quit find option')]).
+
+
+  pkb(library,'enter find option',
+            [if(cond(system_state(top_level_box,displayed)),
+            null_conclusion,
+            [library(select:find_button)],
+            null_conclusion,
+            [])]).
+
+pkb('use find option to enter a topic','submit a query to the system',
+             [one_of([
+                 if(cond(system_state(previous_query,exists)),
+                          null_conclusion,
+                          [one_of([
+                              if(cond(user_state(a,
+                                      'want to resubmit the previous query')),
+                                   null_conclusion,                            
+                                   [library(select:previous_query)],
+                                   null_conclusion,              
+                                   []),
+                              if(cond(user_state(a,
+                                      'want to edit the last query')),
+                                   null_conclusion,            
+                                   [library(select:old),
+                                   library(edit:query),
+                                   library(press_return)],
+                                   null_conclusion,       
+                                   [])
+                            ])],
+                          null_conclusion,        
+                          []), 
+                 if(cond(user_state(a,'want to type in a new query')),
+                         null_conclusion,
+                         [library(click_mouse_in:query_box),
+                         library(type_in:query)],
+                         null_conclusion,
+                         [])])]).
+
+
+pkb(library,'choose dataset',
+        [if(cond(system_state(data_list,scrollable)),
+         null_conclusion,
+         [library(scroll:data_list)],
+         null_conclusion,
+         []),
+         library(select:dataset)]).
+
+
+pkb('use find option to retrieve specific dataset','type in dataset title',
+    [library(position_cursor_in:what_do_you_want_to_know_about_box),
+     library(type_in:double_quotes),
+     library(type_in:dataset_name),
+     library(type_in:double_quotes)]).
+
+
+pkb(library,'quit find option',
+                  [library(select:cancel_find)]).                  
+
+/*******************************************************
+*  procedures common to FIND and CONTENTS operations.  *
+*******************************************************/
+
+pkb(library,'select dataset',
+         [library(read:information_page),
+          if(cond(user_state(a,'want to look at the dataset')),
+              null_conclusion,
+              [library(select:ok)],
+              null_conclusion,
+              [library(select:choose_again_from_data_list)])]).
+
+/********************************************
+*  examing dataset - this links find & contents with maps or charts
+**************************************************************/
+
+pkb('use contents option','examine dataset',
+         [if(cond(system_state(dataset,mappable)),
+                  null_conclusion,
+                  [generic('carry out map operations')],
+                  null_conclusion,
+                  [generic('carry out chart operations')])]).
+
+
+pkb('use find option to retrieve specific dataset','examine dataset',
+         [if(cond(system_state(dataset,mappable)),
+                  null_conclusion,
+                  [generic('carry out map operations')],
+                  null_conclusion,
+                  [generic('carry out chart operations')])]).
+
+
+pkb('use find option to enter a topic','examine dataset',
+         [if(cond(system_state(dataset,mappable)),
+                  null_conclusion,
+                  [generic('carry out map operations')],
+                  null_conclusion,
+                  [generic('carry out chart operations')])]).
+
+%R3
+pkb('examine dataset','carry out map operations',
+                        [library(map_operations:not_implemented)]).
+
+/************************************************
+ *procedures for dealing with mappable datasets
+ *
+ *these are arranged in menu order
+ *************************************************/
+             
+/*mappable data*/
+                 
+%pkb('examine dataset','carry out map operations',
+%    [if(cond(system_state(area_of_interest,specified)),
+%        null_conclusion,
+%        [],
+%        null_conclusion,
+%        [library('specify area of interest')]),               
+%    some_of([
+%             generic('finish with map operations'), 
+%             generic('change map'),
+%             generic('edit map'),
+%             generic('reclass the map intervals'),
+%             generic('retrieve values from the map'),
+%             generic('get information about the map'),
+%             generic('compare the map with another map dataset'),
+%             library('carry out special operations')
+%            ])]).                            
+% 
+%/*change menu _ new area*/
+%
+%            
+%pkb('carry out map operations','change map',
+%                  [some_of([
+%                           generic('finish with change map menu'),
+%                           library('specify area of interest'),   
+%                           generic('check area of interest'),
+%                           generic('change to a different map set')
+%                           ])]).  
+%
+%pkb('change map','finish with change map menu',[]).
+%
+%
+%pkb(library,'specify area of interest',
+%        [library('go in to area option'),
+%              one_of([
+%                   if(cond(user_state(a,'know an area name')),
+%                          null_conclusion,
+%                          [generic('specify area name'),
+%                           generic('specify area type')],
+%                           null_conclusion,
+%                         []),
+%                   if(cond(user_state(a,'know an area type')),
+%                            null_conclusion,
+%                            [generic('specify area type'),
+%                             generic('specify area name')],
+%                             null_conclusion,
+%                             []),
+%                    if(cond(user_state(a,'want to draw an area on the gb map')),                             null_conclusion,
+%                             [generic('specify area of interest by drawing box')],
+%                             null_conclusion,                                
+%                             []),
+%                    if(cond(user_state(a,'want to specify an exact area')),
+%                             null_conclusion,
+%                             [generic('specify area by grid refs')],                                          null_conclusion,
+%                              [])])
+%             ]).                   
+%
+%pkb(library,'go in to area option',
+%                        [library(pull_down:change_map_menu), 
+%                         library(select:area)]).
+%
+%pkb('specify area of interest','specify area type',
+%          [if(cond(user_state(a,'know exact spelling of area type')),
+%              null_conclusion,
+%              [generic('enter type by hand')],
+%              null_conclusion,
+%              [generic('enter type by pop up menu')])]).
+%
+%   
+%pkb('specify area of interest','specify area name',
+%          [if(cond(user_state(a,'know exact spelling of area name')),
+%              null_conclusion,
+%              [generic('enter name by hand')],
+%              null_conclusion,
+%              [generic('enter name by pop up menu')])]).
+%
+%pkb('specify area type','enter type by hand',
+%          [if(cond(system_state(enter_type_by_hand,off)),
+%                 null_conclusion,
+%              [library(select:enter_type_by_hand)],null_conclusion,[]),
+%          if(cond(system_state(area_type_input_box,filled)),
+%                 null_conclusion,
+%                 [library(click_mouse_in:area_type_input_box),
+%                  library(edit:area_type),
+%                  library(press_return)],
+%                 null_conclusion,
+%                 [library(click_mouse_in:area_type_input_box),
+%                  library(type_in:area_type),
+%                  library(press_return)]),
+%          if(cond(system_state(best_guess_area_type_box,displayed)),
+%                  null_conclusion,
+%                  [if(cond(user_state(a,'want one of the area types shown')),
+%                      null_conclusion,
+%                      [library(select:area_type),
+%                       library(select:area_ok)],
+%                      null_conclusion,
+%                      [library(select:none_of_these),library('specify area of interest')])],
+%                     null_conclusion,
+%                     [])]).          
+%          
+%
+%pkb('specify area name','enter name by hand',
+%          [if(cond(system_state(enter_name_by_hand,off)),
+%                null_conclusion,
+%                [library(select:enter_name_by_hand)],null_conclusion,[]),
+%           if(cond(system_state(area_name_input_box,filled)),
+%                null_conclusion,
+%                [library(click_mouse_in:area_name_input_box),
+%                 library(edit:area_name),
+%                 library(press_return)],
+%                null_conclusion,
+%                [library(click_mouse_in:area_name_input_box),
+%                 library(type_in:area_name),
+%                 library(press_return)]),
+%           if(cond(system_state(best_guess_area_name_box,displayed)),
+%                 null_conclusion,
+%                 [if(cond(user_state(a,'want one of the area names shown')),
+%                          null_conclusion,
+%                          [library(select:area_name),
+%                           library(select:area_ok)],
+%                           null_conclusion,
+%                           [library(select:none_of_these),
+%                           library('specify area of interest')])],
+%                  null_conclusion,
+%                  [])]).
+%         
+%          
+%
+%pkb('specify area name','enter name by pop up menu',
+%      [if(cond(system_state(enter_name_by_hand,on)),
+%         null_conclusion,
+%         [library(select:enter_name_by_hand)],
+%         null_conclusion,
+%         []),
+%        generic('display names pop up menu'),
+%        library(type_in:initial_letter_of_name),
+%        generic('if necessary scroll menu to find name'),
+%        if(cond(system_state(area_type,specified)),
+%        null_conclusion,
+%        [],
+%        null_conclusion,
+%        [generic('if cannot find name, type in initial letter again')]),
+%        if(cond(user_state(a,'see the desired area name')),
+%        null_conlcusion,
+%        [library(select:area_name)],
+%        null_conclusion,
+%        [library('specify area of interest')])]).
+%                                                        
+%pkb('enter name by pop up menu','if necessary scroll menu to find name',[]).
+%
+%pkb('enter name by pop up menu','display names pop up menu',
+%                            [library(position_cursor_in:area_names_input_box),
+%                             library(click_mouse)]).
+%
+%pkb('enter name by pop up menu','if cannot find name, type in initial letter again',[]).
+%
+%pkb('specify area type','enter type by pop up menu',
+%      [if(cond(system_state(enter_type_by_hand_tick_box,on)),
+%         null_conclusion,
+%         [library(select:enter_type_by_hand_tick_box)],
+%         null_conclusion,
+%         []),
+%        generic('display types pop up menu'),
+%        library(type_in:initial_letter_of_type),
+%        generic('if necessary scroll menu to find type'),
+%        if(cond(system_state(area_type,specified)),
+%        null_conclusion,
+%        [],
+%        null_conclusion,
+%        [generic('if cannot find type , type in initial letter again')]),
+%        if(cond(user_state(a,'see the desired area type')),
+%        null_conlcusion,
+%        [library(select:area_type)],
+%        null_conclusion,
+%        [library('specify area of interest')])]).
+%                                                                            
+%pkb('enter type by pop up menu','if necessary scroll menu to find type',[]).
+%
+%pkb('enter type by pop up menu','if cannot find type , type in initial letter again',[]).
+%
+%pkb('enter type by pop up menu','display types pop up menu',
+%                            [library(position_cursor_in:area_names_input_box),
+%                             library(click_mouse)]).  
+%
+%pkb('specify area of interest','specify area of interest by drawing box',
+%    [generic('choose first corner'),
+%     generic('drag out box'),
+%     generic('choose second corner'),
+%     generic('clarify system or user map')]).
+%
+%pkb('specify area of interest by drawing box','choose first corner',
+%           [library('look at GB map and decide where first corner should be'),
+%            library(click_mouse:corner1)]).
+%
+%pkb('specify area of interest by drawing box','drag out box',
+%            [library('hold down mouse button and move mouse, this will draw a rectangle')]).        
+%
+%pkb(library,'hold down mouse button and move mouse, this will draw a rectangle',[library(draw_box)]).
+%
+%pkb('specify area of interest by drawing box','choose second corner',
+%             [library(release_mouse)]).
+%
+%pkb('specify area of interest by drawing box','clarify system or user map',
+%             [if(cond(system_state(system_or_user_map,displayed)),
+%                    null_conclusion,
+%                    [if(cond(user_state(a,'want area shown in cyan to be your area of interest')),
+%                    null_conclusion,
+%                    [library(select:system_map)],
+%                    null_conclusion,
+%                      [if(cond(user_state(a,'want the area shown in yellow to be your area of interest')),
+%                          null_conclusion,
+%                          [library(select:user_map)],
+%                          null_conclusion,
+%                          [library(select:neither)])])],
+%                          null_conclusion,
+%                          [])]).
+%        
+%            
+%pkb('specify area of interest','specify area by grid refs',
+%          [generic('specify grid ref 1'),
+%           generic('specify grid ref 2')]).
+%          
+%pkb('specify area by grid refs','specify grid ref 1',
+%       [one_of([generic('enter a five digit easting and a five digit northing'),                generic('enter a four digit easting and a four digit northing'),
+%               generic('enter a three digit easting and a three digit northing'),
+%               generic('enter a two digit easting and a two digit northing'),
+%               generic('enter a one digit easting and a one digit northing'),
+%               generic('enter an easting using two letters and three digits and a northing using two letters and three digits'),
+%               generic('enter an easting using two letters and two digits and a northing using two letters and two digits'),
+%               generic('enter an easting using two letters and one digits and a northing using two letters and one digits')]),
+%               if(cond(system_state(do_you_mean_gb_or_ni_alert,displayed)),
+%                   null_conclusion,
+%                   [library('clarify ambiguity in grid refs')],
+%                   null_conclusion,
+%                   []),
+%               if(cond(system_state(grid_ref_invalid,displayed)
+%                   or
+%                   system_state(different_grid_systems_used,displayed)),
+%                    null_conclusion,
+%                    [generic('edit grid refs')],
+%                 null_conclusion,[])]).
+%                                                                              
+%/*if the following pkb has too much nesting it could be rewritten using a 
+%  one_of list to enter the grid ref*/
+%
+%pkb('specify area by grid refs','specify grid ref 2',
+%       [if(cond(system_state(grid_ref1,specified_by_five_digits)),
+%              null_conclusion,
+%              [generic('enter a five digit easting and a five digit northing')],               null_conclusion,
+%              [if(cond(system_state(grid_ref1,specified_by_four_digits)),
+%                null_conclusion,
+%              [generic('enter a four digit easting and a four digit northing')],                null_conclusion,
+%                [if(cond(system_state(grid_ref1,specified_by_three_digits)),
+%                null_conclusion,
+%               [generic('enter a three digit easting and a three digit northing')],                                                     
+%               null_conclusion,
+%                [if(cond(system_state(grid_ref1,specified_by_two_digits)),
+%               null_conclusion,
+%               [generic('enter a two digit easting and a two digit northing')],
+%               null_conclusion,
+%                [if(cond(system_state(grid_ref1,specified_by_letters_and_three_digits)),
+%                null_conclusion,
+%               [generic('enter an easting using two letters and three digits and a northing using two letters and three digits')],
+%                null_conclusion,
+%                [if(cond(system_state(grid_ref1,specified_by_letters_and_two_digits)),
+%                null_conclusion,
+%               [generic('enter an easting using two letters and two digits and a northing using two letters and two digits')],
+%                null_conclusion,
+%                [if(cond(system_state(grid_ref1,specified_by_letters_and_one_digit)),
+%                null_conclusion,
+%               [generic('enter an easting using two letters and one digit and a northing using two letters and one digit')],
+%                null_conclusion,
+%                [if(cond(system_state(grid_ref1,specified_by_letters)),
+%                null_conclusion,
+%               [generic('enter an easting using two letters and a northing using two letters')],
+%                null_conclusion,
+%                 [])])])])])])])]),
+%               if(cond(system_state(grid_ref_invalid,displayed)
+%                   or
+%                   system_state(different_grid_systems_used,displayed)),
+%                    null_conclusion,
+%                    [generic('edit grid refs')],
+%                    null_conclusion,
+%                     [])]).
+%              
+%pkb('specify grid ref 1','enter a five digit easting and a five digit northing',
+%                    [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:five_digit_easting),         
+%                      library(type_in:space),
+%                      library(type_in:five_digit_northing),
+%                      library(press_return)]).
+%
+%pkb('specify grid ref 1','enter a four digit easting and a four digit northing',
+%                      [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:four_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:four_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 1','enter a three digit easting and a three digit northing', 
+%                     [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:three_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:three_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 1','enter a two digit easting and a two digit northing',
+%                      [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:two_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 1','enter a one digit easting and a one digit northing',
+%                     [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:one_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:one_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 1','enter an easting using two letters and three digits and a northing using two letters and three digits',
+%                     [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:two_letters_and_three_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_letters_and_three_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 1','enter an easting using two letters and two digits and a northing using two letters and two digits',
+%                      [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_letters_and_two_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 1','enter an easting using two letters and one digit and a northing using two letters and one digit',
+%                      [library(position_cursor_in:grid_ref1_box),
+%                      library(type_in:two_letters_and_one_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_letters_and_one_digit_northing),
+%                      library(press_return)]).
+%
+%
+%              
+%pkb('specify grid ref 2','enter a five digit easting and a five digit northing',
+%                    [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:five_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:five_digit_northing),
+%                      library(press_return)]).
+%
+%pkb('specify grid ref 2','enter a four digit easting and a four digit northing',
+%                      [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:four_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:four_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 2','enter a three digit easting and a three digit northing', 
+%                     [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:three_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:three_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 2','enter a two digit easting and a two digit northing',
+%                      [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:two_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 2','enter a one digit easting and a one digit northing',
+%                     [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:one_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:one_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 2','enter an easting using two letters and three digits and a northing using two letters and three digits',
+%                     [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:two_letters_and_three_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_letters_and_three_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 2','enter an easting using two letters and two digits and a northing using two letters and two digits',
+%                      [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_letters_and_two_digit_northing),
+%                      library(press_return)]).
+%
+%
+%pkb('specify grid ref 2','enter an easting using two letters and one digit and a northing using two letters and one digit',
+%                      [library(position_cursor_in:grid_ref2_box),
+%                      library(type_in:two_letters_and_one_digit_easting),
+%                      library(type_in:space),
+%                      library(type_in:two_letters_and_one_digit_northing),
+%                      library(press_return)]).
+%
+%pkb(library,'change your area of interest', 
+%               [if(cond(system_state(data_mapping_system,mappable_data)
+%                     and
+%                     user_state(a,'want to change area of interest')),
+%                   null_conclusion,
+%                   [library('go into area option'),
+%                    library('specify area of interest')],
+%                   null_conclusion,
+%                   [])]).
+%
+%pkb('change map','check area of interest',
+%               [generic('go into area option'),
+%               library(look_at:blue_area_box),
+%               library(select:cancel_area_button)
+%              ]).
+%                  
+%/*change menu - new map option*/
+%
+%pkb('change map','change to a different map set',
+%                [generic('go into new map option'),
+%                 library('choose new dataset')]).                 
+%
+%pkb('change to a different map set','go into new map option',
+%                         [library(pull_down:change_map_menu), 
+%                         library(select:new_map)]).
+%
+%                                
+%/*change menu _ quit option*/
+%
+%
+%pkb('carry out map operations','finish with map operations',
+%                [generic('use the quit option from the change menu'),
+%                 library('clarify that you want to quit')]).
+%
+%pkb('quit the mappable part of the system','finish with map operations',
+%                [library(pull_down:change_map_menu),
+%                 library(select:quit_map)]).
+%
+%
+%pkb('carry out map operations','edit map',
+%               [some_of([
+%                       generic('finish editing the map'),
+%                       generic('block off area of interest or remove blocking'),                       generic('change the resolution of map'),
+%                       generic('change the areal unit of map')])]).
+%                                          
+%pkb('edit map', 'finish editing the map',[]).
+%
+%/*edit menu _ window/whole map option*/                                         
+%pkb('edit map','block off area of interest or remove blocking',                         [if(cond(system_state(whole_map_option,enabled)),
+%                null_conclusion,
+%                [generic('use the whole map option')],
+%                null_conclusion,
+%                [generic('use the window option')])]).
+%
+%pkb('block off area of interest or remove blocking','use the whole map option',
+%         [library(pull_down:edit_map_menu),
+%          library(select:whole_map)]).
+%
+%
+%pkb('block off area of interest or remove blocking','use the window option',
+%         [library(pull_down:edit_map_menu),
+%          library(select:window)]).
+%
+%/*edit menu - resolution option*/ 
+%
+%pkb('edit map','change the resolution of the map',
+%                         [generic('use resolution option')]).                     
+%
+%pkb('change the resolution of the map','use resolution option',
+%            [library(pull_down:edit_map_menu),
+%             library(select:resolution),
+%             one_of([
+%                        if(cond(system_state(one_km_button,enabled)
+%                                and
+%                              user_state(a,'want a fine resolution of 1km squares')),                         null_conclusion,
+%                              [library(select:one_km_button)],
+%                              null_conclusion,
+%                              []),
+%                        if(cond(system_state(two_km_button,enabled)
+%                                and
+%                             user_state(a,'want a fine resolution of 2km squares')),                         null_conclusion,
+%                             [library(select:two_km_button)],
+%                             null_conclusion,
+%                             []),      
+%                        if(cond(system_state(three_km_button,enabled)
+%                                and
+%                                user_state(a,'want a fairly fine resolution of 3km squares')),                           
+%                                null_conclusion,
+%                                [library(select:three_km_button)],
+%                                null_conclusion,
+%                                []),        
+%                       if(cond(system_state(four_km_button,enabled)
+%                                and
+%                              user_state(a,'want a resolution of 4km squares')),                              null_conclusion,
+%                              [library(select:four_km_button)],
+%                              null_conclusion,
+%                              []),       
+%                       if(cond(system_state(five_km_button,enabled)
+%                                and
+%                            user_state(a,'want a resolution of 5km squares')),                              null_conclusion,
+%                            [library(select:five_km_button)],
+%                            null_conclusion,
+%                            []),      
+%                       if(cond(system_state(six_km_button,enabled)
+%                                and
+%                            user_state(a,'want a resolution of 6km squares')),                              null_conclusion,
+%                            [library(select:six_km_button)],
+%                            null_conclusion,
+%                            []),      
+%                       if(cond(system_state(seven_km_button,enabled)
+%                                and
+%                              user_state(a,'want a resolution of 7km squares')),                              null_conclusion,
+%                              [library(select:seven_km_button)],
+%                              null_conclusion,
+%                              []),                                     
+%                      if(cond(system_state(eight_km_button,enabled)
+%                                and
+%                               user_state(a,'want a fairly coarse resolution of 8km squares')),           
+%                               null_conclusion,
+%                               [library(select:eight_km_button)],
+%                               null_conclusion,
+%                               []),                     
+%                      if(cond(system_state(nine_km_button,enabled)
+%                                and
+%                                user_state(a,'want a coarse resolution of 9km squares')),                        
+%                                null_conclusion,
+%                                [library(select:nine_km_button)],
+%                                null_conclusion,
+%                                []),     
+%                       if(cond(system_state(ten_km_button,enabled)
+%                                and
+%                                user_state(a,'want a coarse resolution of 10km squares')),             
+%                                null_conclusion,
+%                                [library(select:ten_km_button)],
+%                                null_conclusion,
+%                                [])]),
+%                      if(cond(user_state(a,'want to replot map to resolution selected')),
+%                                 null_conclusion,
+%                                 [library(select:replot_resolution)],
+%                                 null_conclusion,
+%                                 [library(select:cancel_resolution)])
+%                             ]).                                   
+%                       
+%/* edit menu - areal type option*/
+%
+%pkb('edit map','change the areal unit of the map',
+%            ['use areas option']).
+%                                        
+%
+%pkb('change the areal unit of the map','use areas option',
+%            [library(pull_down:edit_chart_menu),
+%             library(select:areas),
+%             one_of([
+%                  if(cond(system_state(amalgamated_employment_office_area,enabled)
+%                          and
+%                      user_state(a,'want to plot the map using employment offices as the basic unit')),
+%                         null_conclusion,
+%                         [library(select:amalgamated_employment_office_area)],
+%                          null_conclusion,
+%                          []),
+%                    if(cond(system_state(cipfa_library_area,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using cipfa_library_area as the basic unit')),
+%                          null_conclusion,
+%                          [library(select:cipfa_library_area)],
+%                          null_conclusion,
+%                           []),
+%                    if(cond(system_state(country,enabled)
+%                              and
+%                            user_state(a,'want to plot the map using the countrys of the UK as the basic unit')),
+%                          null_conclusion,
+%                          [library(select:country)],
+%                          null_conclusion,
+%                          []),
+%                    if(cond(system_state(county,enabled)
+%                              and
+%                            user_state(a,'want to plot the map using the counties of the UK as the basic unit')),
+%                           null_conclusion,
+%                           [library(select:county)],
+%                           null_conclusion,
+%                           []),
+%                    if(cond(system_state(curds_functional_city,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using curds_functional_city as the basic unit')),
+%                           null_conclusion,
+%                           [library(select:curds_functional_city)],
+%                           null_conclusion,
+%                           []),
+%                     if(cond(system_state(curds_local_labour_market_area,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using curds_local_labour_market_area as the basic unit')),                           
+%                           null_conclusion,
+%                           [library(select:curds_local_labour_market_area)],
+%                           null_conclusion,
+%                           []),
+%                      if(cond(system_state(district_health_authority,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using district health authorities as the basic unit')),
+%                           null_conclusion,
+%                           [library(select:district_health_authority)],
+%                            null_conclusion,
+%                            []),
+%                       if(cond(system_state(district,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using district councils as the basic unit')),
+%                           null_conclusion,
+%                           [library(select:district)],
+%                           null_conclusion,
+%                           []),
+%                       if(cond(system_state(eec_level_2_region,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using eec_level_2_region as the basic unit')),
+%                           null_conclusion,
+%                           [library(select:eec_level_2_region)],
+%                            null_conclusion,
+%                            []),
+%                      if(cond(system_state(european_assembly,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using european assmbly constituencies of the UK as the basic unit')),
+%                         null_conclusion,
+%                         [library(select:european_assembly)],
+%                          null_conclusion,
+%                          []),
+%                   if(cond(system_state(gpo_postcode_area,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using the wide areas of postcodes as the basic unit, a wide area is eg MK from postcode MK42 8LA')),
+%                        null_conclusion,
+%                        [library(select:gpo_postcode_area)],
+%                         null_conclusion,
+%                          []),
+%                  if(cond(system_state(local_education_authority,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using local education authoritiess as the basic unit')),
+%                         null_conclusion,
+%                         [library(select:local_education_authority)],
+%                          null_conclusion,
+%                          []),
+%                  if(cond(system_state(national_aggregate,enabled)
+%                          and
+%                              user_state(a,'want to plot the map using Great Britain as the basic unit')),
+%                         null_conclusion,
+%                         [library(select:national_aggregate)],
+%                         null_conclusion,
+%                          []),
+%                   if(cond(system_state(itv_region_best_fit,enabled)
+%                            and
+%                              user_state(a,'want to plot the map using the best fits to itv regions as the basic unit, these are chosen to remove overlaps between regions')),
+%                       null_conclusion,
+%                       [library(select:itv_region_best_fit)],
+%                        null_conclusion,
+%                        []),
+%                  if(cond(system_state(itv_region_n/o_1,enabled)
+%                             and
+%                              user_state(a,'want to plot the map using itv_region_n/o_1 as the basic unit')),
+%                       null_conclusion,
+%                       [library(select:itv_region_n/o_1)],
+%                       null_conclusion,
+%                       []),
+%                   if(cond(system_state(itv_region_n/o_2,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using itv_region_n/o_2 as the basic unit')),
+%                       null_conclusion,
+%                       [library(select:itv_region_n/o_2)],
+%                       null_conclusion,
+%                        []),
+%                   if(cond(system_state(itv_region_n/o_3,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using itv_region_n/o_3 as the basic unit')),
+%                      null_conclusion,
+%                      [library(select:itv_region_n/o_3)],
+%                       null_conclusion,
+%                       []),
+%                  if(cond(system_state(itv_region_n/o_4,enabled)
+%                              and
+%                             user_state(a,'want to plot the map using itv_region_n/o_4 as the basic unit')),
+%                              null_conclusion,
+%                              [library(select:itv_region_n/o_4)],
+%                              null_conclusion,
+%                              []),
+%                          if(cond(system_state(police_authority,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using police authorities as the basic unit')),
+%                              null_conclusion,
+%                              [library(select:police_authority)],
+%                              null_conclusion,
+%                              []),
+%                           if(cond(system_state(parliamentary_constituency,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using the parliamentary constituencies of the UK as the basic unit')),
+%                              null_conclusion,
+%                              [library(select:parliamentary_constituency)],
+%                              null_conclusion,
+%                              []),
+%                          if(cond(system_state(regional_health_authority,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using regional health authorities as the basic unit')),
+%                              null_conclusion,
+%                              [library(select:regional_health_authority)],
+%                              null_conclusion,
+%                              []),
+%                          if(cond(system_state(standard_region,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using the standard regions as the basic unit, there are eleven standard regions in the UK and they are used for collection of data only')),
+%                              null_conclusion,
+%                              [library(select:standard_region)],
+%                              null_conclusion,
+%                              []),
+%                          if(cond(system_state(travel_to_work_area,enabled)
+%                              and
+%                              user_state(a,'want to plot the map using travel to work areas as the basic unit')),
+%                              null_conclusion,
+%                              [library(select:travel_to_work_area)],
+%                              null_conclusion,
+%                              [])]),
+%                 if(cond(user_state(a,'want to replot the map using the area unit selected')),
+%                     null_conclusion, 
+%                     [library(select:replot_areas)],
+%                      null_conclusion,
+%                      [library(select:cancel_areas)])
+%                             ]).                  
+%/*reclass menu */         
+%
+%pkb('carry out map operations','reclass the map intervals',
+%           [if(cond(user_state(a,'want to use one of the standard classings of nested means, quantiles or equal intervals')),
+%              null_conclusion,
+%              [generic('use automatic reclassing')],
+%              null_conclusion,
+%              [generic('use manual reclassing')]
+%           )]).
+%
+%/*reclass menu _ manual option*/
+%
+%pkb('reclass the map intervals','use manual reclassing',
+%                 [generic('use the manual option of the reclass menu'),
+%                  generic('edit class intervals')]). 
+%
+%pkb('use manual reclassing','use the manual option of the reclass menu',
+%             [library(pull_down:reclass_menu),
+%              library(select:manual)]).
+%
+%pkb('use manual reclassing','edit class intervals',
+%                [library(click_mouse_in:interval),
+%                 library(type_in:new_value),
+%                 library(check:'intervals are in ascending order without any gaps between intervals')]).
+%
+%/*reclass menu _ automatic option*/
+%
+%pkb('reclass the map intervals','use automatic reclassing',
+%          [library(pull_down:reclass_menu),
+%           library(select:automatic),
+%             if(cond(user_state(a,'happy with current selection')),
+%                    null_conclusion,
+%                    [library(select:cancel_automatic)],
+%                    null_conclusion,
+%                    [generic('choose basis of classing'),
+%                     generic('choose type of classing')])]).
+%
+%pkb('use automatic reclassing','choose basis of classing',
+%         [if(cond(user_state(a,'want the data to be classed with respect to the data shown on the screen rather than the entire dataset')),
+%             null_conclusion,
+%             [library(select:local)],
+%             null_conclusion,
+%             [library(select:national)])]).
+%
+%pkb('use automatic reclassing','choose type of classing',
+%          [one_of([
+%           if(cond(user_state(a,'want to have the same amount of data in each interval')),
+%               null_conclusion,
+%               [library(select:quantiles)],
+%               null_conclusion,
+%               []),
+%            if(cond(user_state(a,'want each interval to have the same width')),
+%                null_conclusion,
+%                [library(select:equal_intervals)],
+%                null_conclusion,
+%                []),
+%                if(cond(user_state(a,'want to calculate on the basis of nested means')),
+%               null_conclusion,
+%               [library(select:nested)],
+%               null_conclusion,
+%               []),
+%         if(cond(user_state(a,'want the map to be classed by the method used for the initial display')),
+%               null_conclusion,
+%               [library(select:default)],
+%               null_conclusion,
+%               [])]),
+%               library(select:replot_automatic)]).
+%
+%/*retrieve menu*/
+%
+%pkb('carry out map operations','retrieve values from the map',
+%            [some_of([ 
+%                 if(cond(user_state(a,'want to finish editing the map')),
+%                          null_conclusion,
+%                          [],
+%                          null_conclusion,
+%                          []),
+%                if(cond(system_state(unit,enabled)
+%                   and
+%                   user_state(a,'want to find out the name areal units in the map display')),
+%                   null_conclusion,
+%                [generic('use the unit option of the retrieve menu')],
+%                 null_conclusion,
+%                 []),
+%                if(cond(system_state(grid_ref,enabled)
+%                   and
+%                   user_state(a,'want to find out the grid ref of points the map display')),
+%                null_conclusion,
+%                [generic('use the grid refs option of the retrieve menu')],
+%                null_conclusion,
+%                []),
+%                if(cond(system_state(values,enabled)
+%                   and
+%                   user_state(a,'want to find out the value of the data at points  of the map display')),
+%                null_conclusion,
+%                [generic('use the values option of the retrieve menu')],
+%                 null_conclusion,
+%                 []),
+%                 if(cond(system_state(sum,enabled)
+%                        and
+%                        user_state(a,'want to sum data values in the map')),
+%                        null_conclusion,
+%                        [generic('use the sum option of the retrieve menu')],
+%                    null_conclusion,
+%                   []),
+%               
+%              if(cond(system_state(title,enabled)
+%                        and
+%                        user_state(a,'see the title of the map')),
+%                        null_conclusion,
+%                        [generic('use the title option of the retrieve menu')],
+%                    null_conclusion,
+%                   [])
+%                   ])]).        
+%
+%/*retrieve menu - title option*/
+%
+%pkb('retrieve values from the map','use the title option of the retrieve menu',
+%              [library(pull_down:retrieve_menu),
+%               library(select:title),
+%               linrary(read:message_area)]).
+%
+%/*retrieve menu - unit option*/
+%
+%pkb('retrieve values from the map','use the unit option from the retrieve menu',
+%                 [library(pull_down:retrieve_menu),
+%                 library(select:unit),
+%                 library(click_mouse_over:map_point),
+%                 library(check:'white square in correct place'),
+%                 library(read:message_area),
+%                 if(cond(user_state(a,'want to clear white squares')
+%                          and
+%                          system_state(clear_squares,enabled)),
+%                          null_conclusion,
+%                          [library(pull_down:retrieve_menu)],
+%                 null_conclusion,
+%                 []),
+%                 if(cond(user_state(a,'want to retrieve other areas')),
+%                        null_conclusion,
+%                        [library('retrieve more area names')],
+%                        null_conclusion,
+%                        [])]).
+%
+%pkb(library,'retrieve more area names',
+%                        [library(click_mouse_over:map_point),
+%                         library(check:'white square in correct place'),                                  library(read:message),
+%                         if(cond(user_state(a,'want to retrieve other areas')),
+%                         null_conclusion,
+%                         [library('retrieve more area names')],
+%                         null_conclusion,
+%                         [])]).
+%
+%
+%/* retrieve menu - grid ref option*/
+%
+%pkb('retrieve values from the map','use the grid refs option of the retrieve menu',
+%                 [library(pull_down:retrieve_menu),
+%                 library(select:grid_ref),
+%                 library(click_mouse_over:map_point),
+%                 library(read:message_area)]).
+%
+%/*retrieve menu - key option*/
+%
+%pkb('retrieve values from the map','use the key option of the retrieve menu',  
+%            [library(pull_down:retrieve_menu),
+%             library(select:key),
+%             liibrary(read:message_area)]).
+%
+%/*retrieve menu - values option*/                                           
+%
+%pkb('retrieve values from the map','use the values option of the retrieve menu',                [library(pull_down:retrieve_menu),
+%                 library(select:values),
+%                 library(click_mouse_over:map_point),
+%                 library(read:message_area)]).
+%
+%/*retrieve menu - sum option*/
+%                                  
+%pkb('retrieve values from the map','use the sum option from the retrieve menu',
+%               []).
+%                   
+%/*information menu*/
+%
+%pkb('carry out map operations','get information about the map',
+%                       [some_of([   
+%                               generic('finish using the information menu'),
+%                               generic('use rank option from the information menu'),
+%                               generic('use text option from the information menu')])]).
+%                        
+%pkb('get information about the map','finish using the information menu',
+%                        []).
+%
+%/*information menu - rank option*/                            
+%
+%pkb('get information about the map','use rank option from the information menu',               [library(pull_down:information_menu),
+%                library(select:rank),
+%                library(read:rank_dialogue_box),
+%                library(select:rank_ok)]).
+%
+%
+%/*information menu - text option*/
+%
+%pkb('get information about the map','use the text option from the information menu',                                
+%                   [library(pull_down:information_menu),
+%                    library(select:text),
+%                    generic('examine text page'),
+%                     library(select:text_ok)]).
+%
+%pkb('use the text option from the information menu','examine text page',
+%                        []).
+%
+%/*compare menu*/
+%                            
+%
+%pkb('carry out map operations','compare the map with another map dataset',
+%           [one_of([
+%              if(cond(system_state(correlate,enabled)
+%                and
+%                user_state(a,'want to correlate with another map')),
+%                   null_conclusion,
+%                   [generic('correlate the map with another map dataset')],
+%                   null_conclusion,
+%                   []),
+%              if(cond(system_state(link,enabled)
+%                and
+%                user_state(a,'want to link with another map')),
+%                    null_conclusion,
+%                    [generic('link the map to another dataset')],
+%                    null_conclusion,
+%                    [])])]).
+%
+%/*compare menu - link option*/
+%
+%pkb('compare the map with another map dataset',
+%                                 'link the map to another dataset',
+%            [generic('enter link option'),
+%             library('choose new dataset'),
+%             if(cond(e),
+%             null_conclusion,
+%             [],
+%             null_conclusion,
+%               [generic('inspect the linked map')])]).
+%
+%
+%pkb('compare the map with another map dataset','link the map to another map dataset',
+%         [library(pull_down:compare_menu),
+%          library(select:link)]).
+%
+%pkb('compare the map with another map dataset','inspect the linked maps',
+%             [generic('look at the red areas which represent coincidence between the two sets'),      
+%              generic('look at the blue areas which represent no matching data')               ]).
+%
+%pkb('inspect the linked map','look at the red areas which represent coincidence between the two sets',[]).
+%
+%pkb('inspect the linked map','look at the blue areas which represent no matching data',[]).
+%
+%/*compare menu - correlate option*/
+%
+%pkb('compare the map with another map dataset',
+%                            'correlate the map with another map dataset',
+%               [generic('enter correlate option'),
+%                library('choose new dataset'),
+%                if(cond(e),
+%                null_conclusion,
+%                [],
+%                null_conclusion,
+%                [generic('read correlation results')])]).
+%                            
+%pkb('correlate the map with another map dataset',
+%                     'enter correlate option',
+%                     [library(pull_down:compare_menu),
+%                      library(select:correlate)]).
+%
+%pkb('correlate the map with another map dataset','read correlation results',
+%                [library(read:correlation_output_box)]).
+
+
+/*******************************************
+ *procedures for handling chart datasets
+ *
+ *  listed in order of menu options
+ ********************************************/
+    
+/*chart operations*/
+
+pkb('examine dataset','carry out chart operations',
+       [some_of([  
+           generic('finish chart operations'),
+           generic('change chart'),
+           generic('edit chart'),
+           generic('see text about chart'),
+           library('carry out special operations'),
+           library('change categories and variables of chart display'),
+           generic('retrieve values from the chart')])]).
+
+/*change menu - quit option*/
+
+pkb('carry out chart operations','finish chart operations',
+                        [library(pull_down:change_chart_menu),
+                         library(select:quit_chart),
+                         library('clarify that you want to quit')]).
+
+/*change menu - new chart option*/
+
+pkb('carry out chart operations','change chart',
+                  [library('choose new dataset')]).
+    
+/*edit menu*/
+
+pkb('carry out chart operations','edit chart',
+                [some_of([
+                        generic('finish editing the chart'),
+                        generic('choose new chart type'),
+                        library('regroup data')])]).                
+
+/*edit menu - quit option*/
+
+pkb('edit chart','finish editing the chart',                     %R6
+                  [library('finish editing the chart')]).
+
+/*edit menu - chart type option*/
+
+pkb('edit chart','choose new chart type',
+           [library('choose new dataset'),
+            if(cond(system_state(second_variable_dialogue_box,displayed)),
+               null_conclusion,
+               [generic('choose second variable')],
+                null_conclusion,
+                []),
+              if(cond(system_state(too_many_variables_dialogue_box,displayed)),
+                      null_conclusion,
+                       [library(select:area_ok)],
+                       null_conclusion,
+                        [if(cond(system_state(regroup_dialogue_box,displayed)),
+                         null_conclusion,
+                      [library(
+                         'regroup variables so that there are fewer than 24')],
+                         null_conclusion,
+                         [])
+                  ])]).
+
+%R8
+/* edit menu - undefined generics for 'choose new chart type' */
+
+pkb('choose new chart type','choose second variable',
+      [library('choose second variable')]).
+
+pkb('choose new chart type',
+    'regroup variables so that there are fewer than 24',
+    [library('regroup variables so that there are fewer than 24')]).
+
+/* edit menu - regroup option*/
+
+pkb(library,'regroup data',
+           [generic('select variable to regroup'),
+            generic('select category to regroup'),
+            generic('carry out regrouping operations'),
+            if(cond(user_state(a,'want to group other categories')),
+                   null_conclusion,
+                   [generic('select category to regroup'),
+                    generic('carry out regrouping operations')],
+                    null_conclusion,
+                    []),
+            if(cond(user_state(a,'want to group other variables')),
+                null_conclusion,
+                [library('regroup data')],
+                null_conclusion,
+                [])
+                ]).
+
+pkb('regroup data','select variable to regroup',
+         [if(cond(system_state(variable_list,scrollable)),
+             null_conclusion,
+             [library(scroll:variable_list)],      
+              null_conclusion,
+              []),
+         library(select:variable)
+         ]).
+
+pkb('regroup data','select category to regroup',
+                 [if(cond(system_state(category_menu,scrollable)),
+                    null_conclusion,
+                    [library(scroll:variable_list)],
+                    null_conclusion,
+                    []),
+                    library(select:category)                 %R9
+                 ]).
+
+pkb('regroup data','carry out regrouping operations',
+         [some_of([
+               if(cond(user_state(a,'want to finish regrouping operations')),
+                   null_conclusion,
+                   [library('finish regrouping operations')],         %R6
+                   null_conclusion,
+                   []),
+               if(cond(user_state(a,'want to combine groups')
+                   and
+                   system_state(combine_button,enabled)),
+                   null_conclusion,
+                   [generic('combine')],
+                   null_conclusion,
+                   []),
+               if(cond(user_state(a,'want to split groups') 
+                   and
+                   system_state(split_button,enabled)),
+                   null_conclusion,
+                   [generic('split')],
+                   null_conclusion,
+                   []),
+               if(cond(user_state(a,'want to omit groups')
+                   and
+                   system_state(omit_button,enabled)),
+                   null_conclusion,
+                   [generic('omit')],
+                   null_conclusion,
+                   []),
+               if(cond(user_state(a,'want to reinclude categories')
+                   and
+                   system_state(reinclude_button,enabled)),
+                   null_conclusion,
+                   [generic('reinclude')],
+                   null_conclusion,
+                   []),
+               if(cond(user_state(a,'want to display the groupings shown')),
+                   null_conclusion,
+                   [library(select:replot_groups)],
+                   null_conclusion,
+                   []),
+               if(cond(user_state(a,'want to abandon regroup')),
+                   null_conclusion,
+                   [library(select:cancel_regroup)],
+                   null_conclusion,
+                   [])
+                 ])
+              ]).
+
+pkb('carry out regrouping operations','combine',
+              [library(select:combine),
+               library(select:groups_to_be_combined),
+               library(select:confirm)]).
+
+pkb('carry out regrouping operations','split',
+               [library(select:split),
+                library(select:group_to_be_split_into_separate_categories)
+                 ]).
+
+pkb('carry out regrouping operations','omit',
+                        [library(select:omit),
+                        library(select:groups_to_be_omitted)]).
+
+%R10
+/* edit menu - undefined generic for 'carry out regrouping operations */
+
+pkb('carry out regrouping operations','reinclude',[library(reinclude)]).
+
+/* edit menu - rescale vertical axis option*/
+
+pkb(library,'use rescale option in edit menu',
+    [library(pull_down:edit_chart_menu),library(select:rescale_vertical_axis)]).
+
+/*text menu*/
+
+pkb('carry out chart operations','see text about chart',        %R7
+     [library('display text about the chart')]).
+
+pkb(library,'display text about the chart',
+     [library(select:text_menu)]).                                                  
+
+/*non menu options - change categories and variables panel*/
+
+pkb(library,'change categories and variables of chart display',
+      [if(cond(system_state(
+               change_categories_and_variables_dialogue_box,displayed)),
+               null_conclusion,
+               [some_of([ 
+                  if(cond(user_state(a,
+                          'want to finish changing categories and variables')),
+                            null_conclusion,
+                            [if(cond(user_state(a,
+                               'happy with the selection shown')),
+                                null_conclusion,
+                                [library(select:replot_categories)],
+                                null_conclusion,
+                                [library(select:cancel_changes)]
+                            )],
+                            null_conclusion,
+                            []),
+                  if(cond(user_state(a,'want to know the current variable')),
+                            null_conclusion,
+                            [generic('inspect current variable')],
+                            null_conclusion,
+                            []),
+                  if(cond(user_state(a,'want to expand the variable name')),
+                            null_conclusion,
+                            [library('expand variable name')],
+                            null_conclusion,
+                            []), 
+                  if(cond(user_state(a,'want to change the current variable')),
+                            null_conclusion,
+                            [generic('select new variable')],
+                            null_conclusion,
+                            []),     
+                  if(cond(user_state(a,
+                            'want to change the category of a variable')),
+                            null_conclusion,
+                            [generic('select category from pop up menu')],
+                            null_conclusion,
+                            [])
+                        ])
+               ],
+               null_conclusion,
+               [])
+           ]).
+
+pkb('change categories and variables of chart display','select new variable',
+                    [library(select:variable)]).
+                                     
+pkb('change categories and variables of chart display','select category from pop up menu',
+               [library(click_mouse_in:category_box),
+                library(select:category)]).
+
+pkb('change categories and variables of chart display','inspect current variable',
+       [one_of([library(look_at:horizontal_axis),
+               library(look_at:variable_with_shaded_category_box)]),
+               if(cond(system_state(variable_name,not_fully_expanded)
+                       and
+                       user_state(a,'want to see the full name')),
+                       null_conclusion,
+                       [library('expand variable name')],
+                        null_conclusion,
+                        [])
+                        ]).
+
+
+pkb(library,'expand variable name',
+           [library(click:variable),
+            library(read:variable_name),
+             if(cond(user_state(a,'want to make this your primary variable')),
+                     null_conclusion,
+                     [library(select:variable)],
+                      null_conclusion,
+                      [library(click:elsewhere)])]).
+                                                            
+/* non menu options - retrieve values from display*/           
+
+pkb('carry out chart operations','retrieve values from the chart',
+                [if(cond(system_state(chart_type,bar_chart)
+                         or
+                         system_state(chart_type,back_to_back_chart)
+                         or
+                         system_state(chart_type,looping_bar_chart)),
+                         null_conclusion,
+                         [generic('retrieve values from a bar chart')],
+                         null_conclusion,
+                         [if(cond(system_state(chart_type,pie_chart)),
+                               null_conclusion,
+                               [generic('retrieve values from a pie chart')],
+                               null_conclusion,
+                               [generic('retrieve values from a line graph')])]                         )]).
+
+
+pkb('retrieve values from the chart','retrieve values from a bar chart',
+               [library(position_cursor_over:bar),
+                library(select:bar),
+                library(read:message_area)]).
+
+
+pkb('retrieve values from the chart','retrieve values from a pie chart',
+               [library(position_cursor_over:sector),
+                library(click:sector),
+                library(read:message_area)]).
+
+pkb('retrieve values from the chart','retrieve values from a line graph',
+               [library(position_cursor_over:line),
+                library(click:line),
+                library(read:message_area)]).
+
+
+/********************************************
+ *  procedures common to charts and maps
+ ***********************************************/
+                                           
+pkb(library,'clarify that you want to quit',
+             [if(cond(user_state(a,'want to exit the dataset')),
+                 null_conclusion,
+                 [library(select:yes)],
+                 null_conclusion,
+                 [library(select:no)])]).
+
+pkb(library,'choose new dataset',
+              [one_of([
+              if(cond((system_state(data_mapping_system,find)
+                  and
+                  user_state(a,'want to choose again from the hitlist'))
+                  or
+                 (system_state(data_mapping_system,contents)
+                  and
+                  user_state(a,'want to choose again from the last page of the contents hierarchy'))),
+                 null_conclusion,
+                 [library('select from data list')],
+                 null_conclusion,
+                 []),
+              if(cond(system_state(select_from_summary_button,enabled)
+                       and
+                      user_state(a,'want to choose from datasets already examined')),
+                 null_conclusion,
+                 [library('select from summary')],
+                 null_conclusion,
+                 []),
+              if(cond(user_state(a,'know an exact dataset name of the correct type')),                 null_conclusion,
+                 [library('enter a named dataset')],
+                 null_conclusion,
+                 []
+                 )])]).
+
+
+pkb(library,'select from data list',                       %R11
+      [library(select:select_from_data_list),
+       if(cond(system_state(data_mapping_system,contents)),
+              null_conclusion,
+              [generic('select from contents page')],
+              null_conclusion,
+              [generic('select from hitlist')])]).
+
+pkb('select from data list','select from contents page',
+                 [if(cond(system_state(contents_page,scrollable)),
+                       null_conclusion,
+                       [library(scroll:contents_page)],
+                       null_conclusion,
+                       []),
+                   library(select:item)]).
+
+
+pkb('select from data list','select from hitlist',
+                 [if(cond(system_state(hitlist,scrollable)),
+                       null_conclusion,
+                       [library(scroll:hitlist)],
+                       null_conclusion,
+                       []),
+                   library(select:item)]).
+
+pkb(library,'select from summary',                             %R11
+                  [library(select:select_from_summary),
+                   if(cond(system_state(summary,scrollable)),
+                       null_conclusion,
+                       [library(scroll:summary)],
+                       null_conclusion,
+                       []),
+                   library(select:item)]).
+
+
+pkb(library,'enter a named dataset',                        %R11
+            [library(position_cursor_in:named_dataset_box),
+             library(type_in:name),
+             library(press_return),
+             if(cond(system_state(best_guess_named_dataset,displayed)),
+                    null_conclusion,
+                    [if(cond(user_state(a,'want one of the best guesses')),
+                            null_conclusion,
+                            [library(select:item),
+                             library(select:best_guess_name_ok)],
+                             null_conclusion,                  
+                             [library(select:none_of_these_names),
+                              generic('edit name or choose another method')])],
+                     null_conclusion,
+                     [])]).
+                                                               
+
+
+pkb('enter a named dataset','edit name or choose another method',
+                [if(cond(user_state(a,'think only a slight error has been made in the dataset name')),
+                         null_conclusion,
+                         [library(edit:name)],
+                         null_conclusion,
+                         [one_of([
+                            library('select from summary'),
+                            library('select from data list')])])]).
+
+/*****************************************************/
+/*procedures to deal with options in the special menu*/
+
+pkb(library,'carry out special operations',
+                    [some_of([ 
+                        generic('finish using the special menu'),   %R12
+                        generic('down load data onto disc'),
+                        generic('set a book mark'),
+                        generic('save a book mark'),
+                        generic('go to a book mark'),
+                        generic('load a book mark')])]).
+
+%R13
+/* special menu - undefined generic */
+pkb('carry out special operations','finish using the special menu',
+          [library('finish using the special menu')]).
+
+pkb('carry out special operations','down load data onto disc',
+              [if(cond(system_state(special_menu,displayed)),
+               null_conclusion,
+               [library('down load data onto disc')],              %R6
+               null_conclusion,
+               [])
+              ]).
+
+pkb('carry out special operations','set a book mark',
+              [if(cond(system_state(special_menu,displayed)),
+               null_conclusion,
+               [library(set_bookmark:not_implemented)],             %R14
+               null_conclusion,
+               [])
+              ]).
+
+pkb('carry out special operations','save a book mark',
+              [if(cond(system_state(special_menu,displayed)),
+               null_conclusion,
+               [library(save_bookmark:not_implemented)],            %R14
+               null_conclusion,
+               [])
+              ]).
+
+
+pkb('carry out special operations','go to a book mark',
+              [if(cond(system_state(special_menu,displayed)),
+               null_conclusion,
+               [library(go_to_bookmark:not_implemented)],           %R14
+               null_conclusion,
+               [])
+              ]).
+
+
+pkb('carry out special operations','load a book mark',
+              [if(cond(system_state(special_menu,displayed)),
+               null_conclusion,
+               [library(load_bookmark:not_implemented)],            %R14
+               null_conclusion,
+               [])
+              ]).
+
+/***************************************************************
+ *  the monitoring operates at the highest level of action reportable by ss1
+ *  here the recognised_actions of ss1 are defined in terms of the basic_methods *  defined in the bmethods file
+ *****************************************************/
+
+pkb(library,pull_down:Menu,[library(click:Menu)]).
+                 
+pkb(library,select:Object,[library(click:Object)]).
+
+pkb(library,click:Object,[library(position_cursor_over:Object),
+                          library(press_mouse),
+                          library(release_mouse)]).
+
+pkb(library,pop_up:Menu,[library(press_mouse),library(release_mouse)]).
+
+pkb(library,position_cursor_over:Object,
+                      [library(move_mouse),
+                       library(position_cursor),
+                       library(check)]).
+
+
+pkb(library,position_cursor_in:Object,
+                      [library(move_mouse),
+                       library(position_cursor),
+                       library(check)]).
+
+pkb(library,scroll:Menu,[library(position_cursor_in:scroll_bar),
+                         library(press_mouse),
+                         library('decide when to stop'),
+                         library(release_mouse)]).
+
+                                                           
+pkb(library,select:Object,[library(position_cursor_over:Object),
+                           library(click:Object)]).
+
+pkb(library,drag:Window,[library(position_cursor_in:Window),
+                         library(press_mouse),
+                         library(move_mouse),
+                         library(release_mouse)]).
+
+pkb(library,draw_box,[library(press_mouse),
+                      library(move_mouse),
+                      library(release_mouse)]).
+
+pkb(library,edit:Words,[library(type_in)]).
+
+pkb(library,click_mouse_in:Object,
+                       [library(position_cursor_in:Object),
+                        library(click_mouse)]).
+
+
+pkb(library,click_mouse_over:Object,
+                       [library(position_cursor_over:Object),
+                        library(click_mouse)]).
+
+pkb(library,click_mouse:Object,[library(click_mouse)]).
+
+pkb(library,click_mouse,[library(press_mouse),library(release_mouse)]).
+
+/*pkb(library,close_window:Window,[]).*/           %R6
+
+/*****some library procedures which have an empty list of methods*/
+
+/*pkb(library,'decide when to stop',[]).*/         %R6
+
+%R3
+%pkb(library,'look at GB map and decide where first corner should be',[]).
+%pkb(library,'clarify ambiguity in grid refs',[]).
+%pkb('specify grid ref 1','edit grid refs',[]).
+
+/* final check for library procedures is by looking in the bemthods file, else
+ * there is an error in the data base and the system aborts
+ * THIS CODE MUST BE KEPT AT THE END OF THE PKBS FILE
+*/ 
+/*
+pkb(library,Method:Object,[]) :- basic_method(Method),!.
+pkb(library,Method,[]) :- basic_method(Method),!.
+pkb(library,Method,_) :- write('there is an error in the database '),
+                          write(Method),
+                          write(' cannot be found'),
+                          abort.
+*/
+basic_method_library(Method:Object):- basic_method(Method),!.
+basic_method_library(Method):- basic_method(Method),!.
+/*basic_method_library(Method):- 
+   send_message(".ERROR.6"),
+   write('there is an error in the database '),
+   write(Method),
+   write(' cannot be found'),
+   told,
+   abort.
+*/

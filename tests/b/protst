@@ -1,0 +1,24 @@
+section "prolog.tst"
+
+get "libhdr"
+
+let start () be
+$(
+   Writes("*nBCPL - Prolog test harness*n")
+
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())
+
+   Debug(0)
+
+   Oscli("dir :4.prolog")
+   Oscli("key0 ['eg.hanoi'].|mhanoi(5).|mhalt.|m")
+
+   OsByte(138,0,128) // insert a key0 in buffer
+
+   Oscli("PrologX zap_out") // off into prolog
+   Oscli("back")
+
+   Writes("*nback in BCPL...terminating*n")
+
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())   
+$)

@@ -1,0 +1,29 @@
+.key root/a
+dir $.<root>
+set alias$rv cmd %0.comp|mcmd %0.linc
+.
+Rv  BI
+Rv  CF
+Rv  CM
+Rv  CO
+Rv  CP
+Rv  CT
+Rv  NA
+Rv  NC
+Rv  NE
+Rv  NF
+Rv  NM
+Rv  NN
+Rv  NP
+Rv  NT
+Rv  NV
+Rv  NW
+Rv  HE
+Rv  KE
+Rv  SI
+Rv  SC
+Rv  DH
+Rv  UT
+Rv  VH
+Rv  WM
+*back

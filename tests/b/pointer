@@ -1,0 +1,43 @@
+Section "Pointer Test"
+
+GET "LIBHDR"
+
+LET start() BE
+$(
+
+   define.sprite()
+
+   VDU( "22,1")                      // select mode 1
+   VDU( "19,3,25,%,%,%",#xFF,#xFF,0) // sprite colour is yellow
+   VDU( "19,1,25,%,%,%",0,0,0)       // sprite border is black
+
+   Osbyte( 106, 1, 0 )       // turn on pointer and link it to mouse
+
+
+$)
+
+//
+// define the pointer sprite
+//
+AND define.sprite() BE
+$(
+   LET pdata = TABLE #x1D000005, #x007D0000, #x0001FD00, #xFD0007FD,
+                     #x7FFD001F, #x0057FD00, #x550007DD, #x5F40001F,
+                     #x007D4000, #x00017D00, #xF40001F4, #x00500001             
+   LET pb = VEC 10/bytesperword
+
+   pdata := pdata*bytesperword
+
+   pb%0 := 0             // opcode
+   pb%1 := 1             // shape number
+   pb%2 := 3             // width in bytes
+   pb%3 := 16            // height in pixels
+   pb%4 := 1             // Active X offset from top  (pels)  
+   pb%5 := 1             // Active Y offset from left (pels)
+   pb%6 := pdata         // 
+   pb%7 := pdata >> 8    // machine address    
+   pb%8 := pdata >> 16   // of sprite data   
+   pb%9 := pdata >> 24   //
+
+   Osword( #x15, pb )    // define the sprite
+$)

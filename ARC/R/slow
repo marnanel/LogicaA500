@@ -1,0 +1,9 @@
+*| set up this directory to run slow
+set alias$rn rename %0 N%0
+rn Gallery
+rn Gazetteer
+rn Hierarchy
+rn Index
+rn Mapdata
+rn Names
+unset alias$rn

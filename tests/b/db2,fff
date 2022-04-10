@@ -1,0 +1,289 @@
+
+// This version of mapstore, etc. considerably modified by 
+// Paul Cunnell (Logica) for use in testing Domesday port
+// software. It hangs around after an Abort, and lets you
+// look at things. 
+
+SECTION "map"
+
+GET "LibHdr"
+
+STATIC
+$( /* Version of 2 Jun 87 11:13:20
+   */
+   dummy = VersionMark;
+   version = 1*256 + 3
+$)
+
+GLOBAL 
+$(
+   TopOfStore : 148
+$)  
+
+MANIFEST
+$( SectionStart       = #x4c504342;
+   StartRelocation    = #x12345678;
+   EndRelocation      = #x87654321;
+   EndMark            = 1002;
+   HunkMark           = 1001;
+   linelength         = 80;
+   UnsetGlobalMask    = #xFFFF0000;
+   UnsetGlobalValue   = #xAE950000;
+   PCMask             = #x03FFFFFC
+$)
+
+LET abort(n) BE
+$( LET pc   = (VCAR[Level()+12])&PCMask;
+   LET mode = (#x0F & Osbyte(#xA0,#x55))
+
+   LET wait.() BE
+   $( LET ch = ? ; 
+      Osbyte(21,0)
+      Writes("*n*nPress SPACE to continue...*n")
+      ch := Osbyte(#x81,0,0) REPEATUNTIL (Result2 = 0) | (Result2 = #x1B)
+      IF (ch = 13) | (Result2 = #x1B) Stop(256)
+      OsWrch( ch ) // echo it (allows printer on, etc)
+   $)
+
+   OSByte(#xDA, 0, 0 )  // Abort any VDU parameters still needed
+ 
+   UNLESS mode = 0 $( OsByte(144,0,1); OsWrch(22); OsWrch(0) $)
+
+   SWITCHON n INTO
+   $( CASE 1: WriteS("*nUndefined Instruction"); ENDCASE
+      CASE 2: WriteS("*nPrefetch Abort"); ENDCASE
+      CASE 3: WriteS("*nData Abort"); ENDCASE
+      CASE 4: WriteS("*nAddress Exception"); ENDCASE
+      CASE 5: WriteS("*nUndefined Global"); ENDCASE  
+      DEFAULT:WriteF("*nUnexpected abort code %n", n)
+   $);
+   WriteF(" at %x8", pc);
+   IF (pc&UnsetGlobalMask)=(UnsetGlobalValue&PCMask) | n=5 THEN
+      WriteF("*nIs Global %N defined?", [(pc&~UnsetGlobalMask)>>2]-1);
+
+   wait.(); BackTrace();
+   wait.(); MapStore();
+   Stop(256)
+$)  
+
+AND backtrace() BE
+$( LET firstloc = 0       // first local variable in stack
+   LET sb = stackBase;
+   stackBase!4 := Level();
+   WriteS("*NBacktrace called*N")
+
+   $( LET base = (sb+6)<<2
+      LET lastp = sb!4;
+      LET newp = ?
+      LET p = VCAR[lastp+4]
+      LET topframe = lastp-4
+
+      TEST sb!5 = -1
+         THEN writes("*NRoot stack:*N")
+         ELSE $( newline()
+                 writearg(sb!5, p)
+                 writes(" coroutine stack:*N")
+              $)
+
+      IF topframe>[(sb!2)<<2]
+         THEN writes("WARNING: Stack has overflowed or been corrupted*N");
+
+      WriteS("*NStack-frame     Function    Arg 1     Arg 2     Arg 3     .....*N")
+
+      FOR i = 1 TO 50 DO
+      $( WriteF("%x6/%x6:  ", p, p>>2)  // stack frame
+         WriteFName(VCAR p, p)
+         WriteS("  ")
+         FOR j = p+16 TO topframe BY 4 DO
+         $( WriteArg(VCAR j, p)
+            IF ((j-p-16) REM 20)=16 & (j~=topframe)
+               THEN WriteS("*n                            ")
+         $)
+         newline();
+         topframe := p-4;
+         newp := VCAR[p+4]
+         IF newp=p THEN $( WriteS("Base of stack*N")
+                           BREAK
+                        $);
+         p := newp;
+         UNLESS base<=p<=topframe THEN
+         $( WriteF("Improper link %X8 %X8 %X8*N", base, p, topframe)
+            BREAK
+         $)
+         IF topframe-p>200 THEN topframe := p+200  // not more than 50 args
+      $)
+      sb := sb!1
+   $) REPEATUNTIL sb=-1;
+   WriteS("*NEnd of backtrace*N")
+$)
+
+AND WriteFName(n, p) BE
+   TEST n=-1
+      THEN WriteS("ROOT      ")
+      ELSE WriteArg(n, p)  // function name
+
+
+AND WriteArg(n,p) BE  // Writes a hex no./function name in a 10 char field
+$( // P is BCPL stack pointer
+   LET f = n-8
+
+   IF #x1000<f<=topOfStore & 0%f=7 & VCAR[f-4]=-1 THEN
+   $( WriteF("%s   ", f>>2)
+      RETURN
+   $);
+
+   IF -1000<n<1000 THEN
+   $( WriteF("%x3(%i4) ", n, n)
+      RETURN
+   $)
+
+   p := p>>2;
+   IF p+4<=n<=p+54 THEN  // does n point to an item in this stack frame?
+                         // (first 50 args)
+   $( n := n-p-3
+      WriteF("-> Arg%I2  ", n)
+      RETURN
+   $)
+
+   WriteF("%x8  ", n)
+$)
+
+AND mapstore() BE
+$(
+   writes("*NMapstore called*N")
+
+   DescribeCode(loadPoint)
+
+   DisplayGlobs()
+
+   ShowBlocks()
+
+   writes("*NEnd of mapstore*N")
+$)
+
+AND DescribeCode(q) BE
+$( LET column = 0;
+   LET sectionEnd = q;
+   writes("Program code")
+   UNTIL q>=sectionEnd & !q=EndMark DO
+   $( LET word = !q;
+      TEST q>=sectionEnd & word=SectionStart
+         THEN $( LET name = VEC 2
+                 AND date = VEC 2
+                 AND time = VEC 2
+                 AND unsetstring = "<unset>";
+                 LET namel = 8;
+                 LET versionWord = q!9;
+                 sectionEnd := q+[(q!1)>>2];
+                 FOR i = 0 TO 7 DO
+                 $( LET c = q%(i+8);
+                    IF c=0 & namel=8 THEN $( namel := i; BREAK $);
+                    name%(i+1) := c
+                 $);
+                 name%0 := namel;
+                 TEST q%16='<'
+                    THEN date, time := unsetstring, unsetstring
+                    ELSE $( FOR i = 0 TO 8 DO
+                            $( date%(i+1) := q%(i+16);
+                               time%(i+1) := q%(i+26)
+                            $);
+                            date%0 := 9;
+                            time%0 := 8
+                         $);
+                 WriteF("*n*n%X6  Section %s", q<<2, name);
+                 IF q!11=-1 & q%48=7 THEN
+                 $( LET local = q!10;
+                    IF VCAR local = VersionMark THEN
+                    $( LET n = VCAR(local+4);
+                       WriteF("  version %n.%n", n>>8, n&255)
+                    $)
+                 $)
+                 WriteF("*n    compiled on %s at %s", date, time);
+                 IF versionWord~=0 THEN
+                    WriteF(" using CG version %n.%n",
+                             versionWord>>24, (versionWord>>16)&255);
+                 NewLine();
+                 q := q+10;
+                 column := 0
+              $)
+
+      ELSE TEST q=SectionEnd
+         THEN // skip global initialisations
+              q := q+2 REPEATWHILE (-1)!q~=0
+
+      ELSE TEST q>=SectionEnd & word=StartRelocation
+         THEN q := q+1 REPEATWHILE !q~=EndRelocation
+
+      ELSE TEST word=-1 & q%4=7
+         THEN $( LET procStart = q+2;
+                 IF [(!procstart)>>24]=0
+                    THEN procStart := procStart+1;
+                 IF column>=linelength-16 THEN
+                 $( newline()
+                    column := 0
+                 $);
+                 writef("  %x6: %s", procStart<<2, q+1);
+                 column := column+17;
+                 q := procStart
+              $)
+         ELSE q := q+1
+   $)
+   newline()
+$)
+
+AND DisplayGlobs() BE
+$( 
+   LET g = @G0
+   LET nglobs = G0
+   LET column = 0
+
+   TEST ug<=G0<=10000
+      THEN writef("*N%N globals allocated*N", G0)
+      ELSE $( writes("Global zero is corrupted*N"); nglobs := 250 $)
+
+   writef("*NValues set in Global Vector (%X6/%X6):*N", g, g<<2)
+
+   FOR t = 0 TO nglobs DO
+   $( LET val = g!t;
+      IF [val&UnsetGlobalMask]~=UnsetGlobalValue THEN
+      $( IF column>linelength-20 THEN
+         $( newline()
+            column := 0
+         $)
+         TEST t>=1000
+            THEN writef("%i4: ",t)
+            ELSE writef("G%I3: ", t)
+         writearg(val, 0)
+         writes("   ")
+         column := column+20
+      $)
+   $)
+$)
+
+AND ShowBlocks() BE
+$(
+   LET g = @G0
+   LET p = blocklist
+
+   writes("*n*nMemory blocks:")
+
+   UNTIL !p=0 DO
+   $( LET len = !p;
+      writef("*n%x6/%x6: ", p+1, (p+1)<<2)
+      TEST len<0 THEN  // used block
+      $( TEST g = p+1
+            THEN writes("Global vector")
+         ELSE TEST stackbase = p+1
+            THEN writes("Current stack")
+         ELSE TEST p!1=HunkMark
+            THEN DescribeCode(p)
+            ELSE writef("Allocated Block of %N BCPL words", -len-1);
+         len := -len
+      $)
+
+      ELSE  // freeblock
+         writef("Free Block of %N BCPL words", len-1)
+
+      p := p+len  // next block
+   $)              
+$)

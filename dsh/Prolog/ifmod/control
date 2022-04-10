@@ -1,0 +1,217 @@
+/**************************************************
+*                  SS2 / if_module                *
+*                  ***************                *
+*                                                 *
+* Program Id     :  contol                        *
+* Author         :  Safa Alai                     *
+* Installation   :  Logica CES Ltd.               *
+* Project Name   :  DISH                          *
+* Language       :  PrologX                       *
+* Date Completed :  09 / 11 / 87                  *
+* Function       :  Intelligent help system       *
+*                   interface to subsystem 1      *
+*                   control procedures.           *
+* Entry Predicate:  _                             *
+* Called by      :  _                             *
+* Modules called :  _                             *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*               Revision History                  *
+* Revised by   : S Ala'i                          *
+* Description  : debugging dish                   *
+* 17/03/88   R1: added exit button.               *
+* 22/03/88   R2: cut to save stack place.         *
+**************************************************/
+
+/* bottom level interface to BICI
+   ==============================
+*/
+/* name of the buffer used for communication between SS1 & SS2
+*/
+buffer_name('bicibuff').
+
+/* Output
+*/
+send_message([]).
+%send_message(".TIME"):-
+%   system('BICI.TIME').
+%send_message(".COMMAND"):-
+%   system('BICI.COMMAND').
+send_message([46|String]):-           %OS_CLI cannot handle commands with
+   length(String,X),                  %more than 256 characters.
+   X>250,
+   telling(Old),
+   buffer_name(Buffer),
+   tell(Buffer),
+   name(Message,String),
+   write(Message),
+   told,
+   tell(Old),
+   system('BICI.INDIRECT').
+send_message(String):-
+   append("BICI", String, AscMessage), 
+   name(Message, AscMessage), 
+   system(Message).
+send_message(Atom):-                   %Catchall to allow the old output to
+   telling(Old),                       %operate alongside the new output.
+   tell(user),
+   write(Atom),
+   nl,
+   tell(Old).
+
+/* Input
+*/
+wait_c_message(N, MessageList):- 
+   buffer_name(Buffer),
+   see(Buffer),
+   read_list(N, MessageList),
+   seen.
+
+read_list(0, []).
+read_list(N, [Message|Tail]):-
+   read(Message),
+   (M is N-1),
+   read_list(M, Tail).
+
+/* automatic operation by presetting aui input externally
+*/
+set_input(InputList) :-
+   telling(Old),
+   buffer_name(Buffer),
+   tell(Buffer),
+   set_input1(InputList),
+   told,
+   tell(Old).
+
+set_input1([]).
+set_input1([Head|Tail]):-
+   writeq(Head),
+   write('. '),
+   set_input1(Tail).
+
+/*  accessing system clock
+*/
+get_time(time(Year, Month, Day, Hour, Minute, Second)) :-
+   send_message(".TIME"),
+   buffer_name(Buffer),
+   see(Buffer),
+   read(Year),
+   read(Month),
+   read(Day),
+   read(_),
+   read(Hour),
+   read(Minute),
+   read(Second),
+   seen,
+   flush_buffer.
+
+/* flushing bicibuff
+*/
+flush_buffer :-
+   telling(Old),
+   buffer_name(Buffer),
+   tell(Buffer),
+   told,
+   tell(Old).
+
+/* peephole interface to new_output
+   ================================
+*/
+peephole(X,Y):-
+   new_output(peephole(X,Y),".PEP",no_env).
+
+/* new output procedure : refer to docs.mods_tech 2.1
+   ==================================================
+*/
+new_output(Match, Area, WIMPEnv):-
+   format(Match, Area, FmText),
+   !,                                    %R2
+   frame(FmText, Match, Area, Frame),
+   !,                                    %R2
+   prepare_WIMP(Area, Match, WIMPEnv),
+   send_message(Frame),
+   !.                                    %R2
+
+format(no_text,_,[]).
+format(Match,Area,FmText) :-
+ ( f1(Match,FmText)->true;
+   send_message([46,69,82,82,79,82,46,49]),
+      write('**WARNING** no format for '),
+      write(Match),
+      nl,
+      FmText=[] ).
+
+frame(_, no_text, _, []).
+frame(FmText, Match, Area, Frame):-
+   frame_tail(Area, Match, Tail), 
+   append(FmText, Tail, Body), 
+   frame_head(Area, Match, Head), 
+   append(Head, Body, Frame).
+
+prepare_WIMP(_, _, no_env).
+prepare_WIMP(Area, Match, WIMPEnv):-
+   prepare_window(Area, WIMPEnv), 
+   prepare_area(Area, Match).
+
+prepare_window(
+   Area, 
+   current_window_stack(CurrStack)~current_window_stack(TargetStack)
+              ):-
+   target_window_stack(Area, CurrStack, TargetStack), 
+   update_window_stack(CurrStack, TargetStack).
+
+update_window_stack([], []).
+update_window_stack([A|L1], [A|L2]):-
+   update_window_stack(L1, L2).
+update_window_stack(CurrentStack, TargetStack):-
+   reverse(CurrentStack, [], RevCurrStack), 
+   tell_WIMP(".CLOSE", RevCurrStack), 
+   tell_WIMP(".OPEN", TargetStack).
+
+tell_WIMP(_, []).
+tell_WIMP(Action, [Object|Objects]):-
+   append(Action, Object, Command), 
+   send_message(Command), 
+   tell_WIMP(Action, Objects).
+
+/* new input procedure
+   ===================
+*/
+get_input(Input, WimpEnv ~ WimpEnv):-
+   wait_c_message(2, MessageList),
+   map_input(MessageList, Input),
+   flush_buffer.
+get_input(Input, WimpEnv):-
+   new_output(error, ".COM", WimpEnv),
+   get_input(Input).
+
+map_input(['TOGGLE'|_], toggle).
+map_input(['BUTTON', 'NO'|_], no).
+map_input(['BUTTON', 'YES'|_], yes).
+map_input(['BUTTON', 'WHERE'|_], where).
+map_input(['BUTTON', 'WHY'|_], why).
+map_input(['BUTTON', 'WHICH'|_], which).
+map_input(['BUTTON', 'SUMMARY'|_], summary).
+map_input(['BUTTON', 'NEXT'|_], next).
+map_input(['BUTTON', 'STACK'|_], stack).
+map_input(['BUTTON', 'HELP'|_], help).
+map_input(['BUTTON', 'QUIT'|_], quit).
+map_input(['BUTTON', 'EXIT'|_], exit).                 %R1
+map_input(['BUTTON', 'REMEDIATION'|_], remediation).
+map_input(['BUTTON', 'HOW'|_], how).
+map_input(['SELECTION', Num|_], selection(Num)).
+map_input(['PROCEDURE', ProcNum|_], procedure(ProcName)) :-
+        fm_proc(ProcNum, ProcName).
+map_input(_, Input):-                       %Catch All
+   send_message(".COMMAND"),
+   wait_c_message(2, MessageList),
+   map_input(MessageList, Input).
+
+fm_proc('DOME', 'use dish').
+
+

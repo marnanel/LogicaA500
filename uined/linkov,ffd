@@ -1,0 +1,20 @@
+*| LINKOV
+*|
+*| link the overlays
+*|
+errcont
+*dir :4.UINED.GR
+c linc
+*dir ^.MA
+c linc
+*dir ^.TA
+c linc
+*dir ^.AR
+c linc
+*dir ^.gd
+c linc
+*dir ^.IE
+c linc
+*dir ^
+dsf
+errcont off

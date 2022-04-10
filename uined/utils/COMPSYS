@@ -1,0 +1,45 @@
+*spool $.UINED.scratch.compsys
+*| COMPSYS
+*| compile everything
+*dir :4.UINED
+*time
+*| first the system kernel
+*dir SI
+c comp
+*time
+*dir :4.UINED.SC
+c comp
+*time
+*dir :4.UINED.UT
+c comp
+*time
+*dir :4.UINED.KE
+c comp
+*time
+*dir :4.UINED.VH
+c comp
+*time
+*dir :4.UINED.DH
+c comp
+*time
+*| Now all the packages
+*dir :4.UINED.GR
+c comp
+*time
+*dir :4.UINED.AR
+c comp
+*time
+*dir :4.UINED.gd
+c comp
+*time
+*dir :4.UINED.IE
+c comp
+*time
+*dir :4.UINED.MA
+c comp
+*time
+*dir :4.UINED.TA
+c comp
+*time
+*dir :4.UINED
+*spool

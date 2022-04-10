@@ -1,0 +1,15 @@
+*| LINKSYS Version 1 16.04.86
+*| link the whole system
+*|
+*| link kernel cintcode to give c.kernels
+errcont
+c $.UINED.utils.linkmods
+*|
+*| link the overlays
+errcont
+c $.UINED.utils.linkov
+*|
+*| link the kernel
+errcont
+c $.UINED.utils.linkernel
+*time

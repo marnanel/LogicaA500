@@ -1,0 +1,136 @@
+// REM Mandelbrot set
+// Converted from basic by PAC 30.4.87
+
+Section "Mandel"
+   
+Static $( s.lastcol = 0 $)
+
+Get "Libhdr"    
+Get "EvHeader"
+
+Let Start() BE
+$(
+   LET Av   = 1280
+   LET Bv   = 1024
+   LET magv = 45
+   LET HOFF = 1.1
+   LET VOFF = 1.15
+   LET Kv   = 100
+   LET H,V  = 0.0,0.0    
+
+   H := 3.0 #/ FLOAT ((Av-1)*magv)  // 9.38e-5
+   V := 3.0 #/ FLOAT ((Bv-1)*magv)  // 1.17e-4
+
+   OsWrch( 22 ) ; OsWrch( 2 ) // MODE1
+   OsWrch( 5 )
+
+   FOR Ypos = 0 TO (Bv-1) BY 4 DO  // vertical scan
+   $(
+    FOR Xpos = 0 TO (Av-1) BY 8 DO // horizontal scan
+    $(
+         LET M = HOFF #-2.25 #+ (FLOAT Xpos #* H)
+         LET N = VOFF #-1.5  #+ (FLOAT Ypos #* V)
+         LET Iv = 0
+         LET X = 0.0
+         LET Y = 0.0 
+         LET Xsq,Ysq = 0.0,0.0    
+         LET T = 0.0  
+         LET R = 0.0
+         
+         $(
+            Xsq := X #* X  
+            Ysq := Y #* Y
+            R   := Xsq #+ Ysq
+            T   := Xsq #- Ysq #+ M
+            Y   := 2.0 #* X #* Y #+ N
+            X   := T
+            Iv  := Iv+1
+
+                // Writef("R = %f, Iv = %n, Kv = %n*n",R,Iv,Kv )  
+   
+            IF (R #> 10.0) | (Iv=Kv) BREAK
+
+         $) REPEAT
+
+         TEST Iv=Kv THEN GCOL(0) ELSE GCOL(Iv REM 8)
+         PLOT69(Xpos,Ypos)
+      $)
+   $)
+                                      
+  OsWrch(7)     
+  OsByte(13,2)
+  Oscli("**SAVE $.tmp.SCREEN FFFF3000 +5000")
+$)                              
+                      
+And Plot69( X, Y ) BE
+$(
+   OsWrch( 25 )
+   OsWrch( 69 )
+   OsWrch(  X & #xFF ) 
+   OsWrch( (X & #xFF00) >> 8 ) 
+   OsWrch(  Y & #xFF )
+   OsWrch( (Y & #xFF00) >> 8 ) 
+$)
+
+AND Gcol( physcol ) BE
+$(                        
+  IF physcol = s.lastcol RETURN
+
+  OsWrch( 18 ); OsWrch( 0 ); OsWrch ( physcol )
+
+  s.lastcol := physcol
+$)
+
+// temporary lash up for VDU - will take proper
+// parameters eventually
+//
+AND VDU( format, a,b,c,d,e,f ) BE
+$(                 
+   FOR i = 1 TO format%0 DO OsWrch( format%i - '0' )
+$)
+  
+/*  
+
+AND VDU( str,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10 ) BE
+$(
+   LET t,p = @p1,1
+   result2 := 0
+
+   WHILE p <= str%0 DO
+   $(
+      LET sum, neg = 0,FALSE
+l:    LET ch = str%p 
+      p := p + 1
+
+      UNLESS ('0'<=ch<='9') THEN SWITCHON ch INTO
+      $( DEFAULT:  result2 := -1; BREAK // - abort somehow !!!!!!
+         CASE '*S':
+         CASE '*T':
+         CASE '*N': GOTO l
+         CASE '-' : neg := TRUE
+         CASE '+' : $( ch := str%p ; p := p + 1 $)  // next char
+         IF p > str%0 THEN BREAK
+         ENDCASE
+
+         CASE '%' : 
+         $( LET arg = t!0
+            Send.( arg, str, p )
+            t := t + StackFrameDirection $) ENDCASE // increment arg pointer
+      $)
+      WHILE '0'<=ch<='9' DO
+      $( sum := 10*sum+ch-'0' ; ch := str%p ; p := p + 1 $)
+      IF neg THEN sum := -sum
+      Send.( sum, str, p )
+      p := p-1
+   $)    
+
+$) 
+
+AND Send.( arg, s, p )
+$(
+   OsWrch( arg & #xFF ) // do low byte
+   IF s%p = ';'
+   THEN OsWrch( (arg >> 8) & #xFF) // do high byte (16 bits)
+$)   
+
+*/

@@ -1,0 +1,22 @@
+SECTION "number.test"
+
+GET "LIBHDR"
+GET ":4.ADS.gh.glhd"
+
+LET start() BE
+$(
+   LET num = VEC 1
+   LET scale = ?
+   $(
+   WRITES("*nEnter number and scale :")
+   num!0 := READN()
+   // num!1 := READN()
+   scale := READN()
+   WRITEF("Calling with %n %x8 *n*n",num!0,num!0)
+
+   FOR i = 10 TO 1 BY -1 DO
+     $( G.sc.opnum ( num,scale,i )
+        WRITEF("  FIELD WIDTH = %n*n",i)
+     $)
+   $) REPEAT
+$)

@@ -1,0 +1,19 @@
+|*  compile all areal code
+|* compile areal header
+co  area0
+co area
+co area2
+co area3
+co area4
+co save
+co help
+|*  compile areal ranges
+co  manual1
+co  manual2
+co  key2
+|*  compile areal data
+co data
+co data1
+co data2
+co data3
+co data4

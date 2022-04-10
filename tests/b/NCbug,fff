@@ -1,0 +1,56 @@
+
+
+Section "chartbug"
+
+GET "libhdr"
+       
+GLOBAL $( G.nc.area:200 $)  
+
+MANIFEST $( off1 = 20; off2 = 30; val1 = 40 $) 
+
+LET start() BE
+$( 
+   LET n    = 1
+   LET buff = ?
+   LET a,b  = 3,3
+                  
+
+   G.nc.area := GETVEC(4000)
+   For i = 1 TO 4000 G.nc.area!i := i
+
+   unless a~=b  
+   $( let vpr = (G.nc.area+off1+(n*off2))
+      let gnameb = proc1(n, !vpr)
+      let s = proc2(G.nc.area, gnameb, buff, val1)
+      proc3(a,2)
+   $) 
+    
+   NEWLINE()            
+
+   unless a~=b      
+   $( let vpr = !(G.nc.area+off1+(n*off2))
+      let gnameb = proc1(n, vpr)
+      let s = proc2(G.nc.area, gnameb, buff, val1)
+      proc3(a,2)
+   $) 
+            
+   NEWLINE()
+
+$)
+
+AND proc1(a,b) = VALOF
+$(
+   Writef("*nIn proc1: a = %n, b= %n",a,b)  
+   RESULTIS a+b
+$)   
+
+AND proc2( a,b,c,d ) = VALOF
+$(
+   Writef("*nIn proc2: a = %n, b = %n, c = %n, d = %n",a,b,c,d)
+   RESULTIS a+b
+$)
+
+AND proc3(a,b) BE
+$(
+   Writef("*nIn proc3: a = %n, b = %n",a,b)
+$)

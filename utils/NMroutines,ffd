@@ -1,0 +1,4 @@
+*spool $.tmp.NMprocs
+*search "let g.nm" "and g.nm" -in nm.b  
+*search "let g.nm" "and g.nm" -in nn.b
+*spool

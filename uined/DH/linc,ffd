@@ -1,0 +1,2 @@
+|*  join the data handler
+join c.dh1 c.dh2 c.seldisc -to c.kernel

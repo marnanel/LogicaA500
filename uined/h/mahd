@@ -1,0 +1,16 @@
+// /**
+//       MA.H.MAHDR - Tabular Data definitions
+//       -------------------------------------
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       16/06/87    1     AEG         Initial version
+// **/
+
+manifest
+$(
+m.ma.offset = #X8DB       // offset to data  in file (#X8DC - 1)
+m.ma.up     = -1          // for pointers moving up the data table
+m.ma.down   = 1           // for pointers moving down the table
+$)

@@ -1,0 +1,423 @@
+section "gr2"
+
+/**
+         GR.B.GR2 - Dataset index + block loading,
+                    sideways RAM retrieval and storage
+                    plus level 1 graphics
+         ---------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+        1.05.87   1        SRY         Initial version
+        3.09.87   2        SRY         Expanded blue L1 dots
+
+         GLOBALS DEFINED:
+
+         G.gr.load.block
+         G.gr.load.index
+         G.gr.load.fine.index
+         G.gr.find.offset
+         G.gr.find.record
+         G.gr.pattern
+         G.gr.check.fs
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.dhhd"
+get ":4.UINED.h.sthd"
+get ":4.UINED.h.cmhd"
+
+static $( buffer = ?
+          o = ?
+       $)
+
+/*
+   This routine unpacks the 32x32 block into the SRAM buffer so that
+   the values are by grid-ref order left to right and bottom to top.
+   Equivalent of process.variable.
+*/
+
+let G.gr.load.block(buf.no) be
+$( let bytes = ?
+   let fine.index = G.cm.s!m.fine.index
+   let b32 = (G.cm.s + m.bmap)!buf.no // the one to load
+   let h = G.context!m.data.handle
+   let rec, off = ?, ?
+   let datasize = G.cm.s!m.datasize
+   let get.cell = valof switchon datasize into
+   $( case 1: resultis get.1
+      case 2: resultis get.2
+      case 4: resultis get.4
+   $)
+   let num = vec 1
+   let length = vec 1
+   let offset = vec 1
+   let first = vec 1
+   let zero = vec 1
+
+   g.ut.set32(0, 0, zero)
+   o := (b32-1) * (4/bytesperword)
+   buffer := G.cm.s!m.buffer
+   G.gr.set.missing(first)
+   g.ut.set32(0, 0, length)
+
+   G.sc.mess("Loading data")
+   G.cm.s!m.old.km.x := -3 // so that message bar is restored
+   rec := G.gr.load.fine.index(b32)
+
+   // Check for uniform 32x32
+   if rec <= 0 // record number
+   $( test (rec & #xFFFF) = #X8000
+      then G.gr.set.missing(num)
+      else g.ut.set32(-rec, 0, num)
+      for i = 0 to m.block.SRAM.bytes/2 - 1 by 2 do
+         G.gr.SRAM.store(buf.no, i, num)
+      return
+   $)
+
+/*
+   For each 8x8, unpack values into SRAM
+   Blocks are reloaded into west-east, south-north order
+   ASSUMPTION - 8x8 blocks are in the right order and consecutive
+                within a 32x32
+*/
+
+   for b8 = 0 to 15
+   $( let block.offset = b8!table
+          0, 4, 8, 12,
+          13, 9, 5, 1,
+          2, 6, 10, 14,
+          15, 11, 7, 3
+
+      block.offset := block.offset << 7 // (x128 words per block in SRAM)
+      o := b8 * (4/bytesperword)
+      rec := g.ut.unpack16.signed(fine.index, o*bytesperword)
+
+      // Check for uniform 8x8 block
+      test rec <= 0
+      then $( test (rec & #xFFFF) = #X8000
+              then G.gr.set.missing(num)
+              else g.ut.set32(-rec, 0, num)   // other uniform block
+              for i = block.offset to block.offset + 127 by 2
+                 G.gr.SRAM.store(buf.no, i, num)
+           $)
+      else $( let items, loc, rep, b = ?, ?, ?, ?
+              let b1 = block.offset
+
+              off := g.ut.unpack16(fine.index, (o*bytesperword)+2)
+              G.gr.find.offset(rec, off, offset)
+              if G.gr.missing(first)
+              $( g.ut.mov32(offset, first)
+                 // Read rest of 32x32 block
+                 bytes := (16 - b8) * (64 * (2 + datasize) + 2)
+                 G.gr.check.fs()
+                 if g.ut.cmp32(length ,zero) = m.eq G.dh.length(h, length)
+                 bytes := max.bytes(bytes, first, length)
+                 if G.dh.read(h, first, buffer, bytes) = 0
+                 $( G.key := - m.st.inputed
+                    return
+                 $)
+              $)
+              G.ut.sub32(first, offset)
+              o := G.ut.unpack16(offset, 0)  // o is byte offset in m.buffer
+
+              // Unpack it into buffer
+              items := g.ut.unpack16(buffer, o)
+              o := o + 2
+              unless 1 <= items <= 64
+              $( data.error(buf.no, b8, items, loc, rep)
+                 return
+              $)
+              for i = 1 to items
+              $( loc := buffer%o
+                 rep := buffer%(o+1)
+                 o := o + 2
+                 unless (1 <= loc <= 64) & (2 <= loc+rep <= 65)
+                 $( data.error(buf.no, b8, items, loc, rep)
+                    return
+                 $)
+                 b := block.offset + ((loc-1) << 1)
+
+                 // Zero missing bits of matrix
+                 for j = b1 to b - 1 by 2 G.gr.SRAM.store(buf.no, j, zero)
+                 b1 := b + (rep << 1)
+                 get.cell(num)
+                 o := o + datasize
+                 for j = b to b1 - 1 by 2 G.gr.SRAM.store(buf.no, j, num)
+              $)
+
+              // Finish off the block with zero if there is any
+              for j = b1 to block.offset + 127 by 2
+                 G.gr.SRAM.store(buf.no, j, zero)
+           $)
+   $)
+$)
+
+and G.gr.check.fs() be
+   unless G.cm.s!m.fs = m.dh.adfs
+   $( G.cm.sel.fs(m.dh.adfs)
+      G.cm.s!m.video.muted := true
+   $)
+
+and data.error(buf.no, b8, items, loc, rep) be
+$( let num = vec 1
+   G.sc.ermess("Bad data block")
+   G.gr.set.missing(num)
+   for i = 0 to m.block.SRAM.bytes/2 - 1 by 2 G.gr.SRAM.store(buf.no, i, num)
+   G.key := - m.st.inputed
+   $<debug
+   G.sc.ermess("%n items, 8x8 %n, loc %n, rep %n", items, b8, loc, rep)
+   $>debug
+$)
+
+and get.1(num) be
+$( let v = buffer%o
+   test v < #x80
+   then g.ut.set32(v, 0, num)
+   else test v = #x80
+        then g.gr.set.missing(num)
+        else g.ut.set32(v | #xff00, #xffff, num)
+$)
+
+and get.2(num) be
+$( let v = g.ut.unpack16.signed(buffer, o)
+   test (v & #xffff) = #x8000
+   then g.gr.set.missing(num)
+   else $( !num := v
+           num!1 := ((v >= 0) -> 0, #xffff)
+        $)
+$)
+
+and get.4(num) be g.ut.movebytes(buffer, o, num, 0, 4)
+
+/*
+   Load complete 32x32 index into store. Also set up blocks east & west.
+*/
+
+and G.gr.load.index() be
+$( let h = G.context!m.data.handle
+   let w, n, bytes = ?, ?, ?
+   let t = vec 1
+   let offset = vec 1
+   let length = vec 1
+   let t1 = vec 1
+
+   G.gr.check.fs()
+   G.dh.length(h, length)
+   G.gr.find.offset(1, 1, offset)
+   if G.dh.read(h, offset, t, 4) = 0 goto error
+
+   w, n := g.ut.unpack16(t, 0), g.ut.unpack16(t, 2)
+   unless (1 <= w <= m.max.blocks.w) & (1 <= n <= m.max.blocks.n)
+   $( G.sc.ermess("Invalid index: %n x %n blocks", w, n)
+      goto error
+   $)
+   G.cm.s!m.blocks.w, G.cm.s!m.blocks.n := w, n
+
+   // Load index in
+   g.ut.set32(4, 0, t1)
+   G.ut.add32(t1, offset)
+   bytes := max.bytes((w*n) << 2, offset, length)
+   if G.dh.read(h, offset, G.cm.s!m.coarse.index, bytes) = 0 goto error
+
+exit:
+   G.cm.sel.fs(m.dh.vfs)
+   return
+
+error:
+   G.key := - m.st.inputed
+   goto exit
+$)
+
+and max.bytes(bytes.to.read, offset, length) = valof
+$( let t = vec 1
+   let bytes = vec 1
+   g.ut.set32(bytes.to.read, 0, bytes)
+   g.ut.mov32(offset, t)
+   G.ut.add32(bytes, t)
+   if G.ut.cmp32(length, t) = m.lt
+   $( g.ut.mov32(length, bytes)
+      G.ut.sub32(offset, bytes)
+   $)
+   resultis g.ut.unpack16(bytes, 0)
+$)
+
+/*
+   Load fine index for complete 32x32 block b32
+   in a 32 bit vector. Assume in correct filing system
+*/
+
+and G.gr.load.fine.index(b32) = valof
+$( let o = G.cm.s!m.coarse.index + ((b32-1) * (4/bytesperword))
+   // Check for uniform 32x32
+   if g.ut.unpack16.signed(o, 0) > 0 // non-uniform 32x32
+   $( let bytes = ?
+      let offset = vec 1
+      let length = vec 1
+      G.gr.check.fs()
+      G.dh.length(G.context!m.data.handle, length)
+      G.gr.find.offset(g.ut.unpack16(o, 0), g.ut.unpack16(o, 2), offset)
+      bytes := max.bytes(m.fine.index.bytes, offset, length)
+      if G.dh.read(G.context!m.data.handle, offset, G.cm.s!m.fine.index, 
+                                                                  bytes) = 0
+         G.key := - m.st.inputed
+   $)
+   resultis g.ut.unpack16.signed(o, 0)
+$)
+
+/*
+   Work out absolute byte offset in file given relative record and word offset
+   (start at 1!)
+*/
+
+and G.gr.find.offset(rec, off, offset) be
+$( let f = vec 1
+   let t = vec 1
+   g.ut.set32(m.dh.bytes.per.frame, 0, f)
+   g.ut.set32(G.cm.s!m.data.rec + rec - 1, 0, t)
+   G.ut.mul32(f, t)
+   g.ut.set32((off - 1) * 2, 0 , offset)
+   G.ut.add32(t, offset)
+$)
+
+/*
+   Get record, offset pair given byte offset
+   Reverse of G.gr.find.offset
+*/
+
+and G.gr.find.record(offset, rec.ptr, off.ptr) be
+$( let f = vec 1
+   let t = vec 1
+   let t1 = vec 1
+   let o = vec 1
+   g.ut.set32(m.dh.bytes.per.frame, 0, f)
+   g.ut.mov32(offset, o)
+   G.ut.div32(f, o, t)
+   !rec.ptr := g.ut.unpack16(o, 0) + 1 - G.cm.s!m.data.rec
+   !off.ptr := ((G.ut.unpack16(t, 0)) >> 1) + 1
+$)
+
+/*
+   Display either level 1 pattern of dots for 8x8 blocks or
+   pattern of icons for grid squares
+*/
+
+and G.gr.pattern() be
+$( let cmlevel = G.cm.s!m.cmlevel
+   unless 1 <= cmlevel <= 3 return
+   test cmlevel = 1
+   then $( let w = G.cm.s!m.blocks.w
+           let n = G.cm.s!m.blocks.n
+           let f = G.cm.s!m.fine.index
+           G.sc.XOR.selcol(m.sd.blue)
+           for i = 0 to w * n - 1
+           $( let v = G.gr.load.fine.index(i+1)        
+              test v <= 0 // uniform 32x32
+              then unless (v & #xFFFF) = #X8000 then
+                      for j = 0 to 15 dot(i, j, w, n)
+              else for j = 0 to 15 do
+                    unless (g.ut.unpack16.signed(f, j*4) & #xFFFF) = #X8000 then
+                       dot(i, j, w, n)
+           $)
+          
+        $)
+   else $( let x, y = G.cm.s!m.km.x, G.cm.s!m.km.y
+           let res = G.context!m.resolution
+           let km.x0 = (G.cm.s!m.km.x0/res)*res
+           let km.y0 = (G.cm.s!m.km.y0/res)*res
+           let km.bx, km.by = G.cm.s!m.km.base.x, G.cm.s!m.km.base.y
+           let km.tx, km.ty = G.cm.s!m.km.top.x, G.cm.s!m.km.top.y
+           let tx = G.cm.s!m.km.x0 + G.cm.s!m.km.width
+           let ty = G.cm.s!m.km.y0 + G.cm.s!m.km.height
+           let km.xz = (tx/res)*res
+           let km.yz = (ty/res)*res
+           let num = vec 1
+
+           if km.xz < km.bx | km.yz < km.by |
+              km.x0 > km.tx | km.y0 > km.ty return
+
+           unless km.xz = tx km.xz := km.xz + res
+           unless km.yz = ty km.yz := km.yz + res
+
+           if km.x0 < km.bx km.x0 := km.bx
+           if km.y0 < km.by km.y0 := km.by
+           if km.xz > km.tx km.xz := km.tx
+           if km.yz > km.ty km.yz := km.ty
+
+           G.cm.s!m.km.y := km.y0
+           $( G.cm.s!m.km.x := km.x0
+              $( G.gr.get.val(num)
+                 unless G.gr.missing(num) G.gr.grid.cross()
+                 G.cm.s!m.km.x := G.cm.s!m.km.x + res
+              $) repeatuntil G.cm.s!m.km.x >= km.xz
+              G.cm.s!m.km.y := G.cm.s!m.km.y + res
+           $) repeatuntil G.cm.s!m.km.y >= km.yz
+           G.cm.s!m.km.x, G.cm.s!m.km.y := x, y
+        $)
+   G.cm.sel.fs(m.dh.vfs) // only changes if nec.
+$)
+
+/*
+   Put a blue dot for 8x8 area on level 1 map
+   NB - b32, b8 start at 0 not 1
+*/
+
+and dot(b32, b8, w, n) be
+$( let unit8 = (G.context!m.resolution) << 3
+   let unit32 = unit8 << 2
+   let km.x = G.cm.s!m.km.base.x + (b32 rem w)*unit32 + (b8 >> 2)*unit8
+   let km.y = G.cm.s!m.km.base.y + (b32/w)*unit32 +
+              unit8*( b8!table
+                         0, 1, 2, 3,
+                         3, 2, 1, 0,
+                         0, 1, 2, 3,
+                         3, 2, 1, 0 )
+   let xoff = (km.x - g.cm.s!m.km.x0)*10
+   let yoff = (km.y - g.cm.s!m.km.y0)*10
+   let x = G.cm.a.of(xoff)
+   let y = G.cm.b.of(yoff)
+   let x1 = g.cm.a.of(xoff + unit8*10)
+   let y1 = g.cm.b.of(yoff + unit8*10)
+   if (x < 0) | (x > m.sd.disW) | (y < 0) | (y > m.sd.disH) |
+      (x1 < 0) | (x1 > m.sd.disW) | (y1 < 0) | (y1 > m.sd.disH) return
+   G.sc.Xor.selcol(m.sd.blue)
+   G.sc.movea(m.sd.display, x, y)
+   G.sc.rect(m.sd.plot, x1-x-8, y1-y-8)
+$)
+
+/*
+and dot(b32, b8, w, n) be
+$( let unit8 = (G.context!m.resolution) << 3
+   let unit32 = unit8 << 2
+   let km.x = G.cm.s!m.km.base.x + (b32 rem w)*unit32 + (b8 >> 2)*unit8
+   let km.y = G.cm.s!m.km.base.y + (b32/w)*unit32 +
+              unit8*( b8!table
+                         0, 1, 2, 3,
+                         3, 2, 1, 0,
+                         0, 1, 2, 3,
+                         3, 2, 1, 0 )
+   let xoff = (km.x - g.cm.s!m.km.x0)*10
+   let yoff = (km.y - g.cm.s!m.km.y0)*10
+   let x = G.cm.a.of(xoff)
+   let y = G.cm.b.of(yoff)
+   let x1 = g.cm.a.of(xoff + unit8*10)
+   let y1 = g.cm.b.of(yoff + unit8*10)
+   test x < 0 then x := 0 else if x > m.sd.disW x := m.sd.disW
+   test y < 0 then y := 0 else if y > m.sd.disH y := m.sd.disH
+   test x1 < 0 then x1 := 0 else if x1 > m.sd.disW x1 := m.sd.disW
+   test y1 < 0 then y1 := 0 else if y1 > m.sd.disH y1 := m.sd.disH
+   G.sc.Xor.selcol(m.sd.blue)
+   G.sc.movea(m.sd.display, x, y)
+   G.sc.rect(m.sd.plot, x1-x-8, y1-y-8)
+$)
+*/
+.

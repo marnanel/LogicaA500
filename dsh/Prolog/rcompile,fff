@@ -1,0 +1,22 @@
+.key file/a
+key9halt.|m
+key1listing('
+key2,_).|M'
+key4system('''
+key5'').|M
+Prolog
+compile('kbase.ops').
+compile('kbase.pkbs').
+compile('kbase.bmethods').
+compile('newhelp.ops').
+compile('newhelp.dmagb').
+compile('newhelp.toplevel').
+compile('newhelp.admin').
+compile('newhelp.um').
+compile('newhelp.utilities').
+compile('ifmod.control').
+compile('ifmod.textkb').
+compile('ifmod.wimpkb').
+compile('ifmod.framekb').
+save('$.DSH.R.<file>').
+halt.

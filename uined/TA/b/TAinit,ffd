@@ -1,0 +1,116 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.dy.init
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+**/
+
+SECTION "TAinit"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glDYhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.sdhd"
+GET ":4.UINED.h.tahd"
+
+
+/**
+         G.ta.dy.INIT - OVERLAY INITIALISATION
+         -------------------------------------
+
+         General overlay initialisation routine.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         G.ta.area is assigned to the vector of storage
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.dy.init[]
+         ----------------
+
+         assign vector G.ta.area
+         perform initialisation
+
+
+
+**/
+
+
+let G.ta.dy.init() be
+$(
+   G.ta.area := GETVEC(m.ta.area.size)
+   G.ta.buff := GETVEC(m.ta.buffsize)
+$)
+
+
+
+/**
+         G.ta.dy.FREE
+         ---------
+
+         tidy up.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.dy.free[]
+         --------------
+
+         cache current data buffer in i/o processor
+         free the data buffer vector
+
+
+**/
+
+and G.ta.dy.free() be
+$(
+   $<debug
+   G.dh.close(G.context!m.data.handle)
+   $>debug
+   freevec(G.ta.area)
+   freevec(G.ta.buff)
+ $)
+
+.

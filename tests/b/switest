@@ -1,0 +1,35 @@
+// >b.switest
+
+Section "TestSWI"
+
+GET "LIBHDR"
+
+LET start() BE
+$(
+   Let in  = VEC 10
+   Let out = VEC 10
+   Let buf = VEC 80
+   Let failed = ?
+
+   Writef("Starting*n")
+
+   in!0 := 24
+   in!1 := 36
+
+   showvals(in)
+
+   Writes("Before*n")
+
+   failed := SWI( 6, in, out )
+
+   Writef("After: failed = %s ",failed->"TRUE","FALSE")
+
+   IF failed WRITEF("; error is '%s'",TKRERR(buf,80))
+
+   Newline()
+
+   showvals(out)
+$)
+
+and showvals( b ) be for i = 0 to 5 writef("Reg %i1: &%x8 = %n*n",i,b!i,b!i )
+

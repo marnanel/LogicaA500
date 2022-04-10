@@ -1,0 +1,21 @@
+*spool :4.uined.scratch.linkmods
+*| LINKMODS Version 1 16.04.86
+*| link the system kernel modules
+*dir :4.UINED.KE
+c linc
+*dir ^.SI
+c linc
+*| *dir ^.IN   *|not needed
+*| c linc
+*dir :4.UINED.SC
+c linc
+*dir ^.DH
+c linc
+*dir ^.VH
+c linc
+*dir ^.UT
+c linc
+*| *dir ^.OV   *|not needed
+*| c linc
+*dir ^
+*spool

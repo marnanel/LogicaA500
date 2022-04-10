@@ -1,0 +1,315 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.d.edit
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.05.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         22.09.87 3        MH          cursor key added to input.char
+         21.10.87 4        MH          updated for UNI version
+**/
+
+SECTION "TAdata4"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+
+/**
+         G.TA.D.EDIT
+         -----------
+
+         This routine allows the user to input a data item.
+
+         INPUTS:
+
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.d.edit[]
+         -------------
+
+         IF 1st time THEN
+            get data value
+            write data value
+            local state = edit
+         ELSE
+          IF input char is valid THEN
+             IF char terminating char then
+                terminate input string
+                convert to integer number
+                local state = INACTIVE
+             ELSE
+                put char into input string
+             END IF
+         END IF
+
+**/
+
+let G.ta.d.edit() be
+$(
+   let in.str = G.ta.area + (m.ta.temp.label / bytesperword)
+   let data.area = g.ta.area + (m.ta.data.area / bytesperword) +
+                   ((g.ta.area%(m.ta.cat.table +
+                              g.ta.area%m.ta.cur.var - 1) - 1) * 2)
+
+  test g.ta.area%m.ta.1st.time = m.ta.true then
+   $(
+      g.ta.area%m.ta.1st.time := m.ta.false
+      g.ta.area%m.ta.l.st := m.ta.edit
+      convert.num(data.area,in.str)
+      G.sc.selcol(m.sd.blue)
+      G.sc.ofstr(in.str)
+      G.key := m.kd.noact
+      G.sc.input(in.str,m.sd.blue,m.sd.cyan,11)
+   $)
+   else
+      input.char()
+$)
+
+and input.char() be
+$(
+   let xy = g.ta.area + (m.ta.xco / bytesperword) //word aligned for ! ops
+   let in.str = G.ta.area + (m.ta.temp.label / bytesperword)
+   let data.area = g.ta.area + (m.ta.data.area / bytesperword) +
+       ((g.ta.area%(m.ta.cat.table + g.ta.area%m.ta.cur.var - 1) - 1) * 2)
+   let num = vec 1
+   let l.pos = g.ta.area%m.ta.pgc=2 ->
+           g.ta.area%(m.ta.cat.table + g.ta.area%m.ta.cur.var-1) - m.ta.lines,
+           g.ta.area%(m.ta.cat.table + g.ta.area%m.ta.cur.var-1)
+   let y = m.ta.ystart-((l.pos-1)*m.sd.linw)
+
+
+   if in.str%0 = 0 & G.key = m.kd.action G.sc.beep()
+   if in.str%0 = 0 & G.key = m.kd.noact then
+   $(
+      unless ((17*m.sd.charwidth) <= G.xpoint <= (28*m.sd.charwidth)) &
+         ((y - m.sd.linw) <= G.ypoint <= y) then
+      $(
+         g.ta.area%m.ta.do := m.ta.true
+         G.ta.hidc(m.sd.blue)
+         g.ta.area%m.ta.do := m.ta.false
+         g.ta.area%m.ta.l.st := m.ta.INACTIVE
+         g.ta.area%m.ta.change := m.ta.true
+         !xy := G.xpoint
+         xy!1 := G.ypoint
+      $)
+   $)
+   switchon G.key into
+   $(       //m.kd.left and right added 22.9.87
+   case '0':case '1':case '2':case '3':case '4': case '5':case'6':case'7':
+   case '8':case '9': case m.kd.delete: case m.kd.left: case m.kd.right:
+         G.sc.input(in.str,m.sd.blue,m.sd.cyan,11)
+         g.ta.area%m.ta.l.st := m.ta.edit.lock
+         endcase
+   case m.kd.action: case m.kd.fkey2: case m.kd.fkey3:
+   case m.kd.fkey4: case m.kd.fkey5: case m.kd.fkey6:
+         unless in.str%0 = 0 then
+         $(
+            test good.num(in.str, num) then
+            $(
+               G.sc.input(in.str,m.sd.blue,m.sd.cyan,11)
+               g.ta.area%m.ta.l.st := m.ta.INACTIVE
+               g.ta.area%m.ta.change := m.ta.true
+               G.ut.mov32(num, data.area)
+               test 17*m.sd.charwidth <= G.xpoint <= 28*m.sd.charwidth |
+                    y <= G.ypoint <= y - m.sd.linw then
+               $(
+                  g.ta.area%m.ta.do := m.ta.true
+                  G.ta.hidc(m.sd.blue)
+                  g.ta.area%m.ta.do := m.ta.false
+               $)
+               else
+                  g.ta.area%m.ta.do := m.ta.true
+               !xy := G.xpoint
+               xy!1 := G.ypoint
+            $)
+            else
+               G.key := m.kd.noact
+         $)
+         if G.key = m.kd.action G.key := m.kd.noact
+         endcase
+   case '-': if in.str%0 = 0 then
+             $(
+                G.sc.input(in.str,m.sd.blue,m.sd.cyan,11)
+                g.ta.area%m.ta.l.st := m.ta.edit.lock
+             $)
+         endcase
+   $)
+$)
+and good.num(string,num) = VALOF
+$(
+   let len = string%0
+   let bottom = 1
+   let n = vec 1
+   let t = vec 1
+   let neg = string%1 = '-'
+   let radix = vec 1
+   G.ut.set32(1, 0, radix)
+   if len = 0 goto missing
+   if len = 11 & '1' <= string%1 <= '9' goto error
+   test neg
+   $(
+      bottom := 2
+      if len = 1 goto missing
+      if G.ta.area%m.ta.data.sign = m.ta.false goto error1 //unsigned data
+   $)
+   else
+      if len = 10 & string%1 > '2' goto error
+   G.ut.set32(0, 0, num)
+   for i = len to bottom by -1 do
+   $(
+      G.ut.set32(string%i - '0', 0, n)
+      unless G.ut.mul32(radix, n) goto error
+      G.ut.add32(n, num)
+      G.ut.set32(0, #x8000, t)
+      unless G.ut.cmp32(num, t) = m.eq & neg
+         unless (G.ut.unpack16(num, 2) & #x8000) = 0 goto error
+      G.ut.set32(10, 0, t)
+      G.ut.mul32(t, radix)
+   $)
+   if neg
+   $( let t = vec 1
+      G.ut.set32(0, 0, t)
+      rev32(num)
+      if (G.ut.unpack16(num, 2) & #x8000) = 0 then
+         unless G.ut.cmp32(num, t) = m.eq goto error
+   $)
+   unless range.check(num) goto error
+   resultis true
+
+error:
+   G.sc.ermess("Data value is outside range")
+   resultis false
+
+error1:
+   G.sc.ermess("Data must be unsigned")
+   resultis false
+
+missing:
+   G.sc.ermess("Invalid data value")
+   resultis false
+$)
+
+and range.check(n) = VALOF
+$( let t = vec 1
+   let t1 = vec 1
+   switchon G.ta.area%m.ta.data.size into
+   $(
+      case 1: test G.ta.area%m.ta.data.sign = m.ta.true then
+              $( G.ut.set32(-129,-1, t)
+                 G.ut.set32(128, 0, t1)
+                 test (G.ut.cmp32(n,t) = m.gt) &
+                    (G.ut.cmp32(n,t1) = m.lt) then
+                    resultis true
+                 else
+                    resultis false
+              $)
+              else
+              $( G.ut.set32(-1, -1, t)
+                 G.ut.set32(256, 0, t1)
+                 test (G.ut.cmp32(n,t) = m.gt) &
+                    (G.ut.cmp32(n,t1) = m.lt) then
+                    resultis true
+                 else
+                    resultis false
+              $)
+              endcase
+      case 2: test G.ta.area%m.ta.data.sign = m.ta.true then
+              $( G.ut.set32(-32769, -1, t)
+                 G.ut.set32(32768,0, t1)
+                 test (G.ut.cmp32(n,t) = m.gt) &
+                    (G.ut.cmp32(n,t1) = m.lt) then
+                    resultis true
+                 else
+                    resultis false
+              $)
+              else
+              $( G.ut.set32(-1, -1, t)
+                 G.ut.set32(0, 1, t1)
+                 test (G.ut.cmp32(n,t) = m.gt) &
+                    (G.ut.cmp32(n,t1) = m.lt) then // 65536
+                    resultis true
+                 else
+                    resultis false
+              $)
+              endcase
+   $)
+   resultis true
+$)
+
+
+and convert.num(n, string) be
+$(
+   let neg = false
+   let bottom = 1
+   let zero = vec 1
+   let r = vec 1
+   let c = 11
+   let t1 = vec 1
+   let t = vec 11/bytesperword
+   let num = vec 1
+   let max.neg = "-2147483648"
+
+   G.ut.set32(0, #x8000, t1)
+   test G.ut.cmp32(n, t1) = m.eq then
+      for i = 0 to max.neg%0 string%i := max.neg%i
+   else
+   $(
+      G.ut.set32(0, 0, zero)
+      G.ut.mov32(n, num)
+      if G.ut.cmp32(num, zero) = m.lt
+      $(
+         neg := true
+         rev32(num)
+         string%1 := '-'
+         bottom := 2
+      $)
+      $( G.ut.set32(10, 0, t1)
+         G.ut.div32(t1, num, r)
+         t%c := G.ut.unpack16(r, 0) + '0'
+      unless G.ut.cmp32(num,zero) = m.gt break
+      c := c - 1
+      $) repeat
+      for i = 11 to c by -1 do
+         string%(bottom + i - c) := t%i
+      string%0 := bottom + 11 - c
+   $)
+$)
+
+
+and rev32(num) be
+$( let t = VEC 1
+   G.ut.set32((G.ut.unpack16(num, 0) neqv #xFFFF),
+                   (G.ut.unpack16(num, 2) neqv #xFFFF), num)
+   G.ut.set32(1, 0, t)
+   G.ut.add32(t, num)
+$)
+.
+

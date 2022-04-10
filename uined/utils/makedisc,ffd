@@ -1,0 +1,18 @@
+*| Make a disc with the User Data Input Editor on drive 4
+mode 7
+*dir :4
+errcont
+*access * WR
+*destroy *
+*opt 4,2
+*title "DataEditor"
+*copy :4.UINED.r.* @
+*move :4.UINED.s.kernel !boot
+*| don't want r.kernel version
+*delete kernel
+*access * LR
+*compact 20 60
+errcont off
+mode 3
+*back
+

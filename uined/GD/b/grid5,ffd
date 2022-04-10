@@ -1,0 +1,175 @@
+SECTION "Grid 5"
+
+/**   GRID DATA - VALUE VALIDATION
+      ----------------------------
+
+      This section contains :
+
+         g.gd.valid
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.gridh
+
+      REVISION HISTORY:
+
+      DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+      17.6.87     1        SA       Initial version
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+GET ":4.UINED.h.uthd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.grhhd"
+
+/**
+      G.gd.VALID - VALIDATION (AND STORE) OF ENTRY BOX CONTENTS
+      ---------------------------------------------------------
+
+      returns true/false response if the contents of a given box are
+      suitable stores the new value
+
+      INPUTS:
+
+      pointer to string : m.gd.units
+                          m.gd.nfac
+                          m.gd.incid
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.gd.valid (box)
+      ----------------
+
+      SWITCHON box INTO
+         CASE OF box = normalising factor :
+         CASE OF box = incidence cut off  : IF string is valid
+                                            THEN store new value
+                                            RESULT = true
+         DEFAULT                          : RESULT = true
+      RESULT = false
+**/
+
+LET g.gd.valid (box) = VALOF
+$( SWITCHON box INTO
+   $( CASE m.gd.nfac   : IF valid.string (box)
+                         THEN $( LET num = ?
+                                 num := string.to.num (g.gd.buff+m.gd.nfac)
+                                 TEST -100 < num < 100
+                                 THEN $( g.gd.buff!m.gd.norm := num
+                                         RESULTIS true
+                                      $)
+                                 ELSE g.sc.ermess (
+                                             "Normalising factor out of range")
+                              $)
+                         ENDCASE
+      CASE m.gd.incid  : IF valid.string (box)
+                         THEN IF eval (g.gd.buff+m.gd.incid,
+                                                    g.gd.buff+m.gd.inc.cut.off)
+                              THEN RESULTIS true
+                         ENDCASE
+      DEFAULT          : RESULTIS true
+   $)
+   RESULTIS false
+$)
+
+// //////////////////////////////////////////////////////////////////////// //
+//                     routines used by g.gd.valid                          //
+// //////////////////////////////////////////////////////////////////////// //
+
+/**
+      valid.string (box) works for incidence and normalising factor boxes
+      It checks that characters exist and that all the characters are suitable
+      for conversion to a number befor returning true - otherwise suitable
+      error messages are output and it returns false.
+**/
+AND valid.string (box) = VALOF   // Check an entry is OK
+$( LET errmess1, errmess2 = ?, ?
+   errmess1 := (box = m.gd.nfac) -> "Normalising factor is blank",
+                                    "Incidence conversion incomplete"
+   errmess2 := (box = m.gd.nfac) -> "Invalid normalising factor",
+                                    "Invalid incidence cut-off point"
+   IF g.gd.buff%(box*bytesperword) = 0
+   THEN $( g.sc.ermess (errmess1)
+           RESULTIS false
+        $)
+   FOR H = 1 TO g.gd.buff%(box*bytesperword) DO
+      $( LET tag = true
+         UNLESS ('0' <= g.gd.buff%(bytesperword*box+H) <= '9') DO tag := false
+         IF (H = 1) & (g.gd.buff%(bytesperword*box+H) = '-')   DO tag := true
+         UNLESS tag DO $( g.sc.ermess (errmess2)
+                          RESULTIS false
+                       $)
+      $)
+   IF (g.gd.buff%(bytesperword*box) = 1 & g.gd.buff%(bytesperword*box+1) = '-')
+   THEN $( g.sc.ermess (errmess2)
+           RESULTIS false
+        $)
+   RESULTIS true
+$)
+
+
+// convert digit string to 16-bit number
+AND string.to.num (string) = VALOF
+$( LET chs = string%0
+   LET number = 0
+   LET index  = 1
+   FOR H = chs TO 1 BY -1 DO
+   $( UNLESS string%H = '-' DO
+      $( number := number + ((string%H)-'0')*index
+         index  := index*10
+      $)
+   $)
+   IF string%1 = '-'
+   THEN number := -number
+   RESULTIS number
+$)
+
+
+// evaluates a 32 bit number returning true for success
+AND eval (string, num) = VALOF      // returns true if valid number
+$( LET len = string%0               // assume only digits or '-' in first place
+   LET bottom = 1
+   LET n = VEC 1
+   LET radix = VEC 1
+   let t = vec 1
+   LET neg = string%1 = '-'
+   g.ut.set32(10, 0, t)
+   G.ut.set32(1, 0, radix)
+   G.ut.set32(0, 0, num)
+   IF neg THEN bottom := 2
+   FOR i = len TO bottom BY -1
+   $( G.ut.set32(string%i - '0', 0, n)
+      UNLESS G.ut.mul32(radix, n) RESULTIS false
+      G.ut.add32(n, num)
+      UNLESS (g.ut.unpack16.signed(num, 2) & #X8000) = 0 RESULTIS false
+      G.ut.mul32(t, radix)
+   $)
+   IF neg                                                // reverse sign of num
+   $( rev32(num)
+      IF (g.ut.unpack16.signed(num, 2) & #X8000) = 0 RESULTIS false
+   $)
+   RESULTIS true
+$)
+
+AND rev32(num) BE
+$( let t = vec 1
+   g.ut.set32(1, 0, t)
+   G.ut.set32(G.ut.unpack16(num, 0) NEQV #XFFFF, 
+                           G.ut.unpack16(num, 2) NEQV #XFFFF, num)
+   G.ut.add32(t, num)
+$)
+.

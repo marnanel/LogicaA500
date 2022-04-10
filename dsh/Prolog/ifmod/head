@@ -1,0 +1,22 @@
+
+/**************************************************
+*                 SS2 / if_module                 *
+*                 ***************                 *
+*                                                 *
+* Program Id     :  Frame knowledge base          *
+* Author         :  Safa Alai                     *
+* Installation   :  Logica CES Ltd.               *
+* Project Name   :  DISH                          *
+* Language       :  PrologX                       *
+* Date Written   :  30 / 11 / 87                  *
+* Function       :  Defines frame heads and tails *
+* Entry Predicate:  _                             *
+* Called by      :  frame                         *
+* Modules called :  _                             *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************

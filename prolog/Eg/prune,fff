@@ -1,0 +1,4 @@
+prune_list([],Match,[]).
+prune_list([Match|_],Match,[Match]).
+prune_list([Head|Tail],Match,[Head|PrunedList]):-
+   prune_list(Tail,Match,PrunedList).

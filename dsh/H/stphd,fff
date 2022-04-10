@@ -1,0 +1,46 @@
+//  STPHDR  for UNI system
+//     23.4.87
+//  special globals header for STINIT: the standalone state
+//  table generator.  See b.stinit.
+
+GLOBAL
+$(
+G.st.rcom:  700
+G.st.rexam: 701
+G.st.rgalwal: 702
+G.st.rhe:   703
+G.st.rnm:   704
+G.st.rsear: 705
+
+G.st.scom:  710
+G.st.sexam: 711
+G.st.sgalwal: 712
+G.st.she:   713
+G.st.snm:   714
+G.st.ssear: 715
+
+
+g.pl.planini  : 800
+g.nt.conini   : 802
+g.ov.shutdown : 803
+g.he.helpini  : 804
+
+
+g.ov.init.top    : 808
+
+g.nt.contents    : 811
+
+g.he.helpini     : 812
+g.nt.handle.keys : 813
+g.nt.goto.top    : 814
+g.nt.go.up       : 815
+g.nt.display.xrefs : 816
+
+// g.dummy : 817
+
+g.nt.cross.ref : 818
+
+g.nm.map.ini      :823
+g.nc.chart.ini    :824
+
+$)

@@ -1,0 +1,260 @@
+section "ma1"
+/**
+         MA.B.MA1 - Tabular Data Rearrangement
+         -------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         16.06.87    1     AEG      Initial version
+          3.08.87    2     SRY      Extended debug
+         11.08.87    3     SA       Reduce overflow messages
+         23.10.87    4     MH       updated for UNI version
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.mahd"
+
+LET g.ma.insert.cat (cat.num, var.num, cat.table, no.vars, bytes, sign) = VALOF
+$(
+   LET no.cats, higher.cats, lower.cats = ?, ?, ?
+   LET num.rpt, seq.rpt = ?, ?
+   LET no.data.val = VEC (1)
+   LET data.bytes = VEC (1)
+   LET old.tab.ptr = VEC (1)
+   LET new.tab.ptr = VEC (1)
+   LET no.cats32 = VEC (1)
+   LET rem32 = VEC (1)
+   LET seq32 = VEC (1)
+   LET more.bytes = VEC (1)
+   LET t = VEC (1)
+
+   no.cats := cat.table%(var.num - 1)
+   $<debug
+   g.sc.ermess ("V %n, C %n, NV %n, A %n, B %n, S %n", var.num, cat.num, 
+                                 no.vars, cat.table, bytes, sign)
+   UNLESS (cat.num > 0) & (cat.num <= no.cats + 1) THEN
+   $(
+      g.sc.ermess ("Invalid category number %n", cat.num)
+      RESULTIS FALSE
+   $)
+   UNLESS (var.num > 0) & (var.num <= no.vars) THEN
+   $(
+      g.sc.ermess ("Invalid variable number %n", var.num)
+      RESULTIS FALSE
+   $)
+   $>debug
+
+   g.ma.calc.num.val (cat.table, no.vars, no.data.val)
+   G.ut.set32(bytes, 0, data.bytes)
+   g.ut.mul32 (data.bytes, no.data.val)       // length of data
+   g.ma.inibuf (no.data.val, m.ma.up, FALSE)
+
+   higher.cats := no.cats - cat.num + 1
+   lower.cats := no.cats - higher.cats
+
+   g.ma.calc.data (var.num, cat.table, no.vars, @num.rpt, @seq.rpt)
+
+   G.ut.mov32(no.data.val, old.tab.ptr)
+
+   G.ut.set32(no.cats, 0, no.cats32)
+   G.ut.mov32(old.tab.ptr, new.tab.ptr)
+   g.ut.div32 (no.cats32, new.tab.ptr, rem32)
+   G.ut.set32((G.ut.unpack16(no.cats32, 0)) + 1, G.ut.unpack16(no.cats32, 2),
+                 no.cats32)
+   g.ut.mul32 (no.cats32, new.tab.ptr)
+
+   IF no.cats = 0 THEN
+   $( G.ut.set32(0, 0, t)
+      TEST G.ut.cmp32(no.data.val, t) = m.eq THEN       // first cat
+      $(
+         num.rpt := 1
+         seq.rpt := 1
+         G.ut.set32(bytes, 0, new.tab.ptr)
+      $)
+      ELSE
+      $(
+         g.ma.tidy.up ()
+         RESULTIS TRUE                            // file data won't change
+      $)
+   $)
+
+   G.ut.set32(num.rpt, 0, more.bytes)
+   G.ut.set32(seq.rpt, 0, seq32)
+   g.ut.mul32 (seq32, more.bytes)
+   g.ut.mul32 (data.bytes, more.bytes)
+   UNLESS g.ma.space (more.bytes) THEN RESULTIS FALSE
+
+   $<debug
+   g.sc.ermess ("No %n H %n L %n N %n S %n M %n", no.cats,higher.cats,lower.cats,
+                                                   num.rpt,seq.rpt,!more.bytes)
+   g.sc.ermess ("Old #X%X4%X4, new #X%X4%X4", old.tab.ptr!1, !old.tab.ptr,
+                                                  new.tab.ptr!1, !new.tab.ptr)
+   $>debug
+
+   FOR i = 1 TO seq.rpt DO
+   $(
+      $<debug
+      g.sc.mess ("count %n out of total %n ", i, seq.rpt)
+      $>debug
+      FOR j = 1 TO higher.cats DO
+         UNLESS g.ma.move.data (old.tab.ptr, new.tab.ptr, num.rpt,
+                   G.ut.unpack16(data.bytes, 0)) THEN
+            RESULTIS FALSE
+
+      UNLESS g.ma.init.data (new.tab.ptr, num.rpt,
+                   G.ut.unpack16(data.bytes, 0)) THEN
+         RESULTIS FALSE
+
+      FOR j = 1 TO lower.cats DO
+      $(
+         UNLESS g.ma.move.data (old.tab.ptr, new.tab.ptr, num.rpt,
+                  G.ut.unpack16(data.bytes, 0)) THEN
+            RESULTIS FALSE
+      $)
+   $)
+   UNLESS g.ma.endbuf () THEN
+      RESULTIS FALSE
+   g.ma.tidy.up ()
+
+   RESULTIS TRUE
+$)
+
+and g.ma.delete.cat (cat.num, var.num, cat.table, no.vars, bytes, sign) = VALOF
+$(
+   LET no.cats = ?
+   LET remvar = ?
+   LET data.bytes = VEC (1)
+   LET no.data.val = VEC (1)
+
+   no.cats := cat.table%(var.num - 1)
+   $<debug
+   g.sc.ermess ("V %n, C %n, NV %n, A %n, B %n, S %n", var.num, cat.num, no.vars, cat.table, bytes, sign)
+   UNLESS (cat.num > 0) & (cat.num <= no.cats) THEN
+   $(
+      g.sc.ermess ("Invalid category number %n", cat.num)
+      RESULTIS FALSE
+   $)
+   UNLESS (var.num > 0) & (var.num <= no.vars) THEN
+   $(
+      g.sc.ermess ("Invalid variable number %n", var.num)
+      RESULTIS FALSE
+   $)
+   $>debug
+
+   remvar := FALSE
+   G.ut.set32(bytes, 0, data.bytes)
+   g.ma.calc.num.val (cat.table, no.vars, no.data.val)
+   g.ut.mul32 (data.bytes, no.data.val)              // length of data in file
+   g.ma.inibuf (no.data.val, m.ma.down, remvar)
+
+   UNLESS delete.action (cat.num, var.num, no.cats, cat.table, no.vars, remvar,
+                                                      data.bytes, sign, 1) THEN
+      RESULTIS FALSE
+   UNLESS g.ma.endbuf() THEN
+      RESULTIS FALSE
+   g.ma.tidy.up ()
+   RESULTIS TRUE
+$)
+
+and g.ma.remove.var (var.num, cat.table, no.vars, bytes, sign) = VALOF
+$(
+   LET no.cats = ?
+   LET count = ?
+   LET remvar = ?
+   LET data.bytes = VEC (1)
+   LET no.data.val = VEC (1)
+
+   $<debug
+   g.sc.ermess ("V %n, NV %n, A %n, B %n, S %n", var.num, no.vars, cat.table, bytes, sign)
+   UNLESS (var.num > 0) & (var.num <= no.vars) THEN
+   $(
+      g.sc.ermess ("Invalid variable number %n", var.num)
+      RESULTIS FALSE
+   $)
+   $>debug
+
+   no.cats := cat.table%(var.num - 1)
+   remvar := TRUE
+   G.ut.set32(bytes, 0, data.bytes)
+
+   g.ma.calc.num.val (cat.table, no.vars, no.data.val)
+   g.ut.mul32 (data.bytes, no.data.val)              // length of data in file
+   g.ma.inibuf (no.data.val, m.ma.down, remvar)
+
+   count := no.cats - 1
+   FOR i = 1 TO count DO
+   $(
+      UNLESS delete.action (no.cats, var.num, no.cats, cat.table, no.vars,
+                                              remvar, data.bytes, sign, i) THEN
+         RESULTIS FALSE
+      no.cats := no.cats - 1
+      UNLESS g.ma.endbuf() THEN RESULTIS FALSE
+   $)
+   g.ma.tidy.up ()
+   RESULTIS TRUE
+ $)
+
+and delete.action (cat.num, var.num, no.cats, cat.table, no.vars, remvar,
+                                               data.bytes, sign, index) = VALOF
+$(
+   LET higher.cats, lower.cats = ?, ?
+   LET num.rpt, seq.rpt = ?, ?
+   LET old.tab.ptr = VEC (1)
+   LET new.tab.ptr = VEC (1)
+   LET move.len    = VEC (1)
+   LET count32     = VEC (1)
+
+   higher.cats := no.cats - cat.num
+   lower.cats  := no.cats - higher.cats - 1
+
+   g.ma.calc.data (var.num, cat.table, no.vars, @num.rpt, @seq.rpt)
+
+   G.ut.set32(1, 0, old.tab.ptr)
+   G.ut.set32(1, 0, new.tab.ptr)
+
+   IF remvar THEN
+   $(
+      G.ut.set32(((no.cats - 1) * num.rpt) - num.rpt, 0, move.len)
+      g.ut.mul32 (data.bytes, move.len)
+      G.ut.set32(num.rpt, 0, count32)
+      g.ut.mul32 (data.bytes, count32)
+   $)
+   $<debug
+   g.sc.ermess ("No %n, H %n, L %n, N %n S %n ", no.cats,higher.cats,lower.cats,
+                                                               num.rpt,seq.rpt)
+   g.sc.ermess ("Old #X%X4%X4, new #X%X4%X4", old.tab.ptr!1, !old.tab.ptr,
+                                                  new.tab.ptr!1, !new.tab.ptr)
+   $>debug
+   FOR i = 1 TO seq.rpt DO
+   $(
+      LET mess.flag = FALSE
+      FOR j = 1 TO lower.cats DO
+         UNLESS g.ma.move.data (old.tab.ptr, new.tab.ptr, num.rpt,
+                                 G.ut.unpack16(data.bytes, 0))
+            RESULTIS FALSE
+
+      IF (i = 1) &
+         (index = 1)
+      THEN mess.flag := TRUE
+      TEST remvar THEN
+          UNLESS g.ma.add.data (old.tab.ptr, num.rpt,
+                  G.ut.unpack16(data.bytes, 0), move.len, sign, mess.flag) THEN
+                  RESULTIS FALSE
+      ELSE
+          g.ma.delete.data (old.tab.ptr, num.rpt, G.ut.unpack16(data.bytes, 0))
+
+      FOR j = 1 TO higher.cats DO
+         UNLESS g.ma.move.data (old.tab.ptr, new.tab.ptr, num.rpt,
+                                 G.ut.unpack16(data.bytes, 0)) THEN
+             RESULTIS FALSE
+   $)
+   RESULTIS TRUE
+$)
+.

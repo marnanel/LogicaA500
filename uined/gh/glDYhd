@@ -1,0 +1,40 @@
+
+// /**
+//       GLDYHDR - GLOBALS HEADER for DY.INIT/DY.FREE
+//       --------------------------------------------
+//
+//       This is a master system Global definition file
+//       Reserved for state, routine and data globals
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+//       23.4.87  1        PAC      CREATED FOR UNI SYSTEM
+//       20.5.87     2     DNH      add for IN
+// **/
+
+GLOBAL
+$(
+G.IN.dy.init :FGDY+1
+G.IN.dy.free :FGDY+2
+
+G.IE.dy.init :FGDY+3
+G.IE.dy.free :FGDY+4
+
+G.GR.dy.init :FGDY+5
+G.GR.dy.free :FGDY+6
+
+G.HE.dy.init :FGDY+7
+G.HE.dy.free :FGDY+8
+
+G.AR.dy.init :FGDY+9
+G.AR.dy.free :FGDY+10
+
+G.TA.dy.init :FGDY+11
+G.TA.dy.free :FGDY+12
+
+G.GD.dy.init :FGDY+13
+G.GD.dy.free :FGDY+14
+
+$)
+

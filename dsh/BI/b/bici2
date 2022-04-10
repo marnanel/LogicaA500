@@ -1,0 +1,399 @@
+// > b.bici2
+//  DISH SOURCE  3.88
+/**
+         B.BICI2 - PROLOG/BCPL GRAPHICS
+         ------------------------------
+
+         This file contains graphics and utility 
+         routines FOR the BICI interface. It contains
+         the code to handle the Help windows.
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.BICI
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         22.3.88   1        PAC     Initial Version
+         5.4.88    2        PAC     Fix restore windows
+         03.05.88  3        SA      Installing WIMP
+         10.05.88  4        SA      Redraw handler for dlist window
+**/
+
+Section "BICI.graphics"
+
+GET "libhdr"
+GET "$.DSH.GH.GLHD"
+GET "$.DSH.GH.GLBIHD"
+GET "$.DSH.H.BIHD"
+GET "$.DSH.H.wmhd"
+GET "$.DSH.H.kdhd"
+GET "$.DSH.H.sdhd"
+
+/*
+GET "$.DSH.H.sdphd"
+GET "$.DSH.H.sthd"
+*/
+
+MANIFEST
+$(
+   m.bi.text.x.margin = 20  // left hand margin in the text window
+$)
+
+LET g.bi.switch.screens( type ) BE
+$(
+   test type = m.bi.entry.to.domesday 
+   then 
+   $( save.help.display()
+      restore.domesday.display()
+   $)
+   else
+   $(
+     save.domesday.display()
+     restore.help.display()
+   $)
+ 
+   // -- Draw screen and pointer
+   $( LET pb = VEC 6
+      pb!0,pb!1,pb!2,pb!3,pb!4 := -1,0,0,1280,1024
+
+      OSWimpS( m.wm.Force.Redraw, pb )
+   $)
+$)
+
+// SA 11.05.88
+AND save.help.display() BE
+$(
+   LET n = 0
+
+   WHILE n < G.bi.s!m.bi.windows.stack.ptr
+   DO $(
+         G.wm.close( G.bi.s!(m.bi.windows.stack + n) )
+         n := n + 1
+      $)
+$)
+
+// SA 11.05.88
+AND restore.help.display() BE
+$(
+   LET n = 0
+
+   WHILE n < G.bi.s!m.bi.windows.stack.ptr
+   DO $(
+         G.wm.set.to.front( G.bi.s!(m.bi.windows.stack + n) )
+         G.bi.top.level()
+         n := n + 1
+      $)
+$)
+
+AND save.domesday.display() BE 
+$(
+   LET lptr = G.windows!0
+
+   FOR i = lptr-1 TO 1 BY -1 DO
+   $( LET win = G.windows!i
+      IF (i ~= m.wm.invalid.handle) DO G.wm.close( win )
+   $)
+$)
+
+AND restore.domesday.display() BE
+$(
+   LET lptr = G.windows!0
+
+   FOR i = 1 TO lptr-1 DO
+   $( LET win = G.windows!i
+      IF (i ~= m.wm.invalid.handle) DO G.wm.set.to.front( win )
+   $)
+$)
+
+AND G.bi.poll.wimp() BE return
+
+AND G.bi.redraw.window( handle ) BE return
+
+AND G.bi.open( window ) BE return
+
+AND G.bi.close( window ) BE return
+
+AND G.bi.send.to( window, command, etc ) BE return
+
+AND G.bi.handle.keypress( window, etc ) BE return
+
+
+/**
+         G.BI.Top.Level() - Top level wimp routine
+         -----------------------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.context
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.wm.Top.Level []
+         --------------
+
+         poll WIMP system FOR next action
+         call appropriate handler FOR action
+
+
+**/
+
+AND G.bi.Top.Level() BE
+$(
+   LET q = VEC m.wm.poll.buf.words
+   LET reason.code = G.wm.poll(q, m.wm.no.mask)
+
+   G.bi.s!m.bi.key := m.kd.noact
+   G.bi.s!m.bi.icon := m.wm.invalid.handle
+
+   SWITCHON reason.code INTO
+   $(
+      CASE m.wm.Null.Reason.Code:
+         Null.Action()
+      ENDCASE
+
+      CASE m.wm.Redraw.Window.Request: 
+         Redraw.Handler(!q)
+      ENDCASE
+
+      CASE m.wm.Open.Window.Request:
+         G.wm.Update(!q,q!1,q!2,q!3,q!4,q!5,q!6,q!7)
+      ENDCASE
+
+      CASE m.wm.Close.Window.Request:
+         G.wm.Close(!q)
+      ENDCASE
+
+      CASE m.wm.Pointer.Leaving.Window:
+      ENDCASE
+      CASE m.wm.Pointer.Entering.Window:
+      ENDCASE
+
+      CASE m.wm.Mouse.Button.Change:
+         Mouse.Handler(!q,q!1,q!2,q!3,q!4,q!5)
+      ENDCASE
+
+      CASE m.wm.User.Drag.Box: // only used by AREA box dragging, I think
+      ENDCASE
+
+      CASE m.wm.Key.Pressed:
+         Key.Handler(!q,q!1,q!2,q!3,q!4,q!5,q%24) 
+      ENDCASE
+
+      CASE m.wm.Menu.Select:
+         Menu.Handler( q )
+      ENDCASE
+
+      CASE m.wm.Scroll.Request:
+         G.wm.Update( !q, q!1, q!2, q!3, q!4,
+                      q!5+q!8*40, q!6+q!9*16, q!7 )
+      ENDCASE
+
+      DEFAULT: G.wm.Error("Unknown reason code from Poll_Wimp")
+      ENDCASE
+   $)
+$)
+
+// routine to call when nothing is happening
+//
+AND Null.Action() BE RETURN
+
+// routine to redraw the specIFied window
+//
+AND Redraw.Handler( window.handle ) BE 
+$(
+   LET more.to.do = G.wm.redraw( window.handle ) // draw 'system' bits
+   LET redraw.routine = find.redraw.routine( window.handle )
+
+   UNLESS more.to.do RETURN
+
+   // now call the action routine to redraw the current graphics
+   //
+   WHILE more.to.do 
+   $(
+      redraw.routine()
+      more.to.do := G.wm.Get.Rectangle() // coords are in G.wm.q
+   $)
+$)
+
+AND find.redraw.routine( handle ) = VALOF 
+$(
+   LET window.index = -1 
+
+   FOR i = m.wm.options.window to m.wm.dlist.window 
+      IF G.sys.windows!i = handle window.index := i
+
+   IF window.index = -1 do
+      G.wm.error("Cannot find redraw handler FOR window %n",handle ) 
+
+   RESULTIS VALOF SWITCHON window.index INTO
+   $(
+      CASE m.wm.options.window    : RESULTIS redraw.opts.window
+      CASE m.wm.procedure.window  : RESULTIS redraw.proc.window
+      CASE m.wm.commentary.window : RESULTIS redraw.comm.window
+      CASE m.wm.peephole.window   : RESULTIS redraw.peep.window
+      CASE m.wm.dlist.window      : RESULTIS redraw.dlist.window
+      DEFAULT                     : RESULTIS G.dummy
+   $)
+$)
+
+AND redraw.opts.window() BE return
+
+AND redraw.proc.window() BE
+$(
+   LET buff = G.bi.s!m.bi.proc.buff  // text buffer
+   LET tip  = G.bi.s!m.bi.proc.tip   // text insertion pointer
+   LET start.line = find.start.string( tip, m.bi.text.buffer.size)
+   LET no.lines   = find.no.lines()
+
+   output.text( buff, m.bi.text.buffer.size, tip, start.line, no.lines )
+$)
+
+AND redraw.comm.window() BE
+$(
+   LET buff = G.bi.s!m.bi.comm.buff  // text buffer
+   LET tip  = G.bi.s!m.bi.comm.tip   // text insertion pointer
+   LET start.line = find.start.string( tip, m.bi.text.buffer.size)
+   LET no.lines   = find.no.lines()
+
+   output.text( buff, m.bi.text.buffer.size, tip, start.line, no.lines )
+$)
+
+AND redraw.peep.window() BE
+$(
+   LET buff = G.bi.s!m.bi.peep.buff  // text buffer
+   LET tip  = G.bi.s!m.bi.peep.tip   // text insertion pointer
+   LET start.line = find.start.string( tip, m.bi.text.buffer.size)
+   LET no.lines   = find.no.lines()
+
+   output.text( buff, m.bi.text.buffer.size, tip, start.line, no.lines )
+$)
+
+// SA 10.05.88
+AND redraw.dlist.window() BE
+$(
+   LET buff = G.bi.s!m.bi.dlist.buff  // text buffer
+   LET tip  = G.bi.s!m.bi.dlist.tip   // text insertion pointer
+   LET start.line = find.start.string( tip, m.bi.text.buffer.size)
+   LET no.lines   = find.no.lines()
+
+   output.text( buff, m.bi.text.buffer.size, tip, start.line, no.lines )
+$)
+
+AND find.start.string( text.insertion.ptr, buffer.size ) = VALOF
+$(
+   LET scroll.y    = G.wm.q!6
+   LET work.max.y  = G.wm.q!4
+   LET graph.max.y = G.wm.q!10
+   LET virtual.ptr = text.insertion.ptr +
+                     ((  work.max.y -
+                        graph.max.y -
+                           scroll.y   )/32 )*64
+
+   RESULTIS (virtual.ptr < buffer.size) -> virtual.ptr,
+                                          (virtual.ptr - buffer.size)
+$)
+
+AND find.no.lines() = VALOF
+$(
+   LET graph.max.y = G.wm.q!10
+   LET graph.min.y = G.wm.q!8
+
+   RESULTIS (graph.max.y - graph.min.y)/32 + 2
+$)
+
+AND output.text( text.buff, buff.size, tip, start.string, no.lines ) BE
+$(
+   LET str = VEC 64/BYTESPERWORD
+   LET x   = G.wm.q!m.wm.X0 + 4
+   LET y   = position.cursor()
+
+   FOR line = 1 TO no.lines
+   $(
+      g.sc.ofstr( "%s*n", g.ut.align( text.buff, start.string, str, 64 ) )
+      start.string := start.string + 64
+      IF start.string > (buff.size - 64) THEN start.string := 0
+      IF start.string = tip THEN BREAK
+
+      y := y - 32
+      G.wm.movea( x, y )
+   $)
+$)
+
+AND position.cursor() = VALOF
+$(
+   LET q = G.wm.q
+   LET graphics.max.y = q!10
+   LET y1 = (q!m.wm.Y1 - graphics.max.y - q!m.wm.Yscroll) REM 32
+   LET y  = graphics.max.y + y1
+
+   G.wm.MoveA( q!m.wm.X0 + 4, y )
+
+   RESULTIS y
+$)
+
+// routine to interpret mouse key presses
+//
+AND Mouse.Handler( mouseX, mouseY, buttons, window, icon, oldbuttons ) BE
+$(
+   G.bi.s!m.bi.window := window
+   G.bi.s!m.bi.icon   := icon  
+   G.bi.s!m.bi.key    := buttons
+
+   SWITCHON buttons INTO
+   $(
+      CASE #x02 : ENDCASE // MENU button - ignored in DISH
+
+      CASE #x01 :
+      CASE #x04 :    // SELECT/ADJUST buttons - shd ignore ADJUST ???
+    //  $(
+         // do state specIFic action FOR mouse buttons
+         //
+    //  $)
+      ENDCASE
+
+      CASE #x10:
+      CASE #x40:  // -- SELECT/ADJUST dragging
+      ENDCASE
+
+      CASE #x100:
+      CASE #x400: //  -- selection IF button type = 10
+      ENDCASE
+   $)
+
+   RETURN
+$)
+
+// routine to interpret keyboard key presses
+// 
+AND Key.Handler( window, icon, caretX, caretY, caretH, caretI, key ) BE
+$(
+   G.bi.s!m.bi.window := window
+   G.bi.s!m.bi.icon   := icon  
+   G.bi.s!m.bi.key    := key
+
+   RETURN
+$)
+
+// routine to decode menu selections
+//
+AND Menu.Handler( menu.list ) BE
+$(
+   RETURN
+//   $( LET i=0            // make a place FOR menu handles
+//      $( menulist!i := q!i ; i := i+1 $) REPEATUNTIL q!(i-1) = -1            
+//   $)
+$)
+.

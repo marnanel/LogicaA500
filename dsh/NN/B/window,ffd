@@ -1,0 +1,255 @@
+//  AES SOURCE  6.87
+
+/**
+         NM.WINDOW - WINDOW VARIABLE FOR NATIONAL MAPPABLE
+         -------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         cnmWIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         09.06.86 1        D.R.Freed   Initial version
+         ********************************
+         7.7.87      2     DNH      CHANGES FOR UNI
+
+         g.nm.window.variable
+**/
+
+section "nmwindow"
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNMhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.nmhd"
+
+
+/**
+         G.NM.WINDOW.VARIABLE - WINDOW DISPLAYED VARIABLE
+         ------------------------------------------------
+
+         Window a variable display such that all areas falling
+         outside the chosen area of interest are blacked out.
+
+         Only called when area of interest was chosen by name
+
+         INPUTS: none
+
+         OUTPUTS: none
+
+         GLOBALS MODIFIED:
+
+         g.nm.s!m.nm.windowed
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.nm.window.variable []
+         --------------------
+
+         IF AOI areal unit ~= current areal unit THEN
+            IF AOI areal unit boundary dataset exists THEN
+               save context
+               load dataset header
+               IF available at current resolution THEN
+                  load sub-dataset
+               ENDIF
+            ENDIF
+         ENDIF
+
+         IF above are available THEN
+            initialise variable processor
+            turn off mouse pointer
+            set plot window
+            process variable with window routines
+            unset plot window
+            restore mouse pointer
+         ELSE
+            output error message "Unable to window"
+         ENDIF
+
+         IF context was saved THEN
+            restore context to entry state
+         ENDIF
+
+         IF window was done THEN
+            re-initialise variable processor
+            indicate that display is windowed
+         ENDIF
+**/
+
+let g.nm.window.variable () be
+$(
+   let possible, different, context.saved =  ?, ?, ?
+   and position, entry.state = ?, ?
+   and bound.addr = vec 2
+   and dummy = vec 16
+
+   different := (g.context!m.type.AOI ~= g.context!m.areal.unit)
+   context.saved := FALSE
+
+   test different then
+      // find boundary dataset for areal unit to be used for windowing
+      possible :=
+         g.nm.au.usable (0, g.context!m.type.AOI,
+                                 dummy, dummy, dummy, bound.addr)
+   else
+      possible := TRUE
+
+   if (possible & different) then
+      $(
+         g.nm.save.context ()
+         context.saved := TRUE
+
+         g.nm.load.dataset.header (bound.addr)
+
+         // ensure loader knows this is a boundary file
+         g.nm.s!m.nm.dataset.type := m.nm.areal.boundary.data
+
+         // look for sub-dataset at current resolution
+         g.nm.look.for.subset (m.nm.raster.data.type,
+                               g.context!m.resolution,
+                               @position)
+         possible := position >= 0
+
+         if possible then
+            g.nm.load.raster.sub.dataset (position)
+      $)
+
+   test possible then
+
+      $(
+         g.nm.init.processor (g.context!m.grbleast, g.context!m.grblnorth,
+                              g.context!m.grtreast, g.context!m.grtrnorth)
+
+         entry.state := g.sc.pointer (m.sd.off)
+
+         // define graphics window for plotting
+         g.nm.set.plot.window ()
+
+         g.nm.process.variable (window.uniform.block, window.fine.block)
+
+         // restore graphics window to its default setting
+         g.nm.unset.plot.window ()
+
+         g.sc.pointer (entry.state)
+      $)
+
+   else
+         g.sc.ermess ("Unable to window")
+
+
+   if context.saved then
+      g.nm.restore.context ()
+
+   if possible then
+      $(
+         g.nm.init.processor (g.context!m.grbleast, g.context!m.grblnorth,
+                              g.context!m.grtreast, g.context!m.grtrnorth)
+         g.nm.s!m.nm.windowed := TRUE
+      $)
+$)
+
+
+
+/*    Windowing routines to be used by g.nm.window.variable follow ;
+      they plot all grid squares that are not in the AOI named area
+      in black, thus leaving the AOI windowed
+*/
+
+/*
+      window.uniform.block
+
+         windows a block whose values are all the same, due to
+         index level compression
+*/
+
+and window.uniform.block (record.number, offset, east, north, block.size) be
+$(
+   let value = ?
+
+   test (record.number = m.nm.uniform.missing) then
+
+      value := record.number
+
+   else
+
+      value := g.nm.dual.data.type (g.nm.s!m.nm.raster.data.type) ->
+                                                   offset, - record.number
+
+   if value ~= g.context!m.name.AOI then
+      $(
+         g.sc.selcol (m.sd.black2)
+         g.nm.plot.block (east, north, block.size)
+      $)
+$)
+
+
+/*
+      window.fine.block
+
+         windows the specified fine block of values
+
+         assumes the following order for an n*n matrix of values
+         1 -> n*n, where n is m.nm.fine.blocksize :
+
+               .
+               .
+               .
+         n+1   n+2   n+3   ...   ...   2n
+          1     2     3    ...   ...    n
+*/
+
+and window.fine.block (start.east, start.north) be
+$(
+   let wholly.within, index  =  ?, ?
+
+   // all plotting will be done in black
+   g.sc.selcol (m.sd.black2)
+
+   // see if whole fine block is within area of interest - if it is
+   // then processing of the block can be performed more quickly
+
+   wholly.within :=
+         (start.east >= g.nm.s!m.nm.grid.sq.low.e) &
+         (start.east + m.nm.fine.blocksize <= g.nm.s!m.nm.grid.sq.top.e) &
+         (start.north >= g.nm.s!m.nm.grid.sq.low.n) &
+         (start.north + m.nm.fine.blocksize <= g.nm.s!m.nm.grid.sq.top.n)
+
+   // process block
+
+   index := m.nm.max.data.size
+
+   for north = 1 to m.nm.fine.blocksize do
+
+      for east = 1 to m.nm.fine.blocksize do
+
+         $(square
+         let curr.e, curr.n =
+                  start.east + east - 1, start.north + north - 1
+
+         // see if this square is within area of interest;
+         // NOTE that since BCPL evaluates conditional expressions from
+         //      left to right and stops as soon as value is known, then
+         //      blocks wholly within the area will only perform the first
+         //      part of the test
+
+         if wholly.within |
+               ( (curr.e >= g.nm.s!m.nm.grid.sq.low.e) &
+                 (curr.e < g.nm.s!m.nm.grid.sq.top.e) &
+                 (curr.n >= g.nm.s!m.nm.grid.sq.low.n) &
+                 (curr.n < g.nm.s!m.nm.grid.sq.top.n) )   then
+            $(inside
+            // NOTE g.nm.values contains boundary values which are all
+            //      contained within the lsw
+            if g.nm.values!index ~= g.context!m.name.AOI then
+               g.nm.plot.block (curr.e, curr.n, 1)
+            $)inside
+
+         index := index + m.nm.max.data.size
+         $)square
+$)
+
+.
+

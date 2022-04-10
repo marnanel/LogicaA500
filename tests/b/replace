@@ -1,0 +1,359 @@
+/*
+   REPLACE    DNH
+
+
+   Source code search utility
+   --------------------------
+
+   Adapted from WINtoFLOP, the BASIC offsite backup program.
+
+   This searches all package's source code for the given string
+   OR searches a given directory on the Winchester (e.g. DH.b)
+
+   The $. at the start of the directory name in the second case
+   is always present.
+
+   REVISION HISTORY:
+
+   DATE      VERSION  AUTHOR    DETAILS OF CHANGE
+   21.07.86  1        PAC       Initial Version
+   24.07.86  2        PAC       Counts lines checked
+     6.8.86  3        PAC       Two arguments to search for
+   13.10.86  4        PAC       Add search for NN.a
+   30.10.86  5        PAC       Search under $, not :0
+   21.4.87   6        DNH     Nobbled to REPLACE
+    1.6.87   7        PAC     Fixed for AES
+   13.8.87   8        PAC     Better help facilities
+*/
+
+SECTION "SourceReplace"
+
+GET "LIBHDR"
+GET "SYSHDR"
+
+static
+$(
+s.out.h = ?    // output file handle
+s.cns.h = ?    // normal console output handle
+s.skip = ?     // number of characters to skip after a successful replace
+
+s.dir.buff = 0
+s.nptr     = 0
+
+$)
+
+MANIFEST $( m.max.num.names = 77 $)
+
+/*
+         Parameters are:
+         * target:  target string, which may include '*N', '*"'
+         etc so long as the whole thing is enclosed in double
+         quotes.
+         * replace:  replace string. Same rules as target.
+         * root:  root directory from which to do a 'total
+         replace'.  Must be specified if 'in' is not.
+         * in:  optional directory specification. If given the
+         search and replace is only done in that dir.
+         * once:  boolean param.  If specified then the target
+         sting is only expected once and the rest of the file is
+         just copied without checking.  Quick way to put new
+         header 'get's in.
+*/
+
+
+LET START() BE
+$(
+   LET target  = ?
+   LET replace = ?
+   LET root    = ?
+   LET dir     = ?
+   LET once    = ?
+   LET argvec  = VEC 80
+   LET template = "target/A,replace/A,from=root/K,in/K,once/S"
+
+   IF RDARGS (template, argvec, 80) = 0 THEN
+   $( WRITEF("Usage: %s*n",template); STOP(0) $)
+
+   target, replace, root, dir, once := argvec!0, argvec!1, argvec!2,
+                                                         argvec!3, argvec!4
+ 
+   s.dir.buff := GETVEC( 11*m.max.num.names / bytesperword ) // the names
+
+   test root = 0 & dir = 0 do
+   $( WRITES ("*NRoot of search (from), or directory pathname (in), must be specified*N")
+      STOP (0)
+   $)
+   else if root ~= 0 & dir ~= 0 do
+   $( WRITES ("*NEither specify a root of search (from) or a pathname (dir), not both*N")
+      STOP (0)
+   $)
+
+   FOR i = 1 TO target%0 DO            // upper case the target
+      target%i := CAPCH( target%i )
+   WRITEF ("Replace \%S\ with \%S\*N", target, replace)
+   IF root ~= 0 DO
+      WRITEF ("*s*s*s- from root directory %S*N", root)
+   IF dir ~= 0 DO
+      WRITEF ("*s*s*s- only in directory %S*N", dir)
+   IF once DO
+      WRITES ("*s*s*s- only once per file*N")
+   NEWLINE ()
+
+   s.cns.h := OUTPUT ()        // current console output
+
+   TEST dir THEN
+   $( // RUNPROG("**DIR $")            // get to top; 'dir' is full pathname
+      search.( dir, target, replace, once )
+   $)
+   ELSE
+   $( RUNPROG("**DIR %S", root)     // get to root-of-search directory
+      total.search( target, replace, once )
+   $)
+
+   WRITEF("*N Finished*N")
+$)
+
+
+// search ALL files
+//
+AND total.search (target, replace, once) BE
+$(
+   LET teststr = "xx.b"
+   LET i,j     = 'A', 'A'
+   LET handle  = 0
+
+   teststr%1 := i   // ensure that the string is initialised
+   teststr%2 := j
+
+   $(testloop
+                              // see whether the directory exists
+      IF legal.( teststr )
+      THEN handle := open.( teststr )
+
+      IF handle ~= 0 THEN
+      $( close.( handle )
+         search.( teststr, target, replace, once )
+      $)
+
+      j := j+1
+      teststr%2 := j
+
+      IF j <= 'Z' THEN LOOP
+
+      i := i+1
+      j := 'A'
+
+      teststr%1 := i
+      teststr%2 := j
+
+      IF i <= 'Z' THEN LOOP
+
+   $)testloop
+   REPEATUNTIL i > 'Z'
+
+   search.( "UT.a", target, replace, once )
+   search.( "NN.a", target, replace, once )
+   search.( "KE.v", target, replace, once )
+$)
+
+
+// special case - exclude ED + EX
+AND legal.( name ) = VALOF
+$(
+   IF COMPSTRING( name,"ED.b" ) = 0 RESULTIS FALSE
+   IF COMPSTRING( name,"EX.b" ) = 0 RESULTIS FALSE
+   RESULTIS TRUE
+$)
+
+// always '*backs' to the original directory
+
+AND search.( directory, target, replace, once ) BE
+$(
+   LET fname  = VEC 25  // buffer for file name
+   LET temp.fname = "REPL-TMP"
+   LET ch     = ?
+   LET stream = ?
+   LET errormsg = "Failed to find directory %s reason %n*N"
+   LET pb = VEC 6
+
+   s.nptr     := 0
+   Fillwords( s.dir.buff, 11*m.max.num.names / bytesperword, 0 )
+
+   directory%(directory%0+1) := 0
+
+   pb!0 := directory*bytesperword+1
+   pb!1 := s.dir.buff*bytesperword 
+   pb!2 := m.max.num.names 
+   pb!3 := 0 
+   pb!4 := 11*m.max.num.names  
+   pb!5 := "***x00" * bytesperword + 1
+
+   // read file names from the directory
+   //
+   OsGbpb( 9, pb )
+
+   WRITEF("Searching directory %s, %n files*N", directory, pb!2)
+
+   RUNPROG ("**DIR %s", directory )
+
+   WHILE next.file( fname )
+   DO
+      process.( fname, temp.fname, target, replace, once )
+
+   RUNPROG ("**DELETE %S", temp.fname)    // delete temp file
+   RUNPROG ("**BACK")
+$)
+
+// read next filename from directory buffer
+//
+AND next.file( buff ) = VALOF
+$(
+   LET count = 1
+   LET ch    = ?
+
+   ch := s.dir.buff%s.nptr; s.nptr := s.nptr + 1
+
+   IF ch = 0 RESULTIS FALSE  // last entry
+
+   $( buff%count := ch
+      count      := count + 1
+      ch         := s.dir.buff%s.nptr
+      s.nptr     := s.nptr + 1 
+   $) REPEATUNTIL (ch = #x0) | (count > 10 )
+
+   buff%0 := count -1
+
+   RESULTIS TRUE
+$)
+
+AND open.( filename ) = Osfind( #x40, filename )
+
+AND close.( handle ) = Osfind( 0, handle )
+
+AND process. (fname, temp.fname, target, replace, once) BE
+$(
+   LET changed = ?
+
+   open.save (temp.fname)      // this aborts if it fails
+   changed := find. (fname, target, replace, once)
+   close.save ()
+   if changed then
+   $(                                        // changed. save new version
+      RUNPROG ("**DELETE %S", fname)
+      RUNPROG ("**RENAME %S %S", temp.fname, fname)
+   $)
+$)
+
+AND find.( file, target, replace, once ) = VALOF
+$(
+   LET fbuff = ?        // the input file
+   LET offset = 0       // byte offset
+   LET lim   = ?
+   LET matches = 0      // number of matches found so far
+
+   fbuff := FILETOVEC( file )
+   lim := (fbuff!1)              // data size in header
+
+   IF fbuff = 0 THEN
+   $( WRITEF("*N Can't load %s reason %n*N", file, RESULT2 )
+      RESULTIS FALSE
+   $)
+   fbuff := fbuff + 2            // skip header words
+
+   SELECTOUTPUT (s.out.h)
+   $(
+      TEST trytomatch( fbuff, offset, target ) THEN
+      $(
+         WRITES (replace)        // write the replacement string
+         offset := offset + s.skip   // skip over replaced chars
+         matches := matches + 1  // flag for at least one match
+
+         if once do              // match found and made. Just copy the rest
+         $(
+            until (offset REM bytesperword) = 0 do    // get to word boundary
+            $(
+               WRBIN (fbuff%offset)
+               offset := offset + 1
+            $)
+            unless (offset+bytesperword) >= lim do
+            $(                            // as many words as possible at once
+
+               let bytes = (lim - offset)
+               WRITEBYTES ( fbuff, offset, bytes )
+               offset := offset + bytes
+
+            /* was...  let words = (lim - offset)/bytesperword
+               WRITEWORDS ( fbuff+(offset/bytesperword), words )
+               offset := offset + (words * bytesperword)
+            */
+            $)
+            while offset < lim do         // write the last few bytes
+            $(
+               WRBIN (fbuff%offset)
+               offset := offset + 1
+            $)
+         $)
+      $)
+      ELSE
+      $(
+         WRBIN (fbuff%offset)    // write the character
+         offset := offset + 1
+      $)
+   $) REPEATUNTIL offset >= lim
+   SELECTOUTPUT (s.cns.h)
+       
+   FREEVEC (fbuff - 2)              // free buffer       
+
+   IF matches THEN // changed a few
+   $( WRITEF("Replaced in %s:  %n *N", file, matches)
+      RESULTIS TRUE
+   $)
+
+   // otherwise, not found.
+   WRITEF("Not found in %s *N", file)
+   
+   RESULTIS FALSE
+$)
+
+// mustn't be any CR's in 'string': BCPL codes '*N' as LF if
+// specified as a parameter.
+// Always matches null string to anything.
+
+AND trytomatch( buffer, offset, string ) = VALOF
+$(
+   LET sj = 1  // offset into string
+   LET bj = 0  // offset into buffer from 'offset'
+   LET ch = ?
+
+   while sj <= string%0
+   $(
+      $( ch := CAPCH ( buffer%(offset+bj) )
+         bj := bj+1
+      $) repeatwhile ch = #X0D      // CR's don't count in match
+
+      if string%sj ~= ch  RESULTIS FALSE
+      sj := sj+1
+   $)
+
+   s.skip := bj      // yucky way of returning value as well
+   RESULTIS TRUE
+$)
+
+
+and open.save (filename) be
+$(
+   s.out.h := FINDOUTPUT (filename)
+   unless s.out.h do
+   $( WRITEF ("Failed to open %S for output, reason %N*N", filename, s.out.h)
+      STOP (0)
+   $)
+$)
+
+
+and close.save () be
+$(
+   SELECTOUTPUT (s.out.h)
+   ENDWRITE ()
+   SELECTOUTPUT (s.cns.h)
+$)
+

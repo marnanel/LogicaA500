@@ -1,0 +1,884 @@
+/**************************************************
+*                   AUI / dmagb                   *
+*                   ***********                   *
+*                                                 *
+* Program Id     :  dmagb                         *
+* Author         :  Alan Bustany / Simon Dickens  *
+* Installation   :  Logica Cambridge Ltd.         *
+* Project Name   :  AUI                           *
+* Language       :  Quintus PROLOG                *
+* Date Written   :  29 / 07 / 87                  *
+* Function       :  Communicates with the user    *
+*                   by acting on the options      *
+*                   given to it and generating a  *
+*                   list of events for admin      *
+* Called by      :  top_level loop predicate aui  *
+* Modules called :  admin, procedures             *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*               Revision History 1                *
+* Revised by   : S Ala'i                          *
+* Date Revised : 15/12/87                         *
+* Description  : WP3300 for DISH.  Changes made to*
+*                enhance the usage of presentation*
+*                level.                           *
+*            R1: redefined.                       *
+*            R2: redifined.                       *
+*     R3 to R13: all clauses modified to pass     *
+*                UserModel.                       *
+***************************************************
+*               Revision History 2                *
+* Revised by   : S Ala'i                          *
+* Date Revised : 17/12/87                         *
+* Description  : WP3300 for DISH.  Changes and    *
+*                additions for operating with the *
+*                pkb structure defined in WP1300  *
+*                specification.                   *
+*           R14: new clause to identify selection *
+*                option.                          *
+*           R15: new predicates to process        *
+*                selection option.                *
+*           R16: modified to deal with basic      *
+*                methods instead of step          *
+*                primitives.                      *
+*           R17: modified to remove redundant     *
+*                terms.                           *
+*           R18: modified due to change in the    *
+*                definition of the first argument *
+*                of pkb predicate.                *
+*           R19: new predicate to find name of    *
+*                current generic_state.           *
+***************************************************
+*               Revision History 3                *
+* Revised by   : S Ala'i                          *
+* Description  : Testing and Debugging            *
+* 14/03/88  R20: added event_key before           *
+*                um_presentation terms.           *
+* 16/03/88  R21: fixed incorrect arguments.       *
+* 17/03/88  R22: added exit option.               *
+* 18/03/88  R23: removed writes for compiled      *
+*                version.                         *
+* 23/03/88  R24: limit build_up of Done list      *
+*                when processing some_of          *
+* 24/03/88  R25: drop conclusion(null_conclusion) *
+*                from done list.                  *
+**************************************************/
+
+/*
+*  Name         :  writeln(+X)
+*  Function     :  prints X followed by a newline character
+*  Argument     :  X; generally an atom to be printed
+*/
+
+writeln(X) :- write(X), nl.
+
+/*
+*  Name         :  env(?Environment, ?Context, +User_Info, ?User_Model)
+*  Function     :  establishes new and old structures for the environment
+*                  as appropriate
+*  Arguments    :  Environment; old and new overall environments
+*                  Context; old and new contexts each containing a stack of
+*                  procedural states, and a timeline with a list of procedures
+*                  and time information
+*                  User_Info; user's name and file etc. which are unchanged
+*                  whenever the context and user model are updated
+*                  User_Model; binary tree of form (Step/procedure, level of
+*                  knowledge)
+*/
+
+env(env(Old_Context, User_Info, Old_User_Model)
+    ~ env(New_Context, User_Info, New_User_Model),
+    Old_Context ~ New_Context,
+    User_Info,
+    Old_User_Model ~ New_User_Model).
+            
+/*
+*  Name         :  env_context(+Env, -Context)
+*  Function     :  obtains the context of the present environment
+*  Arguments    :  Env; present environment
+*                  Context; context within Env
+*/
+
+env_context(Env, Context) :- env(Env, Context, _, User_Model ~ User_Model).
+
+/*
+*  Name         :  env_user_model(+Env, -User_Model)
+*  Function     :  obtains the user model of the present environment
+*  Arguments    :  Env; present environment
+*                  User_Model; user model within Env
+*/
+
+env_user_model(Env, User_Model) :- env(Env, Context ~ Context, _, User_Model).
+
+/*
+*  Name         :  context(?Context, ?Proc_Stack, ?Timeline)
+*  Function     :  establishes new and old structures within Context
+*  Arguments    :  Context; context of the present environment consisting of
+*                  a stack of procedural states and a list of procedures with
+*                  time information
+*                  Proc_Stack; stack of procedural states
+*                  Timeline; list of procedures with time information
+*/
+
+context(context(Old_Proc_Stack, Old_Timeline)
+        ~ context(New_Proc_Stack, New_Timeline),
+        Old_Proc_Stack ~ New_Proc_Stack,
+        Old_Timeline ~ New_Timeline).
+
+/*
+*  Name         :  context_proc_stack(+Context, -Proc_Stack)
+*  Function     :  obtains the procedural stack from the present context
+*  Arguments    :  Context; present context
+*                  Proc_Stack; procedural stack within context
+*/
+
+context_proc_stack(Context, Proc_Stack) :-
+        context(Context, Proc_Stack, Timeline ~ Timeline).
+
+/*
+*  Name         :  timeline_pop(?Timeline, -Procedure)
+*  Function     :  pops Procedure from the head of the list of procedures 
+*                  in Timeline
+*  Arguments    :  Timeline; old and new timelines
+*                  Procedure; the procedure removed from the head of the 
+*                  old timeline
+*/
+
+timeline_pop(timeline([Procedure | Procedures]) ~ timeline(Procedures),
+             Procedure).
+
+/*
+*  Name         :  proc_stack_push(?Proc_States, +Proc_State)
+*  Function     :  pushes Proc_State onto the head of the list of procedural
+*                  states
+*  Arguments    :  Proc_States; old and new list of procedural states
+*                  Proc_State; new state added to the head of the list
+*/
+
+proc_stack_push(Proc_States ~ [Proc_State | Proc_States], Proc_State).
+
+/*
+*  Name         :  proc_stack_generic_stack(?Proc_Stack,
+*                                           ?Generic_Stack,
+*                                           -Procedure)
+*  Function     :  creates old and new generic stacks from Proc_Stack and finds
+*                  the appropriate procedure and level of presentation
+*  Arguments    :  Proc_Stack; old and new stacks of procedural states
+*                  Generic_Stack; old and new generic stacks within Proc_Stack
+*                  Procedure; present procedure name
+*                  Presentation; present level of presentation
+*/
+
+proc_stack_generic_stack(                                            %R9
+        [proc_state(Procedure, Old_Generic_Stack) | Proc_States]
+        ~ [proc_state(Procedure, New_Generic_Stack) | Proc_States],
+        Old_Generic_Stack
+        ~ New_Generic_Stack,
+        Procedure).
+
+/*
+*  Name         :  proc_state_current_primitive(+Proc_State,
+*                                               -Procedure,
+*                                               -Primitive)
+*  Function     :  obtains the present procedure name, level of presentation and*                  primitive step from Proc_State
+*  Arguments    :  Proc_State; present procedural state
+*                  Procedure; present procedure name
+*                  Presentation; present level of presentation
+*                  Primitive; present primitive step
+*/
+
+proc_state_current_primitive(                                             %R10
+              proc_state(Procedure,[generic_state(_,_,Primitive,_) | _]),
+              Procedure,
+              Primitive).
+proc_state_current_primitive(
+              proc_state(Procedure, []),
+              Procedure,
+              no_primitive).
+
+/*
+*  Name         :  generic_stack_generic_state(?Generic_Stack, ?Generic_State)
+*  Function     :  obtains the old and new generic states from the head of the 
+*                  old and new generic stack lists
+*  Arguments    :  Generic_Stack; old and new generic stacks both in the form
+*                  of lists of generic states
+*                  Generic_State; the generic states at the head of the generic
+*                  stack lists
+*/
+
+generic_stack_generic_state([Old_Generic_State | Generic_Stack]
+                            ~ [New_Generic_State | Generic_Stack],
+                            Old_Generic_State
+                            ~ New_Generic_State).
+
+/*
+*  Name         :  generic_stack_push(?Generic_Stack, +Generic_State)
+*  Function     :  pushes Generic_State onto the head of the old generic
+*                  stack and returns the new generic stack thus formed
+*  Arguments    :  Generic_Stack; old and new generic stacks
+*                  Generic_State; the generic state being added to the old
+*                  generic stack
+*/
+
+generic_stack_push(Generic_Stack ~ [Generic_State | Generic_Stack], Generic_State).
+
+/*
+*  Name         :  generic_stack_pop(+Procedure, ?Generic_Stack, -Primitive)
+*  Function     :  if there is no new generic stack calls pop_proc(Procedure),
+*                  whereas if there is obtains the next primitive to be done
+*                  from the present generic state which is popped from the
+*                  old generic stack
+*  Arguments    :  Procedure; procedural name from the present generic state
+*                  Generic_Stack; present generic stack
+*                  Primitive; next step to be done from the popped state
+*/
+
+generic_stack_pop(Procedure, [_] ~ [], pop_proc(Procedure)).
+generic_stack_pop(_, [_|Old_Generic_Stack] ~ New_Generic_Stack, Primitive) :-
+        Old_Generic_Stack ~= [],
+        generic_stack_generic_state(Old_Generic_Stack ~ New_Generic_Stack, Generic_State),
+        generic_state_next(Generic_State, Primitive).
+
+/*
+*  Name         :  generic_stack_current_primitive(+GenericStack, -Primitive)
+*  Function     :  obtains the current primitive from the old generic state
+*                  which is the head of the old generic stack
+*  Arguments    :  GenericStack; old and new generic stacks, which are lists
+*                  of generic states
+*                  Primitive; current primitive returned by the predicate
+*/
+
+generic_stack_current_primitive([generic_state(_, _, Primitive, _) | _] ~ _,
+                                 Primitive).
+
+/*
+*  Name         :  generic_stack_current_generic(+GenericStack, -Generic)
+*  Function     :  obtains name of the current generic_state.
+*/
+
+generic_stack_current_generic([GenericState | _] ~ _, Generic):-       %R19
+   arg(1, GenericState, Generic).
+
+/*
+*  Name         :  next_primitive(+Procedure,
+*                                 +Generic_Stack,
+*                                 +UserModel,
+*                                 -Primitive)
+*  Function     :  obtains the next primitive from the generic stack in the
+*                  present procedural state and prints a warning if none found
+*  Arguments    :  Procedure; present procedural state name
+*                  Presentation; level of presentation in the present
+*                  procedural state
+*                  Generic_Stack; generic stack in the present procedural state
+*                  Primitive; next primitive in that generic stack
+*/
+
+next_primitive(Procedure, GenericStack, UserModel, Primitive):-           %R6
+   next_primitive1(Procedure, GenericStack, UserModel, Primitive),
+   %writeln(next_primitive(Primitive)),                                   %R23
+   !.
+next_primitive(_, GenericStack, _, _):-
+   send_message(".ERROR.2"),
+   write('WARNING: next primitive not found for : '),
+   write(GenericStack), nl,
+   abort.    %Primitive = primitive_not_found.
+
+/*
+*  Name         :  next_primitive1(+Procedure,
+*                                  +Generic_Stack,
+*                                  +UserModel,
+*                                  -Primitive)
+*  Function     :  classifies the next primitive in the following way:
+*                  if presentation/current primitive are step/generic, how/
+*                  generic or how/library then Primitive becomes
+*                  push_generic(Curr_Primitive), a new generic state is
+*                  initialised and pushed onto the generic stack,
+*                  if the next primitive is pop rather than push the current
+*                  primitive is popped from the generic stack,
+*                  otherwise the next primitive is simply obtained from the
+*                  present generic state
+*  Arguments    :  As in next_primitive
+*/
+
+next_primitive1(Procedure, GenericStack, UserModel, Primitive) :-       %R7
+   generic_stack_current_primitive(GenericStack, CurrPrimitive),
+      ( next_primitive_is_push(UserModel, CurrPrimitive) ->
+          generic_stack_current_generic(GenericStack, CurrGeneric),     %R18
+          generic_state_initial(CurrGeneric, CurrPrimitive, GenericState),
+          generic_stack_push(GenericStack, GenericState),
+          Primitive = push_generic(CurrPrimitive)
+      ; next_primitive_is_pop(CurrPrimitive) ->
+          generic_stack_pop(Procedure, GenericStack, Primitive)
+      ; otherwise ->
+          generic_stack_generic_state(GenericStack, GenericState),
+          generic_state_next(GenericState, Primitive)
+      ).
+
+/*
+*  Name         :  next_primitive_is_push(+UserModel, +Curr_Primitive)
+*  Function     :  checks Presentation and Curr_Primitive to decide whether the
+*                  next primitive should be pushed onto the generic stack or
+*                  the current primitive popped from it
+*  Arguments    :  Presentation; present level of presentation (an atom)
+*                  Curr_Primitive; present primitive step
+*/
+
+next_primitive_is_push(UserModel, Primitive):-                   %R1
+   event_key(Primitive, Key),                                    %R20
+   um_presentation(Key, UserModel, Presentation),
+   next_primitive_is_push1(Presentation, Primitive).
+
+next_primitive_is_push1(method, generic(_)).
+next_primitive_is_push1(method, library(Method)):-
+   \+(basic_method_library(Method)).
+%next_primitive_is_push1(method, procedure(_)).
+next_primitive_is_push1(how, generic(_)).
+next_primitive_is_push1(how, library(_)).
+
+/*
+*  Name         :  next_primitive_is_pop(+Curr_Primitive)
+*  Function     :  checks current primitive to see if it is pop_generic, hence
+*                  whether or not to pop the next primitive
+*  Argument     :  Curr_Primitive; present step in generic stack
+*/
+
+next_primitive_is_pop(pop_generic(_)).
+
+/*
+*  Name         :  generic_state_initial(+Procedure,
+*                                        +Curr_Primitive,
+*                                        -Generic_State)
+*  Function     :  sets up a generic state and carries out the steps
+*  Arguments    :  Procedure; present procedural state name
+*                  Curr_Primitive; present primitive step
+*                  Generic_State; the initialised generic state
+*/
+                                                                           %R18
+generic_state_initial(_, library(Generic),
+                      generic_state(library(Generic), [], start, Steps)):-
+   pkb(library, Generic, Steps).
+generic_state_initial(generic(Procedure), generic(Generic),
+                      generic_state(generic(Generic), [], start, Steps)):-
+   pkb(Procedure, Generic, Steps).
+generic_state_initial(library(Procedure), generic(Generic),
+                      generic_state(generic(Generic), [], start, Steps)):-
+   pkb(Procedure, Generic, Steps).
+generic_state_initial(procedure(Procedure), generic(root),
+                      generic_state(generic(Procedure), [], start, Steps)):-
+   pkb(Procedure, root, Steps).
+
+        
+/*
+*  Name         :  generic_state_next(?Generic_State, -To_Do1)
+*  Function     :  checks to see if any steps have yet been carried out in the 
+*                  old and new generic states, 
+*                  if not then present step is set to 'start',
+*                  if so then checks what remains to be done and if nothing
+*                  does pops Generic from the generic stack
+*  Arguments    :  Generic_State; old and new generic states
+*                  To_Do1; returned value of the new present primitive
+*/
+
+generic_state_next(generic_state(Generic, Done, Done1, To_Do)             %R17
+                   ~ generic_state(Generic, New_Done, To_Do1, New_To_Do),
+                   To_Do1) :-
+        generic_state_done1(Done, Done1, New_Done),
+        generic_state_to_do1(Generic, To_Do, To_Do1, New_To_Do).
+
+/*
+*  Name         :  generic_state_done1(+Done, +Step, -New_Done)
+*  Function     :  does the checking  of how much the old generic state has
+*                  done in the above predicate
+*  Arguments    :  Done; list of steps done in old generic state
+*                  Step; becomes the present step if something has been done
+*                  and is made the head of the New_Done list
+*                  To_Do; list of steps to do in the old generic state
+*                  New_Done; list of steps done in the new generic state
+*                  Still_To_Do; list of steps still to do in new generic state
+*/
+
+generic_state_done1(Done, Step, [Step | Done]):-
+   Step ~= start,
+   Step ~= conclusion(null_conclusion).                          %R25
+generic_state_done1(Done, conclusion(null_conclusion), Done).    %R25
+generic_state_done1([], start, []).
+
+/*
+*  Name         :  generic_state_to_do1(+Generic, +Still_To_Do, -To_Do1,        *                                                                   -New_To_Do)
+*  Function     :  checks to sort out what remains to do in the new generic
+*                  state
+*  Arguments    :  Generic; generic state name
+*                  Still_To_Do; what remains to be done in the new generic
+*                  state
+*                  To_Do1; present primitive in the new generic state
+*                  New_To_Do; revised list of what remains to be done in the
+*                  generic state
+*/
+                                                                          %R16
+generic_state_to_do1(Generic, [], pop_generic(Generic), []).
+generic_state_to_do1(_,[library(Method) |Steps], basic_method(Method), Steps):-
+   basic_method_library(Method).
+generic_state_to_do1(_, [Step | Steps], Step, Steps).
+
+/*
+*  Name         :  dm(+Mode, +Option, +Context, +User_Model, -Events)
+*  Function     :  basic dialogue manager predicate called from top-level loop,
+*                  if Option is toggle this returns 'no-procedure' and performs *                  the appropriate toggle, if it is a procedure it presents the
+*                  user with the user model and carries out the procedure
+*                  returning an events list, and if the DM is off it is turned
+*                  on whatever the option chosen
+*  Arguments    :  Mode; old and new dialogue manager on/off states in the form
+*                  of an atom, either 'on' or 'off'
+*                  Option; option chosen by the user, an atom
+*                  Context; present context, required by some options to have
+*                  old and new forms the same
+*                  User_Model; a binary tree describing the user
+*                  Events; returned list of events
+*/
+
+dm(Mode, toggle, Context~Context, _, [event(no_procedure, toggle(Mode))]):- %R3
+        dm_change_mode(Mode).
+dm(off~off, Option, Context~Context, _, Events) :-
+        dm_off(Option, Events).
+dm(on~on, Option, Context, UserModel, Events) :-
+        dm_on(Option, Context, UserModel, Events).
+
+/*
+*  Name         :  dm_change_mode(+Mode)
+*  Function     :  turns the dialogue manager from on to off or off to on if
+*                  toggle has been selected
+*  Arguments    :  Mode; status change old~new as required
+*/
+
+dm_change_mode(on~off).
+dm_change_mode(off~on).
+
+/*
+*  Name         :  dm_off(+Option, -Events)
+*  Function     :  if dialogue manager is off processes Option and returns
+*                  Events
+*  Arguments    :  Option; an atom, either quit, monitor(_), help, remediation
+*                  or procedure(Procedure)
+*                  Events; list of form [event(Procedure, Option chosen)]
+*/
+
+dm_off(quit, [event(no_procedure, quit)]).
+dm_off(monitor(_), []).
+dm_off(help, [event(no_procedure, help)]).
+dm_off(remediation, [event(no_procedure, remediation)]).
+dm_off(procedure(Procedure), [event(Procedure, procedure(Procedure))]).
+
+/*
+*  Name         :  dm_on(+Option, +Context, +UserModel, -Events)
+*  Function     :  if the dialogue manager is on processes Option in the 
+*                  appropriate context and returns Events
+*  Arguments    :  Option; present option chosen
+*                  Context; present context
+*                  Events; returned events
+*/
+                                                                          %R4
+dm_on(selection(N), Context, UserModel, Events):-                         %R14
+   dm_selection(N, Context, UserModel, Events).
+dm_on(procedure(Proc), Context, UserModel, Events):-
+   dm_procedure(Proc, Context, UserModel, Events).
+dm_on(quit, Context~Context, UserModel, [event(no_procedure, quit)]).
+dm_on(exit, Context~Context, UserModel, [event(no_procedure, exit)]).     %R22
+dm_on(monitor(_), Context~Context, UserModel, []).
+dm_on(remediation, Context~Context, UserModel, [event(no_procedure, remediation)]).
+dm_on(help, Context~Context, UserModel, [event(no_procedure, help)]).
+dm_on(next, Context, UserModel, Events) :- dm_next(Context, UserModel, Events).
+dm_on(yes, Context, UserModel, Events):-
+   dm_decision(yes, Context, UserModel, Events).
+dm_on(no, Context, UserModel, Events):- 
+   dm_decision(no, Context, UserModel, Events).
+dm_on(where, Context, UserModel, [event(Procedure, where(Step))]) :-
+        dm_current_step(Context, Procedure, _, Step).
+dm_on(why, Context, UserModel, [event(Procedure, why(Generic, Step))]) :-
+        dm_current_step(Context, Procedure, Generic, Step).
+dm_on(how, Context, UserModel, Events) :-
+        context_proc_stack(Context, Proc_Stack),
+        proc_stack_generic_stack(Proc_Stack, Generic_Stack, Procedure),
+        dm_how(Procedure, Generic_Stack, Events).
+dm_on(stack, Context, UserModel, Events) :-
+        context_proc_stack(Context, Proc_Stack~Proc_Stack),
+        dm_stack(Proc_Stack, Events).
+dm_on(summary, Context, UserModel, Events) :-
+        context_proc_stack(Context, ProcStack),
+        proc_stack_generic_stack(ProcStack,
+                                 GenericStack ~ GenericStack,
+                                 Procedure),
+        dm_summary(Procedure, GenericStack, Events).
+
+/*
+*  Name         :  dm_current_step(+Context, +Procedure, +Generic, -Step)
+*  Function     :  first this gets the procedure stack from the present
+*                  context, obtains the generic stack and procedure name, then
+*                  finally the generic state and current primitive
+*  Arguments    :  Context; present context
+*                  Procedure; present procedural state
+*                  Generic; present generic state at head of generic stack list
+*                  Step; present primitive step
+*/
+
+dm_current_step(Context, Procedure, Generic, Step) :-
+        context_proc_stack(Context, Proc_Stack),
+        proc_stack_generic_stack(Proc_Stack, Generic_Stack, Procedure),
+        generic_stack_generic_state(Generic_Stack, Generic_State ~ Generic_State),
+        Generic_State = generic_state(Generic, _, Step, _).
+
+
+/* PROCEDURE option */
+
+/*
+*  Name         :  dm_procedure(+Procedure, ?Context, +UserModel, -Events)
+*  Function     :  performs and returns the initial generic state, and pushes
+*                  the initialised procedural state onto the procedure stack
+*  Arguments    :  Procedure; present procedural state
+*                  Presentation; present level of presentation
+*                  Context; old and new contexts
+*                  Events; returned events list
+*/
+
+dm_procedure(Procedure, Old_Context ~ New_Context, UserModel,              %R5
+             [event(Procedure, push_proc(Procedure)) | Events]):-
+   generic_state_initial(procedure(Procedure), generic(root),              %R18
+                         Initial_Generic_State),
+   context_proc_stack(Old_Context ~ Context, Proc_Stack),
+   proc_stack_push(Proc_Stack, proc_state(Procedure, [Initial_Generic_State])),
+   dm_next(Context ~ New_Context, UserModel, Events).
+        
+
+
+/* NEXT option */
+
+/*
+*  Name         :  dm_next(?Context, +UserModel, -Events)
+*  Function     :  obtains the next primitive from the generic stack within
+*                  Context and processes it via dm_next1
+*  Arguments    :  Context;  present context
+*                  Events; returned events
+*/
+
+dm_next(Old_Context ~ New_Context, UserModel, Events):-
+   context_proc_stack(Old_Context ~ Context, Proc_Stack),
+   proc_stack_generic_stack(Proc_Stack, Generic_Stack, Procedure),
+   next_primitive(Procedure, Generic_Stack, UserModel, Primitive),
+   dm_next1(Primitive, Procedure, Context ~ New_Context, UserModel, Events).
+dm_next(Context, UserModel, Events):-
+   dm_timeline_next(Context, Events).
+
+/*
+*  Name         :  dm_next1(+Primitive, +Procedure, ?Context, +UserModel,
+*                                                                      -Events)
+*  Function     :  checks whether primitive causes the procedure to be popped
+*                  from the procedural stack and whether the generic stack
+*                  needs to be altered, which in either case causes
+*                  backtracking via dm_next; also processes the present step
+*                  and returns the recorded events
+* Arguments     :  Primitive; present step
+*                  Procedure; present procedural state
+*                  Presentation; present level of presentation
+*                  Context; present context, both old and new
+*                  Events; returned list
+*/
+
+dm_next1(Primitive, Procedure, Context, UserModel, Events) :-      %R8
+          Primitive = pop_proc(_) ->
+                dm_pop_proc(Context, Events1),
+                Events = [event(Procedure, Primitive) | Events1]
+        ; pop_or_push(Primitive) ->
+                dm_next(Context, UserModel, Events1),
+                Events = [event(Procedure, Primitive) | Events1]
+        ; insignificant_primitive(UserModel, Primitive) ->
+                dm_next(Context, UserModel, Events)
+        ; otherwise ->
+                Context = Old_Context ~ Old_Context,
+                Events = [event(Procedure, Primitive)].
+
+/*
+*  Name         :  dm_pop_proc(?Context, ?Events)
+*  Function     :  finds the procedural stack within Context and pops the
+*                  present procedure from its head, then finds the current 
+*                  primitive from the new head
+*  Arguments    :  Context; old and new context
+*                  Events; events list
+*/
+
+dm_pop_proc(Context, [event(Procedure, resume(Procedure)), event(Procedure, Primitive)]) :-
+        context_proc_stack(Context, [_ | Proc_Stack] ~ Proc_Stack),
+        Proc_Stack = [Proc_State | _],
+        proc_state_current_primitive(Proc_State, Procedure, Primitive).
+dm_pop_proc(Old_Context ~ New_Context, Events) :-
+        context_proc_stack(Old_Context ~ Context, [_] ~ []),
+        dm_timeline_next(Context ~ New_Context, Events).
+/*
+*  Name         :  dm_timeline_next(?Context, -Events)
+*  Function     :  checks whether to return a recursive event or whether we are
+*                  at the end of the timeline in which case returns
+*                  no_procedure
+*  Arguments    :  Context; old and new contexts
+*                  Events; returned event list
+*/
+
+dm_timeline_next(Old_Context ~ New_Context, Events) :-
+        context(Old_Context ~ Context, [] ~ [], Timeline),
+        (timeline_pop(Timeline, Procedure) ->
+                Events = [recursive_event(Context ~ New_Context, procedure(Procedure))]
+        ;
+                New_Context = Old_Context,
+                Events = [event(no_procedure, end_of_timeline)]
+        ).
+
+/*
+*  Name         :  pop_or_push(+Primitive)
+*  Function     :  checks whether current primitive causes the next to be
+*                  popped or pushed
+*  Arguments    :  Primitive; present primitive step
+*/
+
+pop_or_push(pop_generic(_)).
+pop_or_push(push_generic(_)).
+
+/*
+*  Name         :  insignificant_primitive(+UserModel, +Primitive)
+*  Function     :  checks the significance of the current primitive, which is
+*                  insignificant if arguments are step/generic or procedure/
+*                  no_primitive
+*  Arguments    :  Presentation; present level of presentation
+*                  Primitive; present primitive step
+*/
+
+insignificant_primitive(UserModel, Primitive):-                %R2
+   event_key(Primitive, Key),                                  %R20
+   um_presentation(Key, UserModel, Presentation),
+   insignificant_primitive1(Presentation, Primitive).
+
+insignificant_primitive1(method, generic(_)).
+insignificant_primitive1(method, library(_)).
+insignificant_primitive1(procedure, no_primitive).
+
+
+/* YES and NO options */
+
+/*
+*  Name         :  dm_decision(+Yes_No, ?Context, +UserModel, -Events)
+*  Function     :  obtains the generic state from within the context, and
+*                  processes it on the basis of Yes_No
+*  Arguments    :  Yes_No; an atom, either yes or no
+*                  Context; old and new contexts
+*                  Events; results of processing the generic state
+*/
+
+dm_decision(Yes_No, Old_Context ~ New_Context, UserModel, Events):-  %R12
+   context_proc_stack(Old_Context ~ Context, Proc_Stack),
+   proc_stack_generic_stack(Proc_Stack, Generic_Stack, Procedure),
+   generic_stack_generic_state(Generic_Stack, Generic_State),
+   generic_state_decision(Yes_No, Generic_State, Conclusion),
+   dm_decision_next(Conclusion, Procedure, Context ~ New_Context, UserModel, Events).
+
+/*
+*  Name         :  dm_decision_next(+Conclusion, +Procedure, 
+*                                   +Context, +UserModel, -Events)
+*  Function     :  if Conclusion (an output from generic_state_decision) is
+*                  null then backtracks into dm_next, if not adds to the Events
+*                  list and then does the backtracking
+*  Arguments    :  Conclusion; atom returned as a result of carrying out
+*                  generic_state
+*                  Procedure; present procedural state
+*                  Context; present context
+*                  Events; returned events list
+*/
+
+dm_decision_next(null_conclusion, _, Context, UserModel, Events):-      %R13
+   dm_next(Context, UserModel, Events).
+dm_decision_next(Conclusion, Procedure, Context, UserModel,
+                 [event(Procedure, conclusion(Conclusion)) | Events]):-
+   Conclusion ~= null_conclusion,
+   dm_next(Context, UserModel, Events).
+
+/*
+*  Name         :  generic_state_decision(+Yes_No, ?Generic_State, -Conclusion)
+*  Function     :  if the current primitive step is conditional of the correct
+*                  form Steps is set to Then if Yes_No is yes and to Else if
+*                  Yes_No is no, then New_To_Do becomes Steps appended onto
+*                  To_Do
+*  Arguments    :  Yes_No; atom which is either yes or no
+*                  Generic_State; old and new generic states
+*                  Conclusion; conclusion reached
+*/
+
+generic_state_decision(Yes_No,
+                generic_state(Generic, Done, Conditional, To_Do)
+                ~ generic_state(Generic, Done, conclusion(Conclusion), New_To_Do),
+                Conclusion) :-
+        conditional_decision(Yes_No, Conditional, Conclusion, Steps),
+        append(Steps, To_Do, New_To_Do).
+
+/*
+*  Name         :  conditional_decision(+Yes_No, +Conditional, +Conclusion,
+*                                                                       -Steps)
+*  Function     :  checks Yes_No and whether or not the present step is a
+*                  conditional of the required form, and sets Steps
+*                  appropriately
+*  Arguments    :  Yes_No; atom which is either yes or no
+*                  Conditional; form of the present conditional step
+*                  Conclusion; conclusion, being the present step in the new
+*                  generic state
+*                  Steps; Then/Else according as Yes_No is yes/no
+*/
+
+conditional_decision(yes,
+                     if(_,Conclusion,Then,_,_),
+                     Conclusion,
+                     Then).
+conditional_decision(no,
+                     if(_,_,_,Conclusion,Else),
+                     Conclusion,
+                     Else).
+
+/* SELECTION OPTION ( WHEN USING THE DISPLAY LIST WINDOW ) */
+                                                                        %R15
+
+/* dm_selection(+Selection, ?Context, +UserModel, -Events)
+*/
+dm_selection(Selection, OldContext ~ NewContext, UserModel, Events):-
+   context_proc_stack(OldContext ~ Context, ProcStack), 
+   proc_stack_generic_stack(ProcStack, GenericStack, Procedure), 
+   generic_stack_generic_state(GenericStack, GenericState), 
+   generic_state_selection(Selection, GenericState, Primitive), 
+   dm_selection_next(Primitive, Procedure, Context ~ NewContext, UserModel, Events).
+
+/* dm_selection_next(+Primitive, +Procedure, ?Context, +UserModel, -Events)
+*/
+dm_selection_next(Primitive, Procedure, Context, UserModel, Events):-
+   functor(Primitive, if, 5), 
+   dm_decision(yes, Context, UserModel, Events).
+dm_selection_next(Primitive, Procedure, Context, UserModel, Events):-   %R21
+   dm_next1(Primitive, Procedure, Context, UserModel, Events).
+
+/* generic_state_selection(+Selection, ?GenericState, -Primitive)
+*/
+generic_state_selection(N,generic_state(Generic, Done, one_of(X), ToDo) ~ generic_state(Generic, Done, SelectPrimitive, ToDo), SelectPrimitive):-
+   find_member(N, X, SelectPrimitive).
+
+generic_state_selection(N, generic_state(Generic, Done, some_of([Head|Tail]), ToDo) ~ generic_state(Generic, Done, Head, ToDo), Head):-
+   length([Head|Tail], N).
+
+generic_state_selection(N, generic_state(Generic, Done, some_of([Head|Tail]), ToDo) ~ generic_state(Generic, Done1, SelectPrimitive, [some_of([Head|Tail])|ToDo]), SelectPrimitive):-
+   find_member(N, Tail, SelectPrimitive),
+   prune_list(Done,some_of([Head|Tail]),Done1).       %R24
+
+
+/* HOW option */
+
+/*
+*  Name         :  dm_how(+Procedure, +Generic_Stack, -Events)
+*  Function     :  first gets the current primitive from the generic stack and
+*                  if it is how or a push step (i.e. generic(_) or library(_)) 
+*                  then initialises a generic state, gets the next step from it
+*                  and pushes it onto the generic stack, setting the list of
+*                  Events, else writes a warning and says the how option is not
+*                  available
+*  Arguments    :  Procedure; present procedural state
+*                  Generic_Stack; present generic stack
+*                  Events; returned list of events
+*/
+
+dm_how(Procedure, GenericStack, Events) :-                             %R11
+   generic_stack_current_primitive(GenericStack, CurrPrimitive),
+   next_primitive_is_push1(how, CurrPrimitive) ->
+      generic_stack_current_generic(GenericStack, CurrGeneric),        %R18
+      generic_state_initial(CurrGeneric, CurrPrimitive, InitialGenericState),
+      generic_state_next(InitialGenericState ~ GenericState, Step),
+      generic_stack_push(GenericStack, GenericState),
+      Events = [event(Procedure, push_generic(CurrPrimitive)),
+                event(Procedure, how(CurrPrimitive)),
+                event(Procedure, Step)].
+dm_how(_, GenericStack, _):-
+      send_message(".ERROR.3"),
+      write('WARNING how should not be available for: '),
+      writeln(GenericStack).    %Events = [how_not_available].
+                
+/* STACK option */
+
+/*
+*  Name         :  dm_stack(+Proc_Stack, -Events)
+*  Function     :  list of events is set to show no_procedure and all the
+*                  present procedural states are stacked recursively until no
+*                  more are left
+*  Arguments    :  Proc_Stack; present procedural stack from which the 
+*                  procedural states are obtained
+*                  Events; list showing no_procedure
+*/
+
+dm_stack(Proc_Stack, [event(no_procedure, stack(Proc_States))]) :-
+        procedure_states(Proc_Stack, Proc_States).
+
+/*
+*  Name         :  procedure_states(+Proc_Stack, -Proc_States)
+*  Function     :  stacks the head of Proc_Stack onto the Proc_States list and
+*                  continues to stack recursively down the two lists
+*  Arguments    :  Proc_Stack; list of procedural states
+*                  Proc_States; list of stacked states
+*/
+
+procedure_states([], []).
+procedure_states([Proc_State|Proc_States], [Stack_State|Stack_States]) :-
+        stack_state(Proc_State, Stack_State),
+        procedure_states(Proc_States, Stack_States).
+
+/*
+*  Name         :  stack_state(+Proc_State, -stack_state(Proc, Type, Step))
+*  Function     :  obtains the current primitive from Proc_State, the
+*                  procedural state being stacked, and stacks it on stack_state
+*                  which is the head of the Proc_States list
+*  Arguments    :  Proc_State; present procedural state
+*                  stack_state; head of the Proc_States list, onto which
+*                  Proc_State is stacked step by step
+*/
+
+stack_state(Proc_State, stack_state(Proc, Type, Step)) :-
+        proc_state_current_primitive(Proc_State, Proc, Step),
+        pkb_procedure_type(Proc, Type).
+
+
+/* SUMMARY option */
+
+/*
+*  Name         :  dm_summary(+Procedure, +Generic_Stack, -Events)
+*  Function     :  gives a summary of the present situation on the generic
+*                  stack
+*  Arguments    :  Procedure; present procedural state
+*                  Generic_Stack; present generic stack
+*                  Events; list of returned events
+*/
+
+dm_summary(Procedure, GenericStack,
+           [event(Procedure, summary(Procedure, Done, Doing, ToDo))]) :-
+        generic_stack_summary(GenericStack, ReverseDone, Doing, ToDo),
+        reverse(ReverseDone, Done).
+
+/*
+*  Name         :  generic_stack_summary(+Generic_Stack, -Done, -Doing, -To_Do)
+*  Function     :  as long as arguments are non-zero returns list of steps
+*                  done, steps doing and steps to do by recursively appending
+*                  them onto the appropriate lists
+*  Arguments    :  Generic_Stack; present generic stack
+*                  Done; list of steps done
+*                  Doing; list of steps doing
+*                  To_Do; list of steps to do
+*/
+
+generic_stack_summary([], [], [], []).
+generic_stack_summary([generic_state(_, Done1, Doing1, To_Do1) | Generic_Stack],
+                      Done, [Doing1 | Doing], To_Do) :-
+        generic_stack_summary(Generic_Stack, Rest_Done, Doing, Rest_To_Do),
+        append(Done1, Rest_Done, Done),
+        append(To_Do1, Rest_To_Do, To_Do).
+
+

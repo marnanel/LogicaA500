@@ -1,0 +1,22 @@
+GET "libhdr"
+
+LET start() BE
+$(
+   LET key = ?
+
+   writef("enter key")
+   // LOOP
+   //$(
+      // get key from kbd
+   //   key := OsByte( #X81, 0, 0 )
+
+      // if key = ctrl-d then debug(0)
+   //   IF key = 4 THEN debug(0)
+
+      // if key = ctrl-x then Oscli("BICI.Exit.")
+   //   IF key = 24
+   //     THEN
+        Oscli("BICI.exit.")
+
+   //$) repeat
+$)

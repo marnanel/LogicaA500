@@ -1,0 +1,833 @@
+//  $MSC
+//  DSH SOURCE  9.87
+
+/**
+         WM.WIMP2 - Window Manager Interfaces Part 2
+         -------------------------------------------
+
+         This module contains procedures to handle 
+         windows and icons : setting states, getting
+         information, etc.
+
+         Procedures in Wimp2 are:
+
+         G.wm.Update           - open or update a window
+         G.wm.Redraw           - redraw system parts of window
+         G.wm.Get.Rectangle    - get next invalid display rectangle
+         G.wm.Get.Window.State - inquire basic window parameters
+         G.wm.Get.Window.Info  - inquire all window parameters
+         G.wm.Dialogue.Box     - make a window the 'dialogue box'
+         G.wm.Set.to.Front     - put a window at the front
+         G.wm.Close            - close a window
+         G.wm.Message          - display a message
+         G.wm.Highlight        - flash a button
+         G.wm.Set.Icon.State   - set icon state
+         G.wm.Create.Icon      - create an icon in a given window
+         G.wm.Delete.Icon      - delete an icon in a given window
+         G.wm.Get.Icon.Info    - inquire all icon parameters
+         G.wm.Set.Extent       - set extent of window work area
+         G.wm.Force.Redraw     - force a redraw window request
+         G.wm.Update.Window    - immediate update of the contents of a window
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         24.9.87   1        PAC     CREATED FOR DISH SYSTEM
+         30.03.88  2        SA      Added new routines
+         07.04.88  3        SA      mods for dialogue boxes
+**/
+
+Section "WM.Wimp2"
+
+GET "LIBHDR"
+GET ":4.DSH.GH.glhd"
+GET ":4.DSH.H.wmhd"
+
+/**
+         G.WM.Update - Wimp 'open window' operation
+         ------------------------------------------
+
+         This performs the open window operation for the
+         wimp system. An 'open window request' reason code
+         is returned from poll_wimp for window dragging and
+         scrolling, as well as actually opening the window,
+         hence the name of this procedure. Calling this will
+         cause the wimp to start issuing redraw window requests
+         until all the required graphics have been redrawn.
+
+         INPUTS:
+
+         handle - window handle
+         x0,y0  - bottom left corner
+         x1,y1  - top right corner
+
+         scx,scy - scroll bar x,y position
+         bhandle - handle to open window behind 
+                   (-1 = top,-2 = bottom )
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+
+**/
+
+LET G.wm.Update( handle,x0,y0,x1,y1,scx,scy,bhandle ) BE
+$(
+   !G.wm.q   := handle
+   G.wm.q!m.wm.X0 := x0
+   G.wm.q!m.wm.Y0 := y0
+   G.wm.q!m.wm.X1 := x1
+   G.wm.q!m.wm.Y1 := y1
+   G.wm.q!m.wm.Xscroll := scx
+   G.wm.q!m.wm.Yscroll := scy
+   G.wm.q!m.wm.TopHandle := bhandle
+
+   OSWimpG( m.wm.Open.Window, G.wm.q )
+
+   IF handle = G.context!m.dialogue THEN
+   $(
+      LET flags = ?
+
+      G.wm.Get.Window.State(handle)
+      flags := G.wm.q!(32/BYTESPERWORD)
+
+      // Allow for scroll & title bars  SA 07.04.88
+      TEST (flags & m.wm.NewForm) ~= 0
+      THEN
+      $(
+         IF (flags & m.wm.NewForm.VScroll) ~= 0
+         THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+         IF (flags & m.wm.NewForm.HScroll) ~= 0
+         THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+         //IF (flags & m.wm.NewForm.Titlebar) ~= 0
+         //THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+      $)
+      ELSE
+      $(
+         IF (flags & m.wm.VScroll) ~= 0
+         THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+         IF (flags & m.wm.HScroll) ~= 0
+         THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+         //IF (flags & m.wm.Titlebar) ~= 0
+         //THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+      $)
+
+      G.wm.Mouse.Rectangle( G.wm.q!m.wm.X0, 
+                            G.wm.q!m.wm.Y0, 
+                            G.wm.q!m.wm.X1, 
+                            G.wm.q!m.wm.Y1+40 )
+   $)
+$)
+
+
+/**
+         G.wm.Redraw - Redraw window system handler
+         ------------------------------------------
+
+         This handles the 'system' bits of a redraw window
+
+         INPUTS:
+
+         handle - window handle
+
+         OUTPUTS:
+
+         G.wm.q updated to contain window information
+         flag returned TRUE if there is more graphics
+         to do.
+
+         GLOBALS MODIFIED:
+
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         call like :
+          more.graphics.required := G.wm.redraw( handle )
+**/
+
+AND G.wm.Redraw( handle ) = VALOF
+$(
+   Let more.to.do = ?
+
+   !G.wm.q    := handle
+   more.to.do := OSWimpG( m.wm.Redraw.Window, G.wm.q )
+
+   Resultis more.to.do // set TRUE if there's graphics to do
+$)
+
+/**
+         G.wm.Get.Rectangle - Setup next display rectangle
+         -------------------------------------------------
+
+         This is for use in handling the 'user' bits of 
+         redrawing a window. It sets the graphics window to
+         be the next invalid area of the screen.
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         flag returned TRUE if there is more graphics
+         to do.
+
+         GLOBALS MODIFIED:
+
+         G.wm.q - updated as per window mamager spec
+
+         SPECIAL NOTES FOR CALLERS:
+
+         call like :
+          more.graphics.required := G.wm.Get.Rectangle()
+**/
+AND G.wm.Get.Rectangle() = OSWimpG( m.wm.Get.Rectangle, G.wm.q )
+
+/**
+         G.wm.Get.Window.State - Enquire window status
+         --------------------------------------------
+
+         INPUTS:
+
+         handle - window handle
+
+         OUTPUTS:
+
+         G.wm.q updated to contain window information
+
+         GLOBALS MODIFIED:
+
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Only updates as far as the flags area (see
+         h.wmhdr for a list of offsets to use).
+**/
+
+AND G.wm.Get.Window.State(handle) BE
+$(
+   !G.wm.q := handle
+   OSWimpG( m.wm.Get.Window.State, G.wm.q )
+$)
+
+/**
+         G.wm.Get.Window.Info - Get full window information
+         --------------------------------------------------
+
+         INPUTS:
+
+         handle - window handle
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.q updated to contain window information
+
+         SPECIAL NOTES FOR CALLERS:
+
+         This gets ALL the window information. 
+         c.f. G.wm.Get.Window.Status
+**/
+
+AND G.wm.Get.Window.Info(handle) BE
+$(
+   !G.wm.q := handle
+   OSWimpG( m.wm.Get.Window.Info, G.wm.q )
+$)
+
+
+/**
+         G.wm.Set.to.Front - Put window in front
+         ---------------------------------------
+
+         This performs an open window operation for the
+         given window, ensuring that the 'handle to open
+         behind' is set to -1. It does not affect the 
+         other window parameters.
+
+         INPUTS:
+
+         handle - window handle
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+
+**/
+
+AND G.wm.Set.to.Front(handle) BE
+$(
+   G.wm.Get.Window.State(handle)
+   G.wm.q!m.wm.TopHandle := -1
+   OSWimpG( m.wm.Open.Window, G.wm.q )
+$)
+   
+/**
+         G.wm.Close - Wimp close window operation
+         ----------------------------------------
+
+         This performs the close window operation for the
+         wimp system. An 'open window request' reason code
+         is returned from poll_wimp for window dragging and
+         scrolling, as well as actually opening the window,
+         hence the name. This causes the wimp to start issuing
+         'redraw window' requests until all the required 
+         graphics have been redrawn.
+
+         INPUTS:
+
+         handle - window handle
+         x0,y0  - bottom left corner
+         x1,y1  - top right corner
+
+         scx,scy - scroll bar x,y position
+         bhandle - handle to open window behind 
+                   (-1 = top,-2 = bottom )
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.s
+         G.wm.q
+         G.wm.sprite.area
+
+         SPECIAL NOTES FOR CALLERS:
+
+
+**/
+
+AND G.wm.Close(handle) BE
+$(
+   IF handle = G.context!m.dialogue 
+   THEN G.wm.Mouse.Rectangle( 0,0,1279,1023 ) // reset mouse bounds
+
+   G.context!m.dialogue := -1
+   !G.wm.q := handle
+   OSWimpG( m.wm.Close.Window, G.wm.q )
+$)
+   
+/**
+         G.wm.Dialogue.Box - Make a dialogue box
+         ---------------------------------------
+
+
+         Make a dialogue box out of the given window, placing
+         it at coordinates mouse X, mouse Y, and restricting
+         the mouse to within the window (+title bar)
+
+         INPUTS:
+
+         handle - window handle to be made a DB
+         X,Y mouse position (used to open window)
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         G.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Also resets the input caret position
+**/
+
+AND G.wm.Dialogue.Box(handle,mouseX,mouseY) BE
+$(
+   let pb = VEC 6
+   pb!0,pb!1,pb!2,pb!3,pb!4,pb!5 := handle,-1,0,0,#x3000000,0
+
+   IF G.Context!m.dialogue ~= -1 
+   THEN G.wm.Error("Dialogue already open")
+
+   G.wm.Get.Window.State(handle)    
+
+   G.Context!m.dialogue := handle     
+
+   G.wm.Update(handle,
+               mouseX,
+               mouseY+G.wm.q!m.wm.Y0-G.wm.q!m.wm.Y1,
+               mouseX+G.wm.q!m.wm.X1-G.wm.q!m.wm.X0,
+               mouseY,
+               0,
+               0,
+               -1 )
+
+   OSWimpS( m.wm.Set.Caret.Position, pb ) // make input caret disappear 
+
+$)
+
+/**
+         G.wm.Message - Output a message to the user
+         -------------------------------------------
+         Bodged-up version of message to use for the time being
+         simply moves to the base of the screen and writes the 
+         string. A nasty side-effect is that it resets the 
+         graphics window to be sure of displaying something.
+         Also changes the current colour to white (i.e. assumes
+         a darkish background colour).
+
+         INPUTS:
+
+         string      - writef type format
+         p1,p2,...p6 - up to 6 parameters
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+**/
+
+AND G.wm.Message(string,p1,p2,p3,p4,p5,p6) BE
+$(
+   VDU("26,4")                 // reset graphics plot window, unlink cursors
+   VDU("18,0,0")               // select colour 0
+   VDU("31,%,%,",1,30)         // move to bottom LH
+
+   Writef(string,p1,p2,p3,p4,p5,p6)
+   Writes("*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s")
+   VDU("5")
+$)
+
+/**
+         G.wm.Clear.Mess - Clear message outputed to user
+         ------------------------------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+**/
+
+AND G.wm.Clear.Mess() BE
+$(
+   VDU("26,4")                 // reset graphics plot window, unlink cursors
+   VDU("18,15,0")               // select colour 15
+   VDU("31,%,%,",1,30)         // move to bottom LH
+
+   Writes("*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s*s")
+   VDU("5")
+$)
+
+/**
+         G.wm.Highlight - Highlight an icon
+         ----------------------------------
+         Flashes an icon on and off a few times
+
+         INPUTS:
+
+         window handle
+         icon handle
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+
+**/
+AND G.wm.Highlight( window, icon ) BE
+$(
+   LET ntimes = 6 // shd be even to leave in the original state
+
+   FOR i = 1 TO ntimes DO
+   $( G.wm.Set.Icon.State( window, icon, #x200000, 0 )
+      G.ut.Wait( 3 )
+   $)
+$)
+
+/**
+         G.wm.Set.Icon.State - Set an icon flag
+         --------------------------------------
+
+         Modifies the specified icon's attributes
+
+         INPUTS:
+
+         window handle
+         icon handle
+         word for EXOR 
+         word for BIC (i.e. CLEAR bits that are SET here)
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+
+**/
+AND G.wm.Set.Icon.State( window, icon, EORword, BICword ) BE
+$(
+   LET q = VEC 12/bytesperword
+
+   !q  := window
+   q!1 := icon
+   q!2 := EORword
+   q!3 := BICword
+   OSWIMPG( m.wm.Set.Icon.State, q )
+$) 
+
+/**
+         G.wm.Create.Menu - Define a text menu
+         -------------------------------------
+
+         INPUTS:
+
+         string      - writef type format
+         p1,p2,...p6 - up to 6 parameters
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+**/
+
+AND G.wm.Create.Menu( format ) = VALOF
+$(
+   Let menu = G.wm.Alloc( 28/bytesperword )
+
+
+   RESULTIS menu
+$)
+
+/**
+         G.wm.Alloc - Allocate workspace
+         -------------------------------
+
+         Return a word pointer to the space allocated
+         within the G.wm.s vector. Traps if it fails.
+         N.B. allocates EXACTLY the number of words
+         requested, unlike GETVEC.
+
+         INPUTS:
+
+         number of words to allocate
+
+         OUTPUTS:
+
+         word address of new workspace
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         see above
+**/
+
+AND G.wm.Alloc( words ) = VALOF
+$(
+   Let newptr = G.wm.s!m.wm.freeptr + words
+
+   IF newptr > G.wm.s!m.wm.limitptr
+   THEN G.wm.error("Out of statics space, %n requested",words)
+
+   G.wm.s!m.wm.freeptr := newptr
+
+   RESULTIS newptr-words
+$)
+
+/**
+         G.wm.Create.Icon - Create an icon in a given window
+         ---------------------------------------------------
+
+         Added SA 30.03.88
+
+         INPUTS:
+
+         handle of window to hold the icon
+         pointers to coordinates of the icon bounding box:
+            min.x, min.y, max.x, max.y
+         pointer to icon flags
+         pointers to icon data ( 3 words: data1, data2, data3 )
+
+
+         OUTPUTS:
+
+         icon handle
+
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         see above
+**/
+
+LET G.wm.Create.Icon( window.handle, min.x, min.y, max.x, max.y,
+                                    flags, data0, data1, data2 ) = VALOF
+$(
+   LET pb = VEC 8
+
+   pb!0 := window.handle
+   pb!1 := !min.x
+   pb!2 := !min.y
+   pb!3 := !max.x
+   pb!4 := !max.y
+   pb!5 := !flags
+   pb!6 := !data0
+   pb!7 := !data1
+   pb!8 := !data2
+
+   RESULTIS OSWimpG( m.wm.Create.Icon, pb )
+$)
+
+/**
+         G.wm.Delete.Icon - Delete an icon in a given window
+         ---------------------------------------------------
+
+         Added SA 30.03.88
+
+         INPUTS:
+
+         handle for the window which holds the icon
+         handle for the icon within the window
+
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         see above
+**/
+
+LET G.wm.Delete.Icon( window.handle, icon.handle ) BE
+$(
+   LET pb = VEC 1
+
+   pb!0 := window.handle
+   pb!1 := icon.handle
+
+   OSWimpG( m.wm.Delete.Icon, pb )
+$)
+
+
+/**
+         G.wm.Get.Icon.Info - Enquire all information on an icon
+         -------------------------------------------------------
+
+         Added SA 30.03.88
+
+         INPUTS:
+
+         handle for the window holding the icon
+         handle for the icon within the window
+
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.wm.q contains the icon information on exit
+
+
+         SPECIAL NOTES FOR CALLERS:
+
+         see above
+**/
+
+LET G.wm.Get.Icon.Info( window.handle, icon.handle ) BE
+$(
+   G.wm.q!0 := window.handle
+   G.wm.q!1 := icon.handle
+
+   OSWimpG( m.wm.Get.Icon.Info, G.wm.q )
+$)
+
+/**
+         G.wm.Set.Extent - Sets the extent of the work area of given window
+         ------------------------------------------------------------------
+
+         Added SA 30.03.88
+
+         INPUTS:
+
+         handle for the window to be modified
+         pointers to coordinates of the work area of the window:
+            min.x, min.y, max.x, max.y
+
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         see above
+**/
+
+LET G.wm.Set.Extent( window.handle, min.x, min.y, max.x, max.y ) BE
+$(
+   LET pb = VEC 3
+
+   pb!0 := !min.x
+   pb!1 := !min.y
+   pb!2 := !max.x
+   pb!3 := !max.y
+
+   OSWimpG( m.wm.Set.Extent, pb, window.handle )
+$)
+
+/**
+         G.wm.Force.Redraw - Force a redraw window request
+         -------------------------------------------------
+
+         Added SA 08.04.88
+
+         INPUTS:
+
+         handle for the window to be redrawn.
+         coordinates of the area of the window to be marked invalid:
+            min.x, min.y, max.x, max.y
+
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         This call forces an area of a window to be marked as invalid.
+         It should be used when an application needs to update the window.
+         If the handle is -1 then the coordinates supplied are treated as
+         absolute screen coordinates; otherwise, the coordinates should
+         refer to the area of the window relative to the window's work
+         origin.
+         A redraw window request will be returned by the wimp.poll routine
+         after the execution of this call.
+**/
+
+LET g.wm.Force.redraw( handle, min.x, min.y, max.x, max.y ) BE
+$(
+    LET pb = VEC 6
+    pb!0,pb!1,pb!2,pb!3,pb!4 := handle,min.x,min.y,max.x,max.y
+
+    OSWimpS( m.wm.Force.Redraw, pb )
+$)
+
+/**
+         G.wm.Update.Window - Update the contents of the window immediately
+         ------------------------------------------------------------------
+
+         Added SA 18.04.88
+
+         INPUTS:
+
+         handle for the window to be redrawn.
+         coordinates of work area extent of the window
+         to be marked invalid:
+            min.x, min.y, max.x, max.y
+
+         OUTPUTS:
+
+         flag to indicate area of window needs to be redrawn
+
+         GLOBALS MODIFIED:
+
+         g.wm.q
+
+         SPECIAL NOTES FOR CALLERS:
+
+         This call is similar to g.wm.Redraw.Window.  However, it returns
+         all visible rectangles of the window, regardless of whether or
+         not they are invalid.
+
+         When calling this routine, the application can assume that the
+         data inside the window is intact and can be modified.
+
+         As with g.wm.redraw.window, the application should perform its
+         updating inside a WHILE loop, calling g.wm.Get.Rectangle to get
+         subsequent rectangles.  Alse VDU 5 mode should be used when
+         printing characters.
+**/
+
+LET G.wm.Update.Window( handle, min.x, min.y, max.x, max.y ) = VALOF
+$(
+   LET q = G.wm.q
+   LET more.to.do = ?
+
+   q!0,q!1,q!2,q!3,q!4 := handle, min.x, min.y, max.x, max.y
+   more.to.do := OSWimpG( m.wm.Update.Window, q )
+
+   RESULTIS more.to.do
+$)
+.

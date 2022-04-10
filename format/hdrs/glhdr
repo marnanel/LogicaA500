@@ -1,0 +1,393 @@
+// /**
+//       GLHDR - GLOBALS HEADER
+//       ----------------------
+//
+//       This is the master system Global definition file
+//       Every module should "GET" this header file to ensure no
+//       clashes of global variables. No globals may be declared
+//       anywhere else in the system. (except gl2hdr, gl3hdr...)
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//     17.02.87   1        SRY         Modified for User Data Input Editor
+// **/
+
+// $$debug    // SYSTEM WIDE DEBUG FLAG FOR CONDITIONAL COMPILATION
+
+MANIFEST $(
+FG=FIRSTFREEGLOBAL
+
+//  OFFSETs for G.Context
+
+// m.state     = 0  // Current state
+// m.laststate = 1  // Previous state
+// m.discid    = 2  // Videodisc identifier
+// m.stackptr  = 3  // stack pointer for exit stack
+// m.leveltype = 4  // level and type, see On Disc Data Structures
+// m.grbleast  = 5  // grid ref, bottom left Easting
+// m.grblnorth = 6  // grid ref, bottom left Northing
+// m.grtreast  = 7  // grid ref, top right Easting
+// m.grtrnorth = 8  // grid ref, top right Northing
+// m.frame.no  = 9  // video disc frame number
+// m.page.no   =10  // page number for essays
+// m.picture.no=11  // picture number for picture sets
+// m.areal.unit=12  // current areal unit, 0 implies grid square data
+// m.resolution=13  // 1-10km resolution of dataset,
+// m.itemnameLO=14  // LSW |  of item record number in
+// m.itemnameHI=15  // MSW |  NAMES file (LO must be even word aligned)
+// m.itemrecord=16  // current record from item names file
+                 // 18 words long (NOTE this is also a valid BCPL string
+                 // of the item name)
+// m.itemtype  =31  // offset (within item record) of item type word
+                 // N.B. must perform >> 8 to get type byte
+// m.itemaddress=32 // offset (within item record) of item's frame address on disc
+// m.itemaddrLO=32  // LSW |  of item address (LO must be even word aligned)
+// m.itemaddrHI=33  // MSW |
+// m.flags     =34  // flags for general use, esp. menu bar config for CFind
+// m.underlay.frame.no= 35 // Current Underlay map frame number
+// m.HierarchyLO=36 // Current pointer into Thesaurus (LO must be even wd aligned)
+// m.HierarchyHI=37
+// m.curr.high.no=38 // current highlighted term number on screen
+// m.maxstates  =39 // number of states in state table
+// m.justselected=40// flag if pending state change used
+// m.maprecord  =41 // map record for community disc
+// m.exitstack  =42 // Stack of exits from special state changes
+                 // i.e HELP, Forced AREA and ITEM examination
+// m.constack   = 4 // Size of context exit stack - n.b. no extra space now
+
+// m.inxref     = 46 // NT flag for 'in cross reference' operation
+// m.xrefpage   = 47 // NT - page number of cross reference
+// m.itemselected=48 // item examination entry flag
+
+// m.xpos = 49      // used by G.SC.INPUT - xpos of box start
+// m.curpos = 50    // ditto - pos of cursor along string
+// m.map.no = 51    // Frame number of current map
+// m.name.AOI = 52  // Code from Gazetteer
+// m.type.AOI = 53  // ditto
+
+// m.itemadd2   = 54 // item addresses for chained essays
+// m.itemadd2LO = 54 // N.B. both itemadd2 and itemadd3
+// m.itemadd2HI = 55 // are 32 bit integers
+// m.itemadd3   = 56
+// m.itemadd3LO = 56
+// m.itemadd3HI = 57
+
+m.contextsize=57 // Size of this area.
+
+// offsets from g.menubar
+// these contain the box status (active,inactive,clear,etc.)
+// m.box1 =0  // menu bar box1
+// m.box2 =1  // menu bar box2
+// m.box3 =2  // menu bar box3
+// m.box4 =3  // menu bar box4
+// m.box5 =4  // menu bar box5
+// m.box6 =5  // menu bar box6
+// m.menubarsize = 5 // Size of this area
+
+// From m.ut.* in uthdr
+m.lt = -1
+m.eq = 0
+m.gt = 1
+$)
+
+GLOBAL $(
+
+// G.dy.Init   :FG+0  // Dynamic routines, redefine throughout system
+// G.dy.Free   :FG+1
+// G.dy.action :FG+2
+
+// G.in.start  :FG+3  // General initialisation routine
+// G.si.start  :FG+4  // State table initialisation routine
+// G.si.cont   :FG+5  // Continue state table initialisation
+
+// G.ov.exit   :FG+6  // Exit routine for special exits,
+                      // must be in Root
+
+// Help globals
+// GLOBALS AREA from FG+7 to FG+8 reserved: see gl7hdr
+
+// G.Dummy     :FG+9  // Dummy routine for security
+
+// G.stover    :FG+10   // STATE TABLES
+// G.stactr    :FG+11
+// G.sttran    :FG+12
+// G.stinit    :FG+13
+// G.stmenu    :FG+14
+
+// G.menuwords :FG+15  // array of menu words
+
+//***** End of root *******
+// these are the 'state' routines
+
+//
+// *** NOTE: CM state routines (FG+16 to FG+24) now in glst3hdr
+//
+
+// Free FG + 25-39
+
+//
+// *** NOTE: CM state routines (FG+40 to FG+41) now in glst3hdr
+//
+
+G.df.input       :FG+42
+G.df.runprog     :FG+43
+
+// Aggregation routines
+G.ag.double      :FG+44
+G.ag.initw       :FG+45
+G.ag.endw        :FG+46
+G.ag.read        :FG+47
+G.ag.wrch        :FG+48
+G.ag.word        :FG+49
+G.ag.double.word :FG+50
+G.ag.length      :FG+51
+G.ag.write       :FG+52
+G.ag.pointer     :FG+53
+
+G.df.split.cursor :FG+54
+G.df.init.SRAM    :FG+55
+G.df.ermess       :FG+56
+G.ag.aggregate    :FG+57 // This belongs with the aggregation routines
+G.df.counter      :FG+58
+G.df.endw         :FG+59 // This belongs with the primitives!
+
+G.df.format       :FG+60 // Formatter routines
+G.df.tabular      :FG+61
+G.df.mapform      :FG+62
+G.df.format.grid  :FG+63
+G.df.get.datasize :FG+64
+G.df.def.ranges   :FG+65
+G.df.summary.data :FG+66
+G.df.cell         :FG+67
+G.df.missing.cell :FG+68
+
+// Formatter I/0 primitives
+G.df.initr       :FG+69
+G.df.initw       :FG+70
+G.df.endr        :FG+71
+G.df.rdch        :FG+72
+G.df.wrch        :FG+73
+G.df.word        :FG+74
+G.df.double.word :FG+75
+G.df.rewind      :FG+76
+G.df.read.num    :FG+77
+G.df.unrdch      :FG+78
+
+G.df.check.      :FG+79
+G.df.checkgr     :FG+80
+
+// Formatter grid SRAM primitives
+G.df.init.index   :FG+81
+G.df.coarse.index :FG+82
+G.df.fine.index   :FG+83
+
+// Machine dependent get character from keyboard
+G.df.getkey       :FG+84
+
+G.df.main.sub.dataset :FG+85
+G.df.get.grid.ref     :FG+86
+
+// Machine dependent for RS423 line
+G.df.receive :FG+87
+G.df.RS423.input :FG+88
+G.df.keyboard.input :FG+89
+G.df.delete.file :FG+90
+G.df.crc :FG+91
+
+// Help globals - data
+// GLOBALS AREA from FG+92 to FG+92 reserved: see gl7hdr
+
+// Free FG + 93 - 99
+
+G.df :FG+100 // Formatter global buffer
+
+// Free FG + 101 - 103
+
+G.ut.stream :FG+104
+
+// Free FG + 105 - 118
+
+// G.menubar   :FG+119  // pointer to menu bar box data
+// G.menuon    :FG+120  // menu bar status (true=on/false=off)
+// G.redraw    :FG+121  // redraw menu bar flag (true=redraw)
+G.screen    :FG+122  // domesday co-ord system (menu,display or message)
+G.key       :FG+123  // last keypress
+// G.xpoint    :FG+124  // last X position
+// G.ypoint    :FG+125  // last Y position
+G.Context   :FG+126  // pointer to context data area
+// G.sc.spacing:FG+127  // pointer to proportional spacing lookup table
+// G.cm.s      :FG+128  // statics for Map
+
+//******* primitives *********
+
+G.dh.close   :FG+129
+G.dh.length  :FG+130
+G.dh.fstype  :FG+131
+G.dh.open    :FG+132
+G.dh.read    :FG+133
+// G.dh.readframes:FG+134
+// G.dh.reset   :FG+135
+// G.dh.discid  :FG+136   // Disc side detect
+// G.vh.frame   :FG+137
+// G.vh.video   :FG+138
+// G.vh.play    :FG+139
+// G.vh.goto    :FG+140
+// G.vh.reset   :FG+141
+// G.vh.audio   :FG+142
+// G.vh.send.fcode:FG+143
+// G.vh.word.asc:FG+144 // strictly private conversion routine
+// G.sc.btod    :FG+145 // BBC->Domesday co-ords
+// G.sc.dtob    :FG+146 // Domesday->BBC co-ords
+G.sc.movea   :FG+147 // move absolute
+// G.sc.mover   :FG+148 // move relative
+G.sc.linea   :FG+149 // draw line absolute
+// G.sc.liner   :FG+150 // draw line relative
+G.sc.rect    :FG+151 // filled rectangle
+// G.vh.step    :FG+152 // *STEP command
+G.ut.get.ermess :FG+153 // get error message text from IO processor
+// G.dh.select.disc:FG+154 // eject disc and initialise another
+// G.sc.physical.colour:FG+155
+G.vh.call.oscli:FG+156 // send a command to operating system
+// G.sc.sec       :FG+157 // sector (pie slice)
+// G.ut.save.mark :FG+158 // load and ...
+// G.ut.load.mark :FG+159 // ... save bookmark.
+// G.sc.moveptr   :FG+160 // move mouse pointer
+// G.sc.XOR.selcol:FG+161 // select colour in XOR mode
+// G.sc.setpal  :FG+162 // set palette to a predefined mix
+G.sc.selcol  :FG+163 // select a colour
+// G.sc.getact  :FG+164 // get action - temporary global to aid testing
+// G.sc.mouse   :FG+165 // mouse handler - temporary
+// G.sc.savcur  :FG+166 // save cursor position
+// G.sc.rescur  :FG+167 // restore cursor position
+// G.sc.oprop   :FG+168 // output string proportionally spaced
+G.sc.mess    :FG+170 // output a message
+G.sc.ermess  :FG+171 // output an error message
+G.sc.odrop   :FG+172 // output text with drop shadow
+// G.sc.high    :FG+173 // highlight item number
+// G.sc.parallel:FG+174 // draw a parallelogram
+G.sc.clear   :FG+175 // clear selected screen area
+// G.sc.menu    :FG+176 // draw a menu bar
+G.sc.pointer :FG+177 // turn mouse pointer on/off
+// G.sc.ofstr   :FG+178 // output string with formatting
+G.sc.beep    :FG+179 // make a beep
+G.sc.input   :FG+180 // text input primitive
+// G.sc.triangle:FG+181 // draw a filled triangle
+G.sc.width   :FG+182 // inquire width of PS string
+// G.sc.pixcol  :FG+183 // inquire pixel colour (POINT)
+// G.sc.oplist  :FG+184 // output list item
+
+// globals for CALC32 package
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// !!         !!                               !!
+// !!         !! If these globals are changed  !!
+// !! WARNING !! then the definitions at the   !!
+// !! WARNING !! start of UT.CALC32 and        !!
+// !!         !! UT.CALC32B must also          !!
+// !!         !! be changed to agree with them !!
+// !!         !!                               !!
+// !!         !! NN.a.classify must also be    !!
+// !!         !! changed if g.ut.cmp32 is      !!
+// !!         !! changed                       !!
+// !!         !!                               !!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+G.ut.add32  :FG+185 // 32 bit addition
+G.ut.sub32  :FG+186 // 32 bit subtraction
+G.ut.mul32  :FG+187 // multiply
+G.ut.div32  :FG+188 // divide
+G.ut.cmp32  :FG+189 // compare
+
+G.ut.abort  :FG+190 // file handle for trap to write to
+G.ut.trap   :FG+191 // trap invalid parameter
+// G.ut.cache  :FG+192   // save and restore data to IO processor
+// G.ut.restore:FG+193   // sideways RAM
+
+// these SC routines are here because CALC32 shouldn't move
+
+// G.sc.palette :FG+194 // change a single palette colour
+// G.sc.defwin  :FG+195 // select default graphics window
+// G.sc.setwin  :FG+196 // set a graphics window
+// G.sc.opnum   :FG+197 // output a real number
+G.sc.mode    :FG+198 // set screen mode
+// g.dh.SCSI.error :FG+199    // get last SCSI error from LV-DOS
+// G.sc.complement.colour :FG+200
+// G.sc.next.colour       :FG+201
+
+// G.ut.print   :FG+202 // print a line
+G.ut.write   :FG+203 // used for the WRITE primitive
+G.ut.open.file :FG+204  // ditto
+G.ut.close.file :FG+205 // ditto
+// G.ut.videodisc.error :FG+206  // handle fatal error from disc
+// G.vh.poll   :FG+207   // player status poll
+// G.ut.wait   :FG+208   // delay routine
+
+// G.sc.icon   :FG+209   // display icon
+// G.sc.2high  :FG+210   // extra highlight for CT
+// G.ut.copy.screen :FG+211   // shadow screen copying
+G.ut.printingchar:FG+212   // test for printable char
+// G.sc.findmode  :FG+213     // inquire screen mode
+// G.sc.cachemess :FG+214     // cache/restore message area
+// G.sc.setfont   :FG+215     // special font for community text
+
+//***** State private globals grow down from top
+
+// community Map private globals
+// GLOBALS AREA from FG+216 to FG+258 reserved: see gl3hdr
+
+// Free FG + 259 - 318
+
+G.ut.srmove: FG+319 // SRAM move block operation
+
+// Free FG + 320 - 353
+
+// GLOBAL FG+354 reserved for test script system
+// it can be used if test script stuff is not required
+// see TSHDR for details
+
+G.ud.open:FG+355        // Added for User Data - based on G.dh.*
+G.ud.read:FG+356
+G.ud.readframes:FG+357
+G.ud.open.if.can:FG+358
+// ************* free globals - FG+359-362 *****************
+
+// G.sc.keyboard.flush:FG+363 // flush the keyboard buffer
+
+// Free FG + 385 - 479
+
+// G.ut.grid.region:FG+480
+// G.ut.grid.eight.digits:FG+481
+// G.ut.grid.mixed:FG+482
+// G.ut.grid.letter.code:FG+483
+// G.ut.grid.to.string:FG+484
+// G.ut.grid.trim:FG+485
+
+// Help globals
+// GLOBALS AREA from FG+486 to FG+499 reserved: see gl7hdr
+
+// Community Map Globals
+// GLOBALS AREA from FG+500 to FG+510 reserved: see gl3hdr
+
+// Help globals
+// GLOBALS AREA from FG+511 to FG+513 reserved: see gl7hdr
+
+// G.sc.addspace:FG+514 // flag for opage. THIS IS DATA !
+
+//****** Overlay control area *****
+//  Note must contain highest global numbers
+//  since is referenced in Kernel, and
+//  so defines size of GLOBAL vector
+//  If these globals are changed, then a rebuild of
+//  Kernel is necessary, with a fix of the execution
+//  address to be the same as load address.
+
+// G.ov.cntrl:FG+515
+// G.ov.unload:FG+516
+// G.ov.load:FG+517
+$)
+
+//   ***  The End  ***
+
+
+

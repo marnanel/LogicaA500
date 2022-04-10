@@ -1,0 +1,151 @@
+//  UNI SOURCE  4.87
+
+section "tstcalc32"
+get "libhdr"
+get ":5.h.uthdr"
+
+manifest $( ffg = firstfreeglobal $)
+
+global
+$(
+g.ut.add32: ffg + 185
+g.ut.sub32: ffg + 186
+g.ut.mul32: ffg + 187
+g.ut.div32: ffg + 188
+g.ut.cmp32: ffg + 189
+$)
+
+let start() be
+$( let file = vec (20)
+   let n1, n2, n3, n4 = ?,?,?,?
+
+   selectinput (findinput ("/C"))
+   selectoutput (findoutput ("/C"))
+
+   $( writes ("*Nnumbers to add: ")
+      n1 := readn ()
+      n2 := readn ()
+      n3 := readn ()
+      n4 := readn ()
+
+      add.em (n1, n2, n3, n4)
+      compare.em (n1, n2, n3, n4)
+   $) repeat
+$)
+
+and add.em (n1, n2, n3, n4) be
+$( let a32 = vec (1)
+   let b32 = vec (1)
+   let remainder = vec (1)
+   let result = ?
+
+               // add them
+   a32!0 := n2
+   a32!1 := n1
+   b32!0 := n4
+   b32!1 := n3
+
+   newline ()
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   writes (" + ")
+   writehex (a32!1, 4)
+   writehex (a32!0, 4)
+   writes (" = ")
+
+   result := g.ut.add32 (a32, b32)
+
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   writef ("Carry = %s*n", result->"TRUE","FALSE")
+
+                  // and subtract
+   a32!0 := n2
+   a32!1 := n1
+   b32!0 := n4
+   b32!1 := n3
+
+   newline ()
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   writes (" - ")
+   writehex (a32!1, 4)
+   writehex (a32!0, 4)
+   writes (" = ")
+
+   g.ut.sub32 (a32, b32)
+
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+                        // and multiply
+   a32!0 := n2
+   a32!1 := n1
+   b32!0 := n4
+   b32!1 := n3
+
+   newline ()
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   writes (" ** ")
+   writehex (a32!1, 4)
+   writehex (a32!0, 4)
+   writes (" = ")
+
+   result := g.ut.mul32 (a32, b32)
+
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   test result writes ("  OK")
+   else writes ("  ... failed")
+
+                        // and divide
+
+   a32!0 := n2
+   a32!1 := n1
+   b32!0 := n4
+   b32!1 := n3
+   remainder!0 := 0
+   remainder!1 := 0
+
+   newline ()
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   writes (" / ")
+   writehex (a32!1, 4)
+   writehex (a32!0, 4)
+   writes (" = ")
+
+   result := g.ut.div32 (a32, b32, remainder)
+
+   writehex (b32!1, 4)
+   writehex (b32!0, 4)
+   writes (" rem ")
+   writehex (remainder!1, 4)
+   writehex (remainder!0, 4)
+   test result writes ("  OK")
+   else writes ("  ... failed")
+$)
+
+
+and compare.em (n1, n2, n3, n4) be
+$(
+   let a32 = vec 1
+   let b32 = vec 1
+
+   a32!0 := n2
+   a32!1 := n1
+   b32!0 := n4
+   b32!1 := n3
+
+   writes ("*NComparing... ")
+   switchon g.ut.cmp32 (a32, b32) into
+   $( case m.ut.lt: writes ("less than"); endcase
+      case m.ut.eq: writes ("equal");     endcase
+      case m.ut.gt: writes ("greater than")
+   $)
+   newline ()
+$)
+.
+
+
+

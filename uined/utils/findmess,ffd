@@ -1,0 +1,10 @@
+*dir :4
+*spool :4.UINED.scratch.messages
+search "*"" -in UINED.IE.b
+search "*"" -in UINED.GR.b
+search "*"" -in UINED.gd.b
+search "*"" -in UINED.AR.b
+search "*"" -in UINED.TA.b
+search "*"" -in UINED.MA.b
+*back
+*spool

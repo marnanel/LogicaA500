@@ -1,0 +1,37 @@
+/* general tools library */
+append([],L,L).
+append([X|L1],L2,[X|L3]) :- append(L1,L2,L3).
+
+reverse([],[]).
+reverse([H|T],L) :- reverse(T,Z), append(Z,[H],L).
+
+/* Generating English language sentences */
+
+   /* grammatical assemblies */
+   assembly(sentence, [noun_phrase, verb_phrase]).
+
+   assembly(noun_phrase, [determiner, noun]).
+   assembly(determiner, [the]).
+   assembly(noun, [clergyman]).
+   assembly(noun, [motorcar]).
+
+   assembly(verb_phrase, [verb, noun_phrase]).
+   assembly(verb, [says]).
+
+   /* vocabulary */
+   basicpart(clergyman).
+   basicpart(motorcar).
+   basicpart(says).
+   basicpart(the).
+
+   /* sentence construction rules */
+   partsof(X,[X]) :- basicpart(X).
+   partsof(X,P) :-
+          assembly(X,Subparts),
+          listpartsof(Subparts,P).
+
+   listpartsof([],[]).
+   listpartsof([P|T],Total) :-
+          partsof(P,Headparts),
+          listpartsof(T,Tailparts),
+          append(Headparts,Tailparts,Total).

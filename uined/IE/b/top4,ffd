@@ -1,0 +1,125 @@
+SECTION "Top4"
+
+/**   MACHINE SPECIFIC ROUTINES
+      -------------------------
+
+      This section contains :
+
+         g.ie.create.file
+         g.ie.end
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.top
+
+      REVISION HISTORY:
+
+      DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+      22.6.87     1        SA       Initial version
+      4.09.87     2        SRY      Enable player controls on exit
+      7.09.87     3        SRY      Reset keyboard on exit
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.iehd"
+
+/**
+      G.IE.CREATE.FILE - CREATE A FILE
+      --------------------------------
+
+      creates a four byte length file with specified name
+
+      INPUTS:
+
+      none
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      machine specific call to '*create'
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ie.create.file ()
+      -------------------
+      create a four byte length file with name given in g.ar.buff!m.ie.main
+**/
+
+LET g.ie.create.file () BE
+$( let main = ?
+   let main.buff = VEC m.ie.main.size / bytesperword
+   main := G.ut.align(G.ie.buff, m.ie.main.byte, main.buff, m.ie.main.size)
+   RUNPROG ("**create %S 0", main)
+$)
+
+/**
+      G.IE.END - LEAVES INPUT EDITOR FOR BASIC
+      ----------------------------------------
+
+      Controls exit of user from input editor system
+
+
+      INPUTS:
+
+      none
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+
+      SPECIAL NOTES FOR CALLERS:
+
+      machine specific calls
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ie.end()
+      ----------
+
+      clear screen
+      split cursors
+      end program and go to basic
+**/
+
+
+AND g.ie.end() BE
+$(
+   runprog("**VFS")
+   g.vh.send.fcode("I1")  // Enable local controls
+   g.vh.send.fcode("J1")  // Enable handset
+   g.vh.send.fcode("$1")  // Enable replay switch
+   runprog("**ADFS")
+
+   G.sc.clear (m.sd.message)
+   G.sc.clear (m.sd.display)
+   G.sc.clear (m.sd.menu)
+   G.sc.pointer (m.sd.off)
+   IF g.context!m.data.handle ~= 0
+   THEN g.dh.close (g.context!m.data.handle)
+   G.sc.mode (1)
+
+   OSbyte(4,0)           // enable cursor key editing
+   OSbyte(229,0,0)       // Escape action
+   OSbyte(225,1,0)       // Funct. key strings
+   OSbyte(226,1,0)       // ditto SHFT
+   OSbyte(200,0)         // BREAK action
+
+   VDU ("4")
+   FOR H = 1 TO 7 DO
+     WRCH (10)
+   RUNPROG ("**basic")
+$)
+.
+

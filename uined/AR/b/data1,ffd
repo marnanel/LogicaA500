@@ -1,0 +1,271 @@
+SECTION "Data1"
+
+/**   AREAL DATA - VALUE VALIDATION
+      -----------------------------
+
+      This section contains :
+
+         g.ar.valid
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.areal
+
+      REVISION HISTORY:
+
+      DATE     VERSION   AUTHOR     DETAILS OF CHANGE
+       2.6.87     1        SA       Initial version
+      12.6.87     2        SA       Combine all validation routines
+      20.10.87    3        MH       updated for UNI version
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+      G.AR.VALID - VALIDATION (AND STORE) OF ENTRY BOX CONTENTS
+      ---------------------------------------------------------
+
+      returns true/false response if the contents of a given box are
+      suitable stores the new value
+
+      INPUTS:
+
+      pointer to string : m.ar.units
+                          m.ar.nfac
+                          m.ar.incid
+                          m.ar.values + index
+
+      OUTPUTS:
+
+      none
+
+      GLOBALS MODIFIED:
+
+      none
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      G.ar.valid (box, index)
+      -----------------------
+
+      SWITCHON box INTO
+         CASE OF box = normalising factor :
+         CASE OF box = incidence cut off  :
+         CASE OF box = data value         : IF string is valid
+                                            THEN store new value
+                                            RESULT = true
+         DEFAULT                          : RESULT = true
+      RESULT = false
+**/
+
+LET g.ar.valid (box, index) = VALOF
+$( SWITCHON box INTO
+   $( CASE m.ar.nfac   : IF valid.string ()
+                         THEN $( LET num = ?
+                                 num := string.to.num (g.ar.buff+m.ar.nfac)
+                                 TEST -100 < num < 100
+                                 THEN $( g.ar.buff!m.ar.norm := num
+                                         RESULTIS true
+                                      $)
+                                 ELSE g.sc.ermess (
+                                             "Normalising factor out of range")
+                              $)
+                         ENDCASE
+      CASE m.ar.incid  : IF valid.string ()
+                         THEN IF eval (g.ar.buff+m.ar.incid,
+                                                    g.ar.buff+m.ar.inc.cut.off)
+                              THEN RESULTIS true
+                         ENDCASE
+      CASE m.ar.values : RESULTIS valid.value (index)
+      DEFAULT          : RESULTIS true
+   $)
+   RESULTIS false
+$)
+
+// //////////////////////////////////////////////////////////////////////// //
+//                     routines used by g.ar.valid                          //
+// //////////////////////////////////////////////////////////////////////// //
+
+/**
+      valid.string (box) works for incidence and normalising factor boxes
+      It checks that characters exist and that all the characters are suitable
+      for conversion to a number befor returning true - otherwise suitable
+      error messages are output and it returns false.
+**/
+AND valid.string (box) = VALOF   // Check an entry is OK
+$( LET errmess1, errmess2 = ?, ?
+   errmess1 := (box = m.ar.nfac) -> "Normalising factor is blank",
+                                    "Incidence conversion incomplete"
+   errmess2 := (box = m.ar.nfac) -> "Invalid normalising factor",
+                                    "Invalid incidence cut-off point"
+   IF g.ar.buff%(box*bytesperword) = 0
+   THEN $( g.sc.ermess (errmess1)
+           RESULTIS false
+        $)
+   FOR H = 1 TO g.ar.buff%(box*bytesperword) DO
+      $( LET tag = true
+         UNLESS ('0' <= g.ar.buff%(bytesperword*box+H) <= '9') DO tag := false
+         IF (H = 1) & (g.ar.buff%(bytesperword*box+H) = '-')   DO tag := true
+         UNLESS tag DO $( g.sc.ermess (errmess2)
+                          RESULTIS false
+                       $)
+      $)
+   IF (g.ar.buff%(bytesperword*box) = 1 & g.ar.buff%(bytesperword*box+1) = '-')
+   THEN $( g.sc.ermess (errmess2)
+           RESULTIS false
+        $)
+   RESULTIS true
+$)
+
+
+// convert digit string to 16-bit number
+AND string.to.num (string) = VALOF
+$( LET chs = string%0
+   LET number = 0
+   LET index  = 1
+   FOR H = chs TO 1 BY -1 DO
+   $( UNLESS string%H = '-' DO
+      $( number := number + ((string%H)-'0')*index
+         index  := index*10
+      $)
+   $)
+   IF string%1 = '-'
+   THEN number := -number
+   RESULTIS number
+$)
+
+
+/**
+      valid.value (box) checks the suitability of the string pointed to by
+      box for conversion to a data value and then returns true if the
+      conversion is successful
+**/
+AND valid.value (box) = VALOF                                  // box = 1 -> 22
+$( LET string = ?
+   string := g.ar.buff + m.ar.values.str + (box-1)*m.ar.val.len.words
+
+   IF (string%0 = 0) |
+      (string%0 = 1 & string%1 = '-')
+   THEN $( missing.value (box)
+           RESULTIS true
+        $)
+
+   FOR H = 1 TO string%0 DO
+   $( UNLESS (H = 1) & (string%H = '-') DO
+        UNLESS ('0' <= string%H <= '9') DO
+        $( g.sc.ermess ("Invalid data value")
+           RESULTIS false
+        $)
+   $)
+
+   TEST new.value (string, box)
+   THEN RESULTIS true
+   ELSE $( g.sc.ermess ( (g.context!m.data.type = m.ar.incidence) ->
+                  "Incidence values must be 0 or 1",
+                  "Data value is outside range")
+           RESULTIS false
+        $)
+$)
+
+// stores new data value in temporary buffer
+AND new.value (string, box) = VALOF
+$( LET num = VEC 1
+   IF eval (string, num)
+   THEN $( TEST no.overflow (num)
+           THEN $( G.ut.mov32(num, g.ar.buff+m.ar.values+2*(box-1))
+                   RESULTIS true
+                $)
+           ELSE RESULTIS false
+        $)
+   RESULTIS false
+$)
+
+AND no.overflow (num) = VALOF
+$( IF g.context!m.data.type = m.ar.incidence
+   THEN $( IF (G.ut.unpack16(num,1*bytesperword) & #XFFFF) > 0 RESULTIS false
+           TEST (0 <= G.ut.unpack16.signed(num, 0) <= 1)
+           THEN RESULTIS true
+           ELSE RESULTIS false
+        $)
+   SWITCHON g.ar.buff!m.ar.size INTO
+   $( CASE 2  : UNLESS conv16 (num) RESULTIS false
+                ENDCASE
+      DEFAULT : IF (G.ut.unpack16(num, 0) = 0) &
+                   (G.ut.unpack16.signed(num, 1*bytesperword) = #X8000)
+                THEN RESULTIS false
+                ENDCASE
+   $)
+   RESULTIS true
+$)
+
+// checks for 16-bit overflow and reformats 32-bit number to 16-bits
+AND conv16 (num) = VALOF
+$( LET max = VEC 1
+   LET min = VEC 1
+   G.ut.set32(#X7FFF, #X0000, max)
+   G.ut.set32(#X8001, #XFFFF, min)
+   IF g.ut.cmp32 (num, max) = m.gt THEN RESULTIS false
+   IF g.ut.cmp32 (num, min) = m.lt THEN RESULTIS false
+   G.ut.set32(G.ut.unpack16(num, 0), 0, num)
+   RESULTIS true
+$)
+
+// evaluates a 32 bit number returning true for success
+AND eval (string, num) = VALOF      // returns true if valid number
+$( LET len = string%0               // assume only digits or '-' in first place
+   LET bottom = 1
+   LET n = VEC 1
+   LET radix = VEC 1
+   LET t = VEC 1
+   LET neg = string%1 = '-'
+   G.ut.set32(1, 0, radix)
+   G.ut.set32(0, 0,num)
+   IF neg THEN bottom := 2
+   FOR i = len TO bottom BY -1
+   $( G.ut.set32(string%i - '0', 0, n)
+      UNLESS G.ut.mul32(radix, n) RESULTIS false
+      G.ut.add32(n, num)
+      UNLESS (G.ut.unpack16(num, 2) & #X8000) = 0 RESULTIS false
+      G.ut.set32(10, 0, t)
+      G.ut.mul32(t, radix)
+   $)
+   G.ut.set32(0, 0, t)
+   IF neg                                                // reverse sign of num
+   THEN UNLESS G.ut.cmp32(num, t) = m.eq
+        THEN $( rev32 (num)
+                IF (G.ut.unpack16.signed(num, 2) & #X8000) = 0
+                THEN RESULTIS false
+             $)
+   RESULTIS true
+$)
+
+AND rev32(num) BE
+$( let t = VEC 1
+   G.ut.set32((G.ut.unpack16(num, 0) NEQV #XFFFF),
+      (G.ut.unpack16.signed(num, 2) NEQV #XFFFF), num)
+   G.ut.set32(1, 0, t)
+   G.ut.add32(t, num)
+$)
+
+// sets value in g.ar.buff to missing value according to data size
+AND missing.value (box) BE
+$( LET missing = VEC 1
+   SWITCHON g.ar.buff!m.ar.size INTO
+   $( CASE 2  : G.ut.set32(#X8000, 0, missing)
+                ENDCASE
+      CASE 4  :
+      DEFAULT : G.ut.set32(0, #X8000, missing)
+                ENDCASE
+   $)
+   G.ut.mov32(missing, g.ar.buff+m.ar.values+ (box-1)*2)
+$)
+.
+

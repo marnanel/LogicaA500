@@ -1,0 +1,192 @@
+section "gr1"
+
+/**
+         CM.B.GR1 - Data retrieval & storage for Input Editor
+         ----------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       29.04.87   1        SRY         Initial version
+       06.01.88   2        MH/SRY      Bug fix to G.gr.store.val for initial
+                                       state where base.X = top.X = 0
+
+         GLOBALS DEFINED:
+
+         G.gr.get.val
+         G.gr.store.val
+         G.gr.dirty
+         G.gr.save.data
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glCMhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.uthd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.cmhd"
+
+static $( buf.no = ?   // comms between get.offset & others
+       $)
+
+/*
+   Retrieve value from buffer. Load data if necessary.
+   Uses km coords to find correct value.
+*/
+
+let G.gr.get.val(num) be
+$( let offset = get.offset()
+   test offset >= 0
+   then G.gr.SRAM.retrieve(buf.no, offset, num)
+   else G.gr.set.missing(num)                   // retrieving outside dataset
+$)
+
+/*
+   Store value in buffer.
+   Uses km coords to find offset in block.
+   Will not have to load block as the block is always read
+   before it is written - mapwalking.
+   Only stores if within correct datasize
+*/
+// Bug fix for initial grid where base.X = top.X = 0 .06.01.88 MH / SRY
+and G.gr.store.val(num) be
+$( let offset = get.offset()
+   test (offset >= 0) & (G.cm.s!m.km.base.x ~= 0 | G.cm.s!m.km.top.x ~= 0)
+//Don't do this if initial case
+   then $( G.gr.SRAM.store(buf.no, offset, num)
+           (G.cm.s + m.changed)!buf.no := true
+        $)
+   else unless G.gr.missing(num)
+           if G.gr.extend.refs()
+              G.gr.store.val(num)  // recursive!
+$)
+
+/*
+   Flag load data.
+   Also load complete 32x32 index.
+   Called in G.cm.mapini.special
+*/
+
+and G.gr.dirty() be
+$( for i = 0 to 3
+   $( (G.cm.s + m.changed)!i := false  // Have buffers changed ?
+      (G.cm.s + m.bmap)!i := -1        // Blocks currently in buffers
+      (G.cm.s + m.bl1)!i := -1         // LRU stack of blocks
+   $)
+   G.cm.s!m.cur.block := -1            // Current block invalid
+   G.gr.load.index()
+$)
+
+/*
+   Find correct block and offset for current km GR, loading a new block
+   if necessary.
+*/
+
+and get.offset() = valof
+$( let x, y = G.cm.s!m.km.x, G.cm.s!m.km.y
+   let xb, yb = G.cm.s!m.km.base.x, G.cm.s!m.km.base.y
+   let bw, bn = G.cm.s!m.blocks.w, G.cm.s!m.blocks.n
+   let unit = G.context!m.resolution
+   let unit8 = unit << 3
+   let unit32 = unit8 << 2
+   let diffw = (x - xb) / unit32
+   let diffn = (y - yb) / unit32
+   let this.one = diffn * bw + diffw + 1
+   let b8 = ?
+
+   // If point is outside dataset GRs, don't change anything
+   if y < yb | x < xb | diffw >= bw | diffn >= bn resultis -1
+
+   // Block shuffling
+   unless G.cm.s!m.cur.block = this.one
+   $( 
+      unless load.block(this.one) resultis -1
+      G.cm.s!m.base32x := xb + diffw * unit32
+      G.cm.s!m.base32y := yb + diffn * unit32
+   $)
+
+   // LRU mechanism
+   unless this.one = G.cm.s!m.bl1
+   $( unless this.one = G.cm.s!m.bl2
+      $( unless this.one = G.cm.s!m.bl3 G.cm.s!m.bl4 := G.cm.s!m.bl3
+         G.cm.s!m.bl3 := G.cm.s!m.bl2
+      $)
+      G.cm.s!m.bl2 := G.cm.s!m.bl1
+      G.cm.s!m.bl1 := this.one
+   $)
+
+   x := x - G.cm.s!m.base32x
+   y := y - G.cm.s!m.base32y
+   // Blocks go in left-right, down-up order as loaded in by G.gr.load.block
+   b8 := ((y/unit8) << 2) + x/unit8
+
+   // Return word offset in SRAM block (2 words per value)
+   resultis  (b8 << 7) +
+             ( ( ( ((y rem unit8)/unit) << 3 ) + (x rem unit8)/unit ) << 1)
+$)
+
+/*
+   Deal with request for block. Find if it is in 4-block store,
+   and load in if necessary, throwing out least recently used block.
+   'n' is the number of the block to load in.
+*/
+
+and load.block(n) = valof
+$( let map = G.cm.s + m.bmap
+   let changed = G.cm.s + m.changed
+   buf.no := -1
+
+   // Check if have block in 4-block buffer
+   for i = 0 to 3 if map!i = n
+   $( buf.no := i
+      goto exit
+   $)
+
+   // We don't have it - see if there is a vacant buffer to load into
+   for i = 0 to 3 if map!i = -1
+   $( buf.no := i
+      break
+   $)
+
+   // If no spare buffer, throw out LRU block
+   // Store it if it has changed
+   if buf.no = -1
+   $( for i = 0 to 3 if map!i = G.cm.s!m.bl4
+      $( buf.no := i
+         break
+      $)
+      if changed!buf.no G.gr.store.block(buf.no)
+   $)
+
+   // Load in new block
+   map!buf.no := n
+   changed!buf.no := false
+   G.gr.load.block(buf.no)
+
+exit:
+   G.cm.s!m.cur.block := n
+   resultis G.key >= 0
+$)
+
+/*
+   Save any blocks which have changed since loading
+*/
+
+and G.gr.save.data() be
+$( let changed = G.cm.s + m.changed
+   let oldstate = G.sc.pointer(m.sd.off)
+   for i = 0 to 3
+      if changed!i
+      $( G.gr.store.block(i)
+         changed!i := false
+      $)
+   G.dh.ensure()
+   G.sc.clear(m.sd.message)
+   G.sc.pointer(oldstate)
+$)
+.

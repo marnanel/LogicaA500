@@ -1,0 +1,23 @@
+// /**
+//       KEHDR - KERNEL HEADER FILE
+//       --------------------------
+//
+//       This file contains private manifests for the KERNEL
+//       Package
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       06/01/86 1        JIBC        Initial version
+//       30/04/86 2        JIBC        Trim root to 400 words
+//       04/06/86 3        JIBC        Boost to 450
+// **/
+MANIFEST $(
+m.ke.rootsize = 450
+$)
+
+
+
+
+
+

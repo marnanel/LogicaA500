@@ -1,0 +1,179 @@
+//  UNI SOURCE  4.87
+
+//    30.04.87 1        PAC         ADOPTED FOR UNI SYSTEM
+
+SECTION "b.Kerneln"
+NEEDS"BACKMOV"
+NEEDS"STACKSI"
+NEEDS"VDU"
+NEEDS"WRITET"
+NEEDS"WRITEU"
+
+STATIC
+$( S.segptr = 0  //current overlay segment pointer
+//   s.count = 0   //number of times called (Primitive metric)
+   s.runfrom = 0 //filing system invoked from
+   s.prev.child = FALSE // previous child loaded
+$)
+/**
+         B.KERNELN - OVERLAY HANDLING CODE FOR KERNEL
+         --------------------------------------------
+
+         NOTE: This version is for testing in a non-standalone
+         BCPL environment. In the final standalone system the
+         code in b.kernel2 should be used.
+
+         This module contains the BCPL procedure G.ov.load which
+         is the machine specific overlay handling routine for the
+         software. This routine load a CINTCODE file into a vector
+         and re-assigns the globals defined by that CINTCODE
+         using the inbuilt procedure GLOBIN.
+
+
+         LOCATION OF RUNNABLE CODE:
+
+         R.kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       22.04.87   1        SA          Adapted for Input Editor
+       23.04.87   2        SRY         Modified for IE
+***************************************************************
+       6.10.87    3        MH          ADAPTED FOR UNI
+**/
+GET "LIBHDR"
+GET "SYSHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.h.kehd"
+GET ":4.UINED.h.dhhd"
+/**
+         G.ov.load - LOAD OVERLAY ROUTINE
+         --------------------------------
+
+         INPUTS:
+
+         Filename as string, Pointer to start of vector to
+         recieve CINTCODE file, Size of vector
+
+         OUTPUTS:
+
+         None
+
+         GLOBALS MODIFIED:
+
+         G.dy.init  -- new overlays always include these routines
+                       which are dynamically assigned
+
+         Any Globals present in the newly loaded overlay are
+         initialised.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Any failure to load an overlay is treated as a 'FATAL'
+         error and a message is output, indicating the error, and
+         the program forced to terminate.
+
+         This routine is used for loading all parent overlays,
+         and the NM children. An NM child overlay filename MUST
+         begin with the letters "cnm", plus 4 other characters;
+         e.g. "cnmretr", "cnmauto".
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ov.load [string pointer, memory pointer, size]
+
+         Any unwanted code is UNLINKED.
+         The memory is returned to the heap if a new overlay
+         bay has been reserved by ROOT. A store file is made from
+         the CINTCODE from the file named by string pointer.
+         The CINTCODE in the store file is initialised by the inbuilt
+         proceedure GLOBIN, re defining any relavent GLOBALs
+         RETURN
+
+
+**/
+LET G.ov.load (overlay, memory) = VALOF
+$(
+   LET result = ?
+
+   IF s.runfrom = 0 THEN
+      s.runfrom := G.DH.fstype() //first time, which Filing system
+
+
+   TEST s.prev.child
+   THEN
+   $(
+      s.segptr := GLOBUNIN(s.segptr) //unlink previous overlay
+      IF new.child(overlay) = FALSE
+      THEN
+      $(
+         s.prev.child := FALSE
+         s.segptr := GLOBUNIN(s.segptr)
+      $)
+   $)
+   ELSE
+   $(
+      TEST new.child(overlay)
+      THEN
+      $(
+         s.prev.child := TRUE
+         FREEVEC(memory)
+      $)
+      ELSE
+      $(
+         s.segptr := GLOBUNIN(s.segptr)
+      $)
+   $)
+
+   SHUFFLE( TRUE )
+
+   result := load.segment( overlay )
+
+   IF (result = FALSE)
+   THEN
+   $(  G.SC.ermess("Failed to link overlay %S reason %N*N",overlay,RESULT2)
+       G.ut.ABORT(99)
+   $)
+   RESULTIS TRUE
+$)
+
+AND new.child( string ) = VALOF
+$(
+    TEST (((string%1='c') &
+         (string%2='n'))  &
+         (string%3='m'))
+    THEN RESULTIS TRUE
+    ELSE RESULTIS FALSE
+$)
+
+
+//  UNI SOURCE  4.87
+
+
+/*
+         load.segment() returns a pointer to the vector allocated
+         for the file name specified. Aborts if file is not
+         found. It is used for loading code in NOSA system, with
+         loadseg. Has ADFS checking under $$floppy tag.
+*/
+
+AND load.segment( name ) = VALOF
+$(
+   LET v = 0
+
+$<floppy
+   LET buf = VEC 20/BYTESPERWORD
+   s.segptr := LOADSEG( concat.("-adfs-",name,buf) )
+   v := GLOBIN( s.segptr )
+$>floppy
+
+   IF v = FALSE THEN s.segptr := LOADSEG( name )
+
+   v := GLOBIN( s.segptr )
+
+   RESULTIS v
+$)
+
+$<floppy
+AND concat.( s1, s2, buf ) = VALOF

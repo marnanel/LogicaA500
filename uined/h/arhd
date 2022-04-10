@@ -1,0 +1,213 @@
+// /**
+//       ARHDR - HEADER FOR AREAL HEADER
+//       -------------------------------
+//
+//       Manifest definitions for the areal header operation
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       30.4.87     1       SA        Initial version
+//        6.5.87     2       SA        Ranges manifests added
+//        7.5.87     3       SA        Incidence manifests added
+//       18.6.87     4       SA        Combine with arphdr and remove globals
+//       20.10.87    5       MH        updated fo UNI version
+// **/
+
+MANIFEST
+$(
+m.ar.buffsize  = 440                 // G.ar.buff length (words)
+m.ar.unitsY    = m.sd.linW*19        // Y-coord of Units field
+m.ar.dataY     = m.sd.linW*15        // Y-coord of Data field
+m.ar.incidY    = m.ar.dataY          // Y-coord of Incidence field
+m.ar.areaY     = m.sd.linW*10        // Y-coord of Area field
+m.ar.nfacY     = m.sd.linW*6         // Y-coord of Normalising Factor field
+m.ar.posX      = 16                  // O.5 chars in
+m.ar.ulength   = 39                  // Length of Units field (chars)
+m.ar.nflength  = 3                   // Length of Normalising Factor field
+m.ar.inclength = 11                  // Length of Incidence field (chars)
+m.ar.findlength = 28                 // Length of find field (chars)
+m.ar.value.length = 11               // Length of values field (chars)
+m.ar.val.len.words = (m.ar.value.length+1) / bytesperword
+                                     // Length of values field in words
+m.ar.replength = 1                   // Length of Y/N reply field (chars)
+m.ar.unitsX    = m.ar.posX+(32*m.ar.ulength)+m.sd.disXtex // Last X for Units
+m.ar.nfacX     = m.ar.posX+(32*m.ar.nflength)+m.sd.disXtex // Last X for nfac
+m.ar.incidX    = m.ar.posX+(32*m.ar.inclength)+m.sd.disXtex // Last X for incid
+m.ar.valueX    = m.ar.posX+(32*m.ar.value.length)+m.sd.disXtex
+                                                           // Last X for values
+m.ar.incidXstr = 55*m.ar.posX        // first X for incid
+m.ar.valueXstr = 57*m.ar.posX        // first X for values
+m.ar.nfacXstr  = 5*m.ar.posX // first X for nfac
+m.ar.gazbytes      = 48      // bytes in a GAZETTEER record
+m.ar.dstrwords     = 15      // words in data cycle field string
+m.ar.county        = 10      // string number for default to "county" in area
+m.ar.incidwords    = 6       // words in data cycle field string
+
+                             // *********** machine specific ***********
+m.ar.max.areas     = 1935    // maximum number of areas allowed in an area
+                             // type - must match the value in NM header
+
+// Domesday data types
+m.ar.absolute    = 0
+m.ar.ratio       = 2
+m.ar.percentage  = 3         // sequential string numbers in datacyc field
+m.ar.incidence   = 5
+m.ar.categorised = 6
+m.ar.means       = 7
+
+// Domesday data file byte offsets
+m.ar.header.bytes   = 130     // bytes in areal data private header
+m.ar.header.offset  = 28      // offset to data private header (common header)
+m.ar.data.sec.bytes = 30      // bytes for data section of header
+m.ar.summary.bytes  = 148     // bytes for summary data
+
+m.ar.forward = 0             //
+m.ar.back    = 1             //  variables for g.ar.page
+m.ar.store   = 2             //
+m.ar.display = 3             //
+
+// Values for variables
+
+m.ar.unknown = -1            // Initial value for variables
+m.ar.entry   =  1
+m.ar.cycle   =  2            // box type
+m.ar.off     =  0
+m.ar.on      =  1            // status
+
+m.lsb = 0
+m.msb = 1                   // low and high word and byte positions
+m.lsw = 0
+m.msw = 1
+
+// screen definitions
+// NB: m.sd.disw = 1280, m.sd.dish = 888 in SDHDR ;
+//     mappable data displays only use 220 of the 222 pixels available
+//     in the display area; this area is centred within the full area
+
+m.ar.pixel.width  = 160
+m.ar.pixel.height = 220           // NB: if this changes, NAHDR must be changed
+
+m.ar.x.pixels.to.graphics = 1280/m.ar.pixel.width
+m.ar.y.pixels.to.graphics = 880/m.ar.pixel.height
+
+m.ar.max.data.size     =  2         // in words
+                                    // NB: assumed to be = 2 in NN.a.classify
+                                    //     and in some optimised modules where
+                                    //     an equivalent shift manifest is
+                                    //     declared; any change must be made
+                                    //     to all files
+
+m.ar.max.negative.value =  #X8000
+m.ar.max.pos.low        =  #Xffff
+m.ar.max.pos.high       =  #X7fff
+
+m.ar.num.of.class.intervals = 5         // NB: duplicated in NN.a.classify; any
+                                        // changes must be made to both files
+
+
+// Word offsets into context data in g.ar.buff
+
+m.ar.box           = 1            // Current box or unknown
+m.ar.screenstate   = 2            // 1,2 or 3 (or unknown)
+m.ar.last.box      = 3            // The last box entered
+m.ar.boxtype       = 4            // cycle, selection or entry field
+// m.ar.       = 5            //
+m.ar.areacyc       = 6            // index into areas
+
+m.ar.gbuff         = 8            // For reading 48 bytes of a gazetteer record
+ m.ar.area       = m.ar.gbuff+0   // areal unit code
+ m.ar.gstr       = m.ar.gbuff+1   // offset to area type name in gazetteer
+ m.ar.areas      = m.ar.gbuff+17  // number of areas in AU type
+ m.ar.gptr       = m.ar.gbuff+18  //pointer to 1st area rec in gazetteer
+ m.ar.map.num    = m.ar.gbuff+23  // map number of current area
+
+m.ar.nfac          = 33           // Buffer for Normalising Factor (3 bytes)
+m.ar.cycol         = 35           // colour of cycle
+m.ar.cycstr        = 36           // cycle field set
+m.ar.data          = 37           // for data type cycle strings
+m.ar.status        = 52           // status of entry boxes
+m.ar.area.types    = 53           // number of area types
+m.ar.oldstr        = 54           // string modified - yes/no
+m.ar.xpos          = 55           // cursor position
+m.ar.ypos          = 56           // cursor position
+m.ar.header.ptr    = 57           // pointer into header region of file
+m.ar.values.ptr    = 59           // pointer into data values region of file
+m.ar.incid         = 61           // buffer for incidence value
+m.ar.firstincid    = 68           // flag for first time into incidence
+m.ar.reply         = 69           // buffer for reply to Y/N
+m.ar.readreply     = 71           // flag to allow reading of reply
+
+// offsets refering to data positions in areal data videodisc structure
+m.ar.header        = 73            // buffer for areal file private header
+ m.ar.units      = m.ar.header+40/bytesperword
+                                   // Buffer for Units string (40 bytes)
+ m.ar.datatype   = m.ar.header+120/bytesperword
+                                   // data type defined in videodisc structures
+ m.ar.datasets   = m.ar.header+124/bytesperword
+                                   // number of data sets in current file
+ m.ar.areal.unit = m.ar.header+128/bytesperword
+                                   // areal unit of current file
+ m.ar.data.recno = m.ar.header+132/bytesperword
+                                   // record number at which data starts
+ m.ar.data.off   = m.ar.header+136/bytesperword
+                                   // offset to sub data
+
+m.ar.data.sec      = 142           // buffer area for data section of header
+ m.ar.value.recno  = m.ar.data.sec+0  // record number where data values start
+ m.ar.value.off    = m.ar.data.sec+1  // offset to values data
+ m.ar.norm         = m.ar.data.sec+2  // normalising factor value in data file
+ m.ar.areas.file   = m.ar.data.sec+4  // number of areas in data file
+ m.ar.size.default = m.ar.data.sec+6  // data value size and number of default ranges
+ m.ar.range1       = m.ar.data.sec+7  // ranges from data file
+ m.ar.range2       = m.ar.data.sec+9  // ranges from data file
+ m.ar.range3       = m.ar.data.sec+11 // ranges from data file
+ m.ar.range4       = m.ar.data.sec+13 // ranges from data file
+
+m.ar.data.ptr      = 162          // file pointer to header data region
+m.ar.size          = 164          // size of data elements
+m.ar.default.ranges= 165          // number of default ranges
+
+m.ar.values.str    = 167          // strings containing data values
+m.ar.values        = 302          // buffers containing actual numeric values
+m.ar.gtopptr       = 347          // pointer to top of area names in gazetteer
+m.ar.top           = 349          // AU number of first itme on current list
+m.ar.dptr          = 350          // pointer to top of data area in output file
+m.ar.data.areas    = 352          // number of data values in file
+m.ar.page.items    = 353          // number of items from gazetteer file
+                                  // required to make a 22 item page list
+m.ar.value.index   = 354          // buffer holding index to data values
+                                  // referenced on the data screen list
+m.ar.page.list     = 377          // number of items on screen list
+m.ar.find          = 378          // buffer for find response
+m.ar.firstfind     = 393          // flag for entry into find operation
+m.ar.inc.cut.off   = 394          // 32-bit value of incidence cut-off point
+m.ar.gaz           = 396          // hnadle for gazetteer file
+
+// ranges operations
+m.ar.intervals.changed = 397       // at first free position in buffer
+m.ar.entry.mode        = 398
+                                                                   // key sizes
+m.ar.box.position      = 399       // vector of graphics x coords,
+                                   // 0 -> no. class intervals
+m.ar.number.width      = 406
+m.ar.range.box         = 407       // current box in manual entry mode
+m.ar.number.string     = 408       // number string in entry mode (max 20 chrs)
+m.ar.ranges.set        = 419       // flag set on entry into ranges operation
+m.ar.ranges            = 420       // area to store current ranges values
+
+m.ar.gbuff.r        = 429 // For reading 48 bytes of a gazetteer recor
+m.ar.gbuff.byte.r    = m.ar.gbuff.r * bytesperword
+ m.ar.area.r       = m.ar.gbuff.byte.r+0   // areal unit code
+ m.ar.gstr.r       = m.ar.gbuff.byte.r+2 //offset to area type name in gaz
+ m.ar.areas.r      = m.ar.gbuff.byte.r+34  // number of areas in AU type
+ m.ar.gptr.r       = m.ar.gbuff.byte.r+36  //pointer to 1st area rec in gaz
+ m.ar.map.num.r    = m.ar.gbuff.byte.r+46  // map number of current area
+m.ar.free              = 442      // free
+$)
+
+
+
+
+
+

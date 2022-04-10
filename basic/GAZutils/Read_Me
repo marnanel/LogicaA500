@@ -1,0 +1,58 @@
+
+DATAMERGE GAZETTEER INFORMATION DISC 
+
+(Disc made on 24.9.87, 7.00pm.)
+
+Gazetteer names files on this disc
+----------------------------------
+
+There are two files of Gazetteer names on this floppy;
+
+Gaznames1 - A list of all gazetteer names, by areal unit,
+            with area names which reference invalid MapData
+            records 'hidden'. This is the same as the names
+            displayed by the DataMerge package. 
+            
+            E.g. for ITV region n/o 2, the names are:
+
+                 2      Central
+                 4      Scottish TV
+                 9      South West TV
+                11      Tyne Tees
+
+
+Gaznames2 - A complete list of all possible names, regardless
+            of whether they reference a valid MapData record.
+
+            E.g. for ITV region n/o 2, the names are:   
+
+                 1      Grampian
+                 2      Central
+                 3      Border
+                 4      Scottish TV
+                 5      Channel
+                 6      Thames/LWT
+                 7      Granada
+                 8      Anglia
+                 9      South West TV
+                10      TVS
+                11      Tyne Tees
+                12      Ulster
+                13      Harlech (Cymru)
+                14      Yorkshire
+                15      Harlech (West of England)
+
+
+In addition, there is a file called Difference, which lists the 
+differences between the two names files. This is the output of the
+Compare utility on the A500.
+
+I have looked at the original file of Gazetteer names on the floppy
+given to Stewart Atkins last Friday, and for some as yet undiscovered
+reason there ARE a few names missing. I believe that the files on this
+floppy are the complete versions. Many apologies for the trouble 
+caused by the first erroneous file.
+
+
+                         Paul Cunnell.
+

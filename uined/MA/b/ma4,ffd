@@ -1,0 +1,158 @@
+section "ma4"
+/**
+
+         MA.B.MA4 - Additional Utility Routines
+         --------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+         12.06.87    1     AEG      Initial version
+         23.10.87    2     MH       updated for UNI version
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+get ":4.UINED.h.mahd"
+
+/*
+   Write user buffer to file
+   Only write valid data to the file (marked by the top offset) - not
+   necessarily the whole buffer
+*/
+LET g.ma.write.block (base, top, length, offset, file.no, buffer.addr) = VALOF
+$(
+   LET len32 = VEC (1)           // length to write
+   LET start.addr = VEC (1)      // address in file to write to
+   LET one = VEC (1)
+//   $<debug
+//   g.sc.ermess ("Write: B #X%X4%X4, T #X%X4%X4", base!1,!base,top!1,!top)
+//   $>debug
+   G.ut.set32(1, 0, one)
+   G.ut.mov32(base, start.addr)
+   g.ut.add32 (offset, start.addr)
+   TEST g.ut.cmp32(length, top) = m.lt THEN
+      G.ut.mov32(length, len32)
+   ELSE
+      G.ut.mov32(top, len32)
+
+   // length to write is (top - base + 1)
+   g.ut.sub32 (base, len32)
+   g.ut.add32 (one, len32)
+   $<debug
+   g.sc.ermess ("start=#X%X4%X4, len %n ", start.addr!1,
+                                                     !start.addr, !len32)
+   $>debug
+   RESULTIS g.dh.write (file.no, start.addr, buffer.addr,
+                                       G.ut.unpack16(len32, 0)) > 0
+$)
+
+/*
+   Read a block of the file to the buffer
+   Note that if data is to be inserted into a file, then read.block might
+   be called when the data is not actually in the file yet. In this case,
+   don't read past the end of a file, and return TRUE even if no data is
+   read
+*/
+and g.ma.read.block (base, top, length, offset, file.no, buffer.addr) = VALOF
+$(
+   LET len32 = VEC (1)               // length to read
+   LET start.addr = VEC (1)          // address in file to read from
+   LET one = VEC (1)
+
+//   $<debug
+//   g.sc.ermess ("Read: B #X%X4%X4, T #X%X4%X4", base!1,!base,top!1,!top)
+//   $>debug
+   G.ut.set32(1, 0, one)
+   UNLESS g.ut.cmp32(length, base) = m.lt THEN
+   $( G.ut.mov32(base, start.addr)
+      g.ut.add32 (offset, start.addr)
+      TEST g.ut.cmp32(length, top) = m.lt THEN
+         G.ut.mov32(length, len32)
+      ELSE
+         G.ut.mov32(top, len32)
+
+      // length to read is (top - base + 1)
+      g.ut.sub32 (base, len32)
+      g.ut.add32 (one, len32)
+
+      $<debug
+      g.sc.ermess ("Read - start #X%X4%X4, len %n", start.addr!1,
+                                                     !start.addr, !len32)
+      $>debug
+      RESULTIS g.dh.read (file.no, start.addr, buffer.addr,
+                                       G.ut.unpack16(len32, 0)) > 0
+   $)
+   RESULTIS TRUE
+$)
+
+/*
+    The data in the file can be considered as divided into blocks, with
+    length equal to the length of the buffer. The block number of a
+    particular file offset, is the result of that offset divided by the buffer
+    length and incremented if there is a remainder
+*/
+and g.ma.get.block.no (file, length) = VALOF
+$(
+   LET num = ?                         // block number
+   LET len32 = VEC (1)
+   LET rem32 = VEC (1)
+   LET t = VEC (1)
+//   $<debug
+//   g.sc.ermess ("file offset #X%X4%X4, buf len #X%X4%X4",file!1,!file,length!1,!length)
+//   $>debug
+   G.ut.mov32(file, len32)
+   g.ut.div32 (length, len32, rem32)
+   num := G.ut.unpack16(len32, 0)
+   G.ut.set32(0, 0, t)
+   IF G.ut.cmp32(rem32, t) ~= m.eq THEN
+      num := num + 1
+   $<debug
+   g.sc.ermess ("block number %N",num)
+   $>debug
+   RESULTIS num
+$)
+
+/*
+   the base and top offsets are the offsets in the file of the first
+   and last data values in the buffer
+   base = ((block no - 1) x buffer length) + 1
+   top = (base + buffer length - 1)
+*/
+and g.ma.calc.offset (base, top, block.no, length) BE
+$(
+   LET block.no32 = VEC (1)
+   LET len32 = VEC (1)
+   LET one = VEC (1)
+
+   G.ut.set32(1, 0, base)
+   G.ut.set32((block.no - 1), 0, block.no32)
+   G.ut.mov32(length, len32)
+   g.ut.mul32 (block.no32, len32)
+   g.ut.add32 (len32, base)
+   G.ut.set32(1, 0, one)
+   G.ut.mov32(base, top)
+   g.ut.add32 (length, top)
+   g.ut.sub32 (one, top)
+   $<debug
+   g.sc.mess ("B #X%X4%X4, T #X%X4%X4", base!1,!base,top!1,!top)
+   $>debug
+$)
+
+/*
+   this returns the buffer offset for a data value corresponding to
+   a given file offset
+*/
+and g.ma.get.buf.offset (file, base) = VALOF
+$(
+   LET len32 = VEC (1)
+
+   G.ut.mov32(file, len32)
+   g.ut.sub32 (base, len32)
+   RESULTIS G.ut.unpack16(len32, 0)
+$)
+.
+

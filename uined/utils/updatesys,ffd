@@ -1,0 +1,43 @@
+mode 7
+*|  UPDATESYS Version 2  16.04.86
+*|                    3  17.06.86   Use drive 5 - 4 is knackered (DRF)
+*|                    4  18.02.87   Back to drive 4 NRY
+*|
+*|  Update a system disc in ***** DRIVE :4 ****** from the master wini.
+*|  Must be preceded by a run of 'makesys'.
+*|
+*| NOTE: Edit *title command for next version
+errcont
+*access :4.UINED.h.* wr
+*access :4.r.* wr
+*access :4.s.* wr
+*access :4.l.* wr
+*destroy :4.UINED.h.*
+*destroy :4.r.*
+*destroy :4.s.*
+*destroy :4.l.*
+errcont off
+*dir :4.UINED.utils
+errcont
+*ren.^.r.mapdata1 ^.scratch.mapdata1
+*ren.^.r.mapdata ^.scratch.mapdata
+*ren.^.r.names ^.scratch.names
+*ren.^.r.index ^.scratch.index
+*ren.^.r.hierarchy ^.scratch.hierarchy
+*ren.^.r.gazetteer ^.scratch.gazetteer
+*ren.^.r.helptext ^.scratch.helptext
+*copy :4.UINED.h.* :4.UINED.h
+*copy :4.UINED.r.* :4.r
+*copy :4.UINED.s.* :4.s
+*copy :4.UINED.l.* :4.l
+*ren.^.scratch.mapdata1 ^.r.mapdata1
+*ren.^.scratch.mapdata ^.r.mapdata
+*ren.^.scratch.names ^.r.names
+*ren.^.scratch.index ^.r.index
+*ren.^.scratch.hierarchy ^.r.hierarchy
+*ren.^.scratch.gazetteer ^.r.gazetteer
+*ren.^.scratch.helptext ^.r.helptext
+errcont off
+*dir :4
+*title "Syst. Vn.1 28.04.87"
+*back

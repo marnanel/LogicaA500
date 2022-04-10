@@ -1,0 +1,331 @@
+*| compKER DSH Version 1.0 14.9.87
+*| system kernel & window manager
+*|
+*time
+Thu,21 Apr 1988.11:30:11
+*dir $.DSH.KE
+c comp
+*| compile the kernel package
+*|
+co root
+ARM BCPL Version 2.4
+Section root
+Tree size 8561
+ARM CodeGenerator 2.16
+Section root: size 1672 bytes
+Program size = 1672 bytes
+co general
+ARM BCPL Version 2.4
+Section general
+Tree size 7794
+ARM CodeGenerator 2.16
+Section general: size 2068 bytes
+Program size = 2068 bytes
+co sram
+ARM BCPL Version 2.4
+Section sram
+Tree size 5278
+ARM CodeGenerator 2.16
+Section sram: size 304 bytes
+Program size = 304 bytes
+co dummy
+ARM BCPL Version 2.4
+Section DISH.dummy
+Tree size 4623
+ARM CodeGenerator 2.16
+Section DISH.dummy: size 1348 bytes
+Program size = 1348 bytes
+co init
+ARM BCPL Version 2.4
+Section b.Init
+Tree size 7778
+ARM CodeGenerator 2.16
+Section b.Init: size 1408 bytes
+Program size = 1408 bytes
+*dir ^.DH
+c comp
+*|  compile the Data Handler
+co dh1
+ARM BCPL Version 2.4
+Section dh1
+Tree size 5129
+ARM CodeGenerator 2.16
+Section dh1: size 1188 bytes
+Program size = 1188 bytes
+co dh2
+ARM BCPL Version 2.4
+Section dh2
+Tree size 4883
+ARM CodeGenerator 2.16
+Section dh2: size 800 bytes
+Program size = 800 bytes
+co seldisc
+ARM BCPL Version 2.4
+Section seldisc
+Tree size 5739
+ARM CodeGenerator 2.16
+Section seldisc: size 2052 bytes
+Program size = 2052 bytes
+*dir ^.UD
+c comp
+*|  compile the User Data Handler
+co write
+ARM BCPL Version 2.4
+Section ud.write
+Tree size 6489
+ARM CodeGenerator 2.16
+Section ud.write: size 3016 bytes
+Program size = 3016 bytes
+c1 userdata
+ARM BCPL Version 2.4
+Section userdata
+Tree size 4936
+ARM CodeGenerator 2.16
+Section userdata: size 1184 bytes
+Program size = 1184 bytes
+*dir ^.SC
+c comp
+*| compile all SC source
+co graph1
+ARM BCPL Version 2.4
+Section sc.graph1
+Tree size 5465
+ARM CodeGenerator 2.16
+Section sc.graph1: size 1384 bytes
+Program size = 1384 bytes
+c1 graph2
+ARM BCPL Version 2.4
+Section sc.graph2
+Tree size 6109
+ARM CodeGenerator 2.16
+Section sc.graph2: size 2400 bytes
+Program size = 2400 bytes
+c1 text1
+ARM BCPL Version 2.4
+Section sc.text1
+Tree size 5219
+ARM CodeGenerator 2.16
+Section sc.text1: size 1476 bytes
+Program size = 1476 bytes
+c1 text2
+ARM BCPL Version 2.4
+Section text2
+Tree size 5433
+ARM CodeGenerator 2.16
+Section text2: size 1092 bytes
+Program size = 1092 bytes
+c1 text3
+ARM BCPL Version 2.4
+Section text3
+Tree size 5005
+ARM CodeGenerator 2.16
+Section text3: size 1128 bytes
+Program size = 1128 bytes
+c1 textlnk
+ARM BCPL Version 2.4
+Section text.lnk
+Tree size 6700
+ARM CodeGenerator 2.16
+Section text.lnk: size 2352 bytes
+Program size = 2352 bytes
+*| c1 getact
+*| c1 menu
+*| c1 input
+c1 mouse
+ARM BCPL Version 2.4
+Section mouse
+Tree size 5717
+ARM CodeGenerator 2.16
+Section mouse: size 1024 bytes
+Program size = 1024 bytes
+c1 number
+ARM BCPL Version 2.4
+Section number
+Tree size 5972
+ARM CodeGenerator 2.16
+Section number: size 2380 bytes
+Program size = 2380 bytes
+c1 icon
+ARM BCPL Version 2.4
+Section icon
+Tree size 4879
+ARM CodeGenerator 2.16
+Section icon: size 992 bytes
+Program size = 992 bytes
+c1 setfont
+ARM BCPL Version 2.4
+Section setfont
+Tree size 4541
+ARM CodeGenerator 2.16
+Section setfont: size 468 bytes
+Program size = 468 bytes
+c1 chart9
+ARM BCPL Version 2.4
+Section Chart9
+Tree size 4777
+ARM CodeGenerator 2.16
+Section Chart9: size 932 bytes
+Program size = 932 bytes
+c1 sprite
+ARM BCPL Version 2.4
+Section sprite
+Tree size 5090
+ARM CodeGenerator 2.16
+Section sprite: size 336 bytes
+Program size = 336 bytes
+*dir ^.WM
+c comp
+*| compile the Window manager
+co wimp1
+ARM BCPL Version 2.4
+Section WM.Wimp1
+Tree size 7676
+ARM CodeGenerator 2.16
+Section WM.Wimp1: size 3416 bytes
+Program size = 3416 bytes
+co wimp2
+ARM BCPL Version 2.4
+Section WM.Wimp2
+Tree size 6214
+ARM CodeGenerator 2.16
+Section WM.Wimp2: size 2564 bytes
+Program size = 2564 bytes
+co wimp3
+ARM BCPL Version 2.4
+Section WM.Wimp3
+Tree size 6540
+ARM CodeGenerator 2.16
+Section WM.Wimp3: size 1052 bytes
+Program size = 1052 bytes
+*dir ^.VH
+c comp
+*|  compile video handler
+co vh1
+ARM BCPL Version 2.4
+Section vh1
+Tree size 4691
+ARM CodeGenerator 2.16
+Section vh1: size 1360 bytes
+Program size = 1360 bytes
+co vh2
+ARM BCPL Version 2.4
+Section word.asc
+Tree size 4372
+ARM CodeGenerator 2.16
+Section word.asc: size 484 bytes
+Program size = 484 bytes
+co vh3
+ARM BCPL Version 2.4
+Section vh3
+Tree size 4869
+ARM CodeGenerator 2.16
+Section vh3: size 740 bytes
+Program size = 740 bytes
+*dir ^.UT
+c comp
+*| compile the UTilities package
+co utils1
+ARM BCPL Version 2.4
+Section utils1
+Tree size 5740
+ARM CodeGenerator 2.16
+Section utils1: size 1292 bytes
+Program size = 1292 bytes
+c1 utils2
+ARM BCPL Version 2.4
+Section utils2
+Tree size 7110
+ARM CodeGenerator 2.16
+Section utils2: size 2592 bytes
+Program size = 2592 bytes
+c1 utils3
+ARM BCPL Version 2.4
+Section utils3
+Tree size 4291
+ARM CodeGenerator 2.16
+Section utils3: size 740 bytes
+Program size = 740 bytes
+c1 utils4
+ARM BCPL Version 2.4
+Section utils4
+Tree size 4027
+ARM CodeGenerator 2.16
+Section utils4: size 256 bytes
+Program size = 256 bytes
+c1 calc32b
+ARM BCPL Version 2.4
+Section calc32b
+Tree size 4565
+ARM CodeGenerator 2.16
+Section calc32b: size 636 bytes
+Program size = 636 bytes
+c1 write
+ARM BCPL Version 2.4
+Section ut.write
+Tree size 6160
+ARM CodeGenerator 2.16
+Section ut.write: size 2476 bytes
+Program size = 2476 bytes
+c1 print
+ARM BCPL Version 2.4
+Section ut.print
+Tree size 4947
+ARM CodeGenerator 2.16
+Section ut.print: size 524 bytes
+Program size = 524 bytes
+c1 grid1
+ARM BCPL Version 2.4
+Section utgrid1
+Tree size 4669
+ARM CodeGenerator 2.16
+Section utgrid1: size 1024 bytes
+Program size = 1024 bytes
+c1 grid2
+ARM BCPL Version 2.4
+Section utgrid2
+Tree size 4510
+ARM CodeGenerator 2.16
+Section utgrid2: size 772 bytes
+Program size = 772 bytes
+c1 errtext
+ARM BCPL Version 2.4
+Section errtext
+Tree size 4421
+ARM CodeGenerator 2.16
+Section errtext: size 128 bytes
+Program size = 128 bytes
+c1 bookmark
+ARM BCPL Version 2.4
+Tree size 6773
+ARM CodeGenerator 2.16
+Section BCPL: size 1916 bytes
+Program size = 1916 bytes
+c1 helplnk
+ARM BCPL Version 2.4
+Section help.links
+Tree size 4855
+ARM CodeGenerator 2.16
+Section help.links: size 404 bytes
+Program size = 404 bytes
+c1 FPlib
+ARM BCPL Version 2.4
+Section FPlib
+Tree size 4844
+ARM CodeGenerator 2.16
+Section FPlib: size 5464 bytes
+Program size = 5464 bytes
+*dir ^.SI
+c comp
+*| compile the state table init
+co stinit
+ARM BCPL Version 2.4
+Section Stinit
+Tree size 5745
+ARM CodeGenerator 2.16
+Section Stinit: size 1728 bytes
+Program size = 1728 bytes
+*dir $.DSH.utils
+*time 
+Thu,21 Apr 1988.11:36:02
+*spool
+

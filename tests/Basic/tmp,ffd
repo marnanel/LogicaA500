@@ -1,0 +1,61 @@
+ab
+*|>AB
+*BASIC
+3 micron ARM BBC BASIC V version 1.00 (C) Acorn 1987
+
+>LO. "catall"
+>L.
+    1REM CatAll
+    2REM Catalogue the whole tree from $ downwards
+    3REM Copyright Acorn Computer 1984
+    4REM Version 1.00, 9/8/1984
+    5REM Done by Huge
+    6REM
+   10ON ERROR GOTO 470
+   30DIM NAME% 11
+   50ROOT$="$"
+   60:
+   70PROCRECON("",ROOT$)
+   80:
+   90END
+  100:
+  110:
+  120:
+  130DEF PROCRECON( PATH$,DIR$ )
+  140LOCAL DPTR%
+  150:
+  160PRINT
+  170PRINT"*****************************************"
+  180PRINT FNPATH(PATH$,DIR$)
+  190PRINT"*****************************************"
+  210OSCLI "DIR "+PATH$
+  220OSCLI"."+DIR$
+  230H%=OPENIN( DIR$ )
+  235PTR#H%=5
+  240IF BGET#H%=0 THEN CLOSE#H%:ENDPROC
+  250DPTR%=5
+  260REPEAT
+  270:
+  280PTR#H%=DPTR%+3
+  290IF BGET#H%<128 THEN GOTO 410
+  300:
+  310PTR#H%=DPTR%
+  320DEF FNCH(H%)=CHR$( BGET#H% AND &7F )
+  330$NAME%=FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)+FNCH(H%)
+  340CLOSE#H%
+  350PROCRECON( FNPATH(PATH$,DIR$) , $NAME% )
+  360DEF FNPATH(A$,B$) IF A$<>"" THEN = A$+"."+B$ ELSE = B$
+  370OSCLI "DIR "+PATH$
+  380H%=OPENIN( DIR$ )
+  390:
+  400:
+  410DPTR%=DPTR%+26
+  420PTR#H%=DPTR%
+  430UNTIL BGET#H%=0
+  440CLOSE#H%
+  460ENDPROC
+  470REPORT
+  480PRINT
+  490END
+>*sp.
+

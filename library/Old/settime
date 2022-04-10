@@ -1,0 +1,7 @@
+*| set up the date
+seteval df "date "+(sys$date LEFT 6) RIGHT 2+"-"+sys$date RIGHT 3+"-"+sys$year RIGHT 2+" "+sys$time     
+set alias$sd <df>
+sd
+unset alias$sd
+unset df          
+date

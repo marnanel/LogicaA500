@@ -1,0 +1,98 @@
+SECTION "Area0"
+
+/**
+         AREA - NATIONAL AREA OVERLAY
+         ----------------------------
+
+         This module contains only DY.INIT and DY.FREE
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         30.4.87     1       SA        Initial version
+          8.5.87     2       SA        Frigs for incidence
+         19.10.87    3       MH        updated for uni version
+**/
+
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.gh.glDYhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.DY.INIT - OVERLAY INITIALISATION
+         --------------------------------------
+
+         General overlay initialisation routine
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.ar.buff contents
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Get heap space for data buffer (g.ar.buff)
+         Ensure correct disc is loaded
+**/
+
+
+LET G.ar.dy.init() BE
+$( g.ar.buff := GETVEC(m.ar.buffsize)
+   g.ar.selfs (m.dh.vfs)
+   g.ar.buff!m.ar.gaz := g.dh.open ("GAZETTEER")
+$)
+
+/**
+         G.AR.DY.FREE - FREE OVERLAY
+         ------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none (frees vector pointed to by g.ar.buff)
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Free the data buffer vector
+         Close the gazetteer file
+**/
+
+
+AND G.ar.dy.free() BE
+$( FREEVEC (g.ar.buff)
+   g.ar.selfs (m.dh.vfs)
+   g.dh.close (g.ar.buff!m.ar.gaz)
+   g.ar.selfs (m.dh.adfs)
+$)
+.

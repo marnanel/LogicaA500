@@ -1,0 +1,4 @@
+*| compile the BICI code
+co BICI1
+co BICI2
+as BICI

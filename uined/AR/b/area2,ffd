@@ -1,0 +1,289 @@
+SECTION "Area2"
+
+/**
+         AREAL HEADER INITIALISATION
+         ---------------------------
+
+         This module contains
+
+         G.ar.arealhini
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         30.4.87     1       SA        Initial version
+          5.5.87     2       SA        sort out initial screen output
+          8.5.87     3       SA        mods for incidence case
+         22.5.87     4       SA        Set data for new/old files
+         12.6.87     5       SA        Add g.dh.read checks
+         22.6.87     6       SA        Ensure menu drawn correctly
+         13.8.87     7       SA        String checking added
+         19.10.87    8       MH        updated for UNI version
+**/
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.arhd"
+
+/**
+         G.AR.AREALHINI - ENTER AREAL HEADER AT TOP LEVEL
+         ------------------------------------------------
+
+         Areal header initialisation and reselect
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of g.ar.buff including:
+         g.context!m.justselected
+         g.context!m.data.type
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Initialise data buffer variables for old or new data
+         Display the menu bar if altered
+         Turn mouse pointer off
+         Display screen
+         Turn mouse pointer on
+         show initial values
+         Set 'justselected' false
+**/
+
+LET G.ar.arealhini() BE
+$( LET mbar = VEC 5
+   LET ranges = g.ar.buff+m.ar.ranges
+   LET mouse = ?
+   mbar!0, mbar!1, mbar!2 := m.sd.act, m.sd.wBlank, m.sd.act
+   mbar!3, mbar!4, mbar!5 := m.sd.act, m.sd.act,    m.sd.act
+
+// variables not dependent on existing or new data
+   g.ar.buff!m.ar.box         := m.ar.unknown
+   g.ar.buff!m.ar.screenstate := m.ar.unknown
+   g.ar.buff!m.ar.last.box    := m.ar.unknown
+   g.ar.buff!m.ar.boxtype     := m.ar.unknown
+   g.ar.buff!m.ar.areacyc     := m.ar.unknown
+   g.ar.buff!m.ar.area.types  := m.ar.unknown
+   g.ar.buff!m.ar.cycol       := m.ar.unknown
+   g.ar.buff!m.ar.status      := m.ar.on
+   g.ar.buff!m.ar.intervals.changed := false
+   g.ar.buff!m.ar.cycstr      := false
+   g.ar.buff!m.ar.readreply   := false
+   g.ar.buff!m.ar.ranges.set  := true
+   g.ar.buff!m.ar.entry.mode  := false
+   g.ar.buff!m.ar.firstincid  := true
+   g.ar.buff!m.ar.incid       := 0
+   g.ar.buff!m.ar.reply       := 0
+   g.ut.set32(m.ar.header.offset, 0, g.ar.buff+m.ar.header.ptr)
+
+// variables set according to old or new data input
+   TEST g.context!m.oldfile
+   THEN $( LET num.ranges = ?
+           let buff = vec (m.ar.header.bytes/bytesperword) + 1 
+
+           g.ar.selfs (m.dh.adfs)
+           IF g.dh.read (g.context!m.data.handle, g.ar.buff+m.ar.header.ptr,
+                                  buff, m.ar.header.bytes) = 0
+           THEN $( g.key := -m.st.inputed ; RETURN $)
+           G.ut.movebytes(buff, 0, g.ar.buff, m.ar.header*bytesperword, 120)
+           g.ut.set32(G.ut.unpack16(buff, 120), 0, g.ar.buff+m.ar.datatype)
+           g.ut.set32(G.ut.unpack16(buff, 122), 0, g.ar.buff+m.ar.datasets)
+           g.ut.set32(G.ut.unpack16(buff, 124), 0, g.ar.buff+m.ar.areal.unit)
+           g.ut.set32(G.ut.unpack16(buff, 126), 0, g.ar.buff+m.ar.data.recno)
+           g.ut.set32(G.ut.unpack16(buff, 128), 0, g.ar.buff+m.ar.data.off)
+
+           IF g.ar.buff!m.ar.datasets ~= 1
+           THEN $( g.sc.ermess ("Invalid number of sub-datasets: %n",
+                                G.ar.buff!m.ar.datasets)
+                   g.key := -m.st.inputed
+                   RETURN
+                $)
+
+           find.offset (g.ar.buff!m.ar.data.recno, g.ar.buff!m.ar.data.off,
+                                                       g.ar.buff+m.ar.data.ptr)
+           IF g.dh.read (g.context!m.data.handle, g.ar.buff+m.ar.data.ptr,
+                          buff, m.ar.data.sec.bytes) = 0
+           THEN $( g.key := -m.st.inputed ; RETURN $)
+
+           g.ut.set32(G.ut.unpack16(buff, 0), 0, g.ar.buff+m.ar.value.recno)
+           g.ut.set32(G.ut.unpack16(buff, 2), 0, g.ar.buff+m.ar.value.off)
+           g.ut.movebytes(buff, 4, g.ar.buff, m.ar.norm*bytesperword, 4)
+           g.ut.movebytes(buff, 8, g.ar.buff, m.ar.areas.file*bytesperword, 4)
+           g.ut.set32(G.ut.unpack16(buff, 12), 0, g.ar.buff+m.ar.size.default)
+           g.ut.movebytes(buff, 14, g.ar.buff, m.ar.range1*bytesperword, 4)
+           g.ut.movebytes(buff, 18, g.ar.buff, m.ar.range2*bytesperword, 4)
+           g.ut.movebytes(buff, 22, g.ar.buff, m.ar.range3*bytesperword, 4)
+           g.ut.movebytes(buff, 26, g.ar.buff, m.ar.range4*bytesperword, 4)
+
+
+           find.offset (g.ar.buff!m.ar.value.recno, g.ar.buff!m.ar.value.off,
+                                                     g.ar.buff+m.ar.values.ptr)
+
+           g.context!m.data.type := g.ar.buff!m.ar.datatype
+           g.ar.buff!m.ar.default.ranges :=
+                                          g.ar.buff%(m.ar.size.default*
+                                          bytesperword+m.msb)
+           g.ar.buff!m.ar.size := g.ar.buff%(m.ar.size.default*
+                                           bytesperword+m.lsb)
+           UNLESS ( g.ar.buff!m.ar.size = 2 |
+                    g.ar.buff!m.ar.size = 4)
+           THEN $( g.sc.ermess ("Invalid data size: %n", G.ar.buff!m.ar.size)
+                   g.key := -m.st.inputed
+                   RETURN
+                $)
+           num.ranges := g.ar.buff!m.ar.default.ranges
+           UNLESS 0 < num.ranges < m.ar.num.of.class.intervals
+           THEN $( g.sc.ermess("Invalid no. of default ranges: %n", num.ranges)
+                   g.key := -m.st.inputed
+                   RETURN
+                $)
+           FOR H = 0 TO num.ranges - 1 DO
+               MOVE (g.ar.buff+m.ar.range1+H*2, ranges+H*2, 2)
+           IF num.ranges < m.ar.num.of.class.intervals-1
+           THEN FOR H = num.ranges TO m.ar.num.of.class.intervals-2 DO
+                   MOVE (g.ar.buff+m.ar.range1+2*(num.ranges-1), ranges+H*2, 2)
+
+           string.strip (g.ar.buff+m.ar.units, m.ar.ulength)
+           UNLESS check.string (g.ar.buff+m.ar.units)
+           THEN $( g.sc.ermess("Unprintable character in Units string")
+                   g.key := -m.st.inputed
+                   RETURN
+                $)
+
+           TEST g.context!m.data.type = m.ar.incidence
+           THEN $( mbar!m.box4 := m.sd.wBlank
+                   g.ar.buff%(m.ar.nfac*bytesperword+m.lsb) := 1
+                   g.ar.buff%(m.ar.nfac*bytesperword+m.msb) := '0'
+                $)
+           ELSE num.to.str (g.ar.buff!m.ar.norm, g.ar.buff+m.ar.nfac, 3)
+        $)
+   ELSE $( LET nul = VEC 1
+           nul!0, nul!1 := 0, 0
+
+           g.ar.buff!m.ar.units := 0
+           g.ar.buff%(m.ar.nfac*bytesperword+m.lsb) := 1
+           g.ar.buff%(m.ar.nfac*bytesperword+m.msb) := '0'
+           g.ar.buff!m.ar.norm := 0
+           g.context!m.data.type  := m.ar.unknown
+
+           MOVE (nul, ranges, 2)
+           MOVE (ranges, ranges+1, 7)
+           g.ar.buff!m.ar.default.ranges := m.ar.num.of.class.intervals-1
+           g.ar.buff!m.ar.size           := m.ar.max.data.size*2
+           g.ar.buff!m.ar.data.ptr       := m.ar.header.offset +
+                                                              m.ar.header.bytes
+           g.ar.buff!(m.ar.data.ptr+1)   := 0
+           g.ar.buff!m.ar.values.ptr     := g.ar.buff!m.ar.data.ptr +
+                                                m.ar.data.sec.bytes +
+                                                m.ar.summary.bytes
+           g.ar.buff!(m.ar.values.ptr+1) := 0
+        $)
+
+   mouse := G.sc.pointer(m.sd.off)
+   G.sc.menu (mbar)
+   G.sc.clear (m.sd.message)
+   G.sc.clear (m.sd.display)
+   $( LET g = G.key
+      G.key := m.kd.noact
+      g.ar.cycle (m.ar.area, m.sd.cyan)
+      g.ar.buff!m.ar.cycstr  := false
+      g.ar.buff!m.ar.cycol   := m.ar.unknown
+      g.ar.cycle (m.ar.data, m.sd.cyan)
+      IF g.key = -m.st.inputed THEN RETURN
+      G.key := g
+      g.ar.highlight (m.ar.units, m.sd.blue, m.sd.yellow)
+      g.ar.highlight (m.ar.nfac,  m.sd.blue, m.sd.yellow)
+   $)
+   G.sc.movea(m.sd.display, m.ar.posX, m.ar.unitsY+m.sd.linW)
+   G.sc.odrop("Units:")
+   G.sc.movea(m.sd.display, m.ar.posX, m.ar.dataY+m.sd.linW)
+   G.sc.odrop("Data type:")
+   G.sc.movea(m.sd.display, m.ar.posX, m.ar.areaY+m.sd.linW)
+   G.sc.odrop("Area type:")
+   G.sc.movea(m.sd.display, m.ar.posX, m.ar.nfacY+m.sd.linW)
+   G.sc.odrop("Normalising Factor:")
+   G.sc.movea(m.sd.display, m.ar.posX, m.ar.nfacY-m.sd.linW)
+   G.sc.odrop("10")
+   G.sc.pointer (mouse)
+
+   G.context!m.justselected   := FALSE
+$)
+
+// convert 16-bit number to a string within field length
+AND num.to.str (number, string, field) BE
+$( LET hi, lo = 1, -1
+   LET ch = VEC 6
+   ch!0 := 0
+   MOVE (ch, ch+1, 6)
+   FOR H = 1 to field-1 DO
+   $( hi := hi*10
+      lo := lo*10
+   $)
+   hi := hi-1
+   lo := lo+1
+   TEST number < lo | number > hi | number = 0
+   THEN $( string%0 := 1
+           string%1 := '0'
+        $)
+   ELSE $( LET index = 0
+           LET num = ABS number
+           $( ch!index := num REM 10
+              index := index + 1
+              num := num/10
+           $) REPEATUNTIL num = 0
+           IF number < 0
+           THEN $( ch!index := '-' - '0'
+                   index := index + 1
+                $)
+           FOR H = 1 TO index DO
+              string%H := ch!(index-H)+'0'
+           string%0 := index
+        $)
+$)
+
+// create a BCPL string out of a data format string
+AND string.strip (string, chs) BE
+$( LET chars = chs
+   WHILE string%chars = '*s' DO chars := chars-1
+   IF chars < 0 THEN chars := 0
+   string%0 := chars
+$)
+
+AND check.string (string) = VALOF
+$( FOR K = 1 TO string%0 DO
+       UNLESS g.ut.printingchar (string%K) RESULTIS FALSE
+   RESULTIS TRUE
+$)
+
+// Work out absolute byte offset in file given relative record and word offset
+AND find.offset(rec, off, offset) BE
+$( LET t = VEC 1
+   LET rec.no = VEC 1
+   G.ut.set32(0, 0, rec.no)
+   G.ut.set32(rec, 0, t)                       // frame number starts at 1
+   G.ut.add32(t, rec.no)                       // add on start frame number
+   G.ut.set32(m.dh.bytes.per.frame, 0,t)
+   G.ut.mul32(rec.no, t)
+   G.ut.set32(off << 1, 0,offset)              // Byte offset within frame
+   G.ut.add32(t, offset)                       // Now byte offset within file
+$)
+.

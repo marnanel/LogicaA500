@@ -1,0 +1,31 @@
+*| COMPKERNEL  Version 1 24.09.86
+*spool :4.uined.scratch.compkernel
+*dir :4.UINED
+*time
+*| compile the system kernel
+*dir SI
+c comp
+*time
+*dir ^.SC
+c comp
+*time
+*dir ^.UT
+c comp
+*time
+*dir ^.KE
+c comp
+*time
+*dir ^.IN
+c comp
+*time
+*dir ^.VH
+c comp
+*time
+*dir ^.DH
+c comp
+*time
+*dir ^.OV
+c comp
+*time
+*dir ^
+*spool

@@ -1,0 +1,23 @@
+MANIFEST
+$( m.sd.errdelay=300 m.sd.none=0 m.sd.menu=1 m.sd.display=2
+m.sd.message=3 m.sd.menX0=0 m.sd.menY0=0 m.sd.barY0=4 m.sd.disX0=0
+m.sd.disY0=76 m.sd.mesX0=0 m.sd.mesY0=976 m.sd.mesXtex=4
+m.sd.mesYtex=36 m.sd.disXtex=4 m.sd.disYtex=876 m.sd.menXtex=80
+m.sd.menYtex=40 m.sd.seeX=4 m.sd.seeY=36 m.sd.menw=1280 m.sd.menh=76
+m.sd.barh=48 m.sd.disw=1280 m.sd.dish=888 m.sd.mesw=1280 m.sd.mesh=48
+m.sd.mentop=m.sd.menY0+m.sd.menh-1 m.sd.distop=m.sd.disY0+m.sd.dish-1
+m.sd.mestop=m.sd.mesY0+m.sd.mesh-1 m.sd.charwidth=32 m.sd.charheight=32
+m.sd.linw=40 m.sd.charsperline=40 m.sd.displines=22
+m.sd.propXtex=3*m.sd.charwidth m.sd.histart='{'m.sd.histop='}'
+m.sd.screen.page=1 m.sd.print.page=2 m.sd.write.page=3 m.sd.invalid=-1
+m.sd.linelength=39 m.sd.pagelength=858
+m.sd.opage.buffsize=(m.sd.pagelength/2)+1 m.sd.plot=1 m.sd.clear=3
+m.sd.invert=2 m.sd.act=1 m.sd.wBlank=#x1FF m.sd.wClear=43
+m.sd.on=true m.sd.off=false m.sd.seenumber=-1 m.sd.hinvalid=-999
+m.sd.restore=0 m.sd.save=-1 m.sd.schools=1 m.sd.normal=-1
+m.sd.defpal=15 m.sd.black=0 m.sd.yellow=1 m.sd.blue=2 m.sd.cyan=3
+m.sd.cross1=1 m.sd.cross2=2 m.sd.mag.glass=3 m.sd.ff.col2=4
+m.sd.max.col2=15 m.sd.black2=0 m.sd.red2=1 m.sd.green2=2
+m.sd.yellow2=3 m.sd.blue2=4 m.sd.magenta2=5 m.sd.cyan2=6 m.sd.white2=7
+m.sd.flash.white2=15 $)
+

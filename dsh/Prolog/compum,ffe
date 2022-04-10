@@ -1,0 +1,9 @@
+.key file/a
+Prolog
+compile('kbase.ops').
+compile('kbase.pkbs').
+compile('kbase.bmethods').
+compile('newhelp.utilities').
+compile('newhelp.genum').
+genum('$.dsh.r.<file>').
+halt.

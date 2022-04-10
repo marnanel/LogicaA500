@@ -1,0 +1,92 @@
+section "help"
+
+/**
+         AR.B.HELP - Help text for AREAL User data
+         -----------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.areal
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         18.6.87     1       SA        Initial version
+         25.6.87     2       SA        Cursor save
+         14.8.87     3       SA        Text added
+          9.9.87     4       SRY       Kick pointer up on exit
+
+         GLOBALS DEFINED:
+
+         G.help
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glARhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.sihd"
+
+STATIC $( save.cur = ? $)
+
+/**
+   This routine either draws the help page or restores the previous state
+   of the screen according to the setting of the first menu bar entry.
+**/
+
+LET G.help() BE
+$( LET t = G.sc.pointer(m.sd.off)
+   TEST G.menubar!m.box1 = m.wExit
+   THEN $( G.sc.mode(1)                                       // exit from help
+           G.menubar!m.box1 := m.sd.act
+           G.redraw := true
+           G.sc.rescur (save.cur)
+           if G.screen = m.sd.menu
+              G.sc.moveptr( G.xpoint, G.sc.dtob(m.sd.display,4) )
+           FREEVEC (save.cur)
+        $)
+   ELSE $( save.cur := GETVEC (3)
+           G.sc.savcur (save.cur)
+           G.sc.mode(129)
+           G.sc.selcol(m.sd.blue)
+           G.sc.movea(m.sd.message, 0, 0)
+           G.sc.rect(m.sd.plot, m.sd.mesW-1, m.sd.mesH-1)
+           G.sc.movea(m.sd.message, m.sd.propXtex, m.sd.mesYtex)
+           G.sc.selcol(m.sd.yellow)
+           G.sc.oprop("Help with Areal Mappable Data Entry")
+           G.sc.clear(m.sd.display)
+           G.sc.selcol(m.sd.cyan)
+
+           oline( 2, "The initial screen allows general information")
+           oline( 3, "about the data set to be entered.  Class")
+           oline( 4, "intervals can be entered by selecting Ranges")
+           oline( 5, "from the menu bar.  The area type cannot be")
+           oline( 6, "changed once data is present.  For full details")
+           oline( 7, "of all the fields please refer to the User Guide.")
+
+           oline( 9, "When Data is selected a list of area names is")
+           oline(10, "shown in alphabetical order.  Use f7 and f8 or")
+           oline(11, "CHANGE to page backwards and forwards through")
+           oline(12, "the list in the normal way.  Select Find from")
+           oline(13, "the menu bar to display the part of the list")
+           oline(14, "nearest to a chosen name.")
+
+           oline(16, "Numbers can be entered against each area name")
+           oline(17, "in the entry boxes on the right hand side of")
+           oline(18, "the screen.  These are highlighted by moving")
+           oline(19, "the pointer.  Press ACTION after typing the")
+           oline(20, "number.")
+
+           G.menubar!m.box1 := m.wExit
+           FOR i = m.box2 TO m.box6 G.menubar!i := m.wBlank
+           G.sc.menu(G.menubar)
+        $)
+   G.sc.pointer(t)
+$)
+
+AND oline (line.no, text) BE
+$( G.sc.movea(m.sd.display, 0, m.sd.disH-(line.no-1)*m.sd.linW)
+   G.sc.oprop(text)
+$)
+.

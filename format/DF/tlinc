@@ -1,0 +1,6 @@
+*| temporary linc
+join :4.format.l.kernel :4.format.l.DFwrite :4.format.l.DFread :4.format.l.DFsram -to c.l
+join c.DFdata c.DFtransfer c.DFtabular c.DFgetkey c.DFprim c.DFmapform4 c.DFmapform1 -to c.m
+join $.alib.lib c.m c.l -to :4.format.r.format
+*delete c.l
+*delete c.m

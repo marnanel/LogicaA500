@@ -1,0 +1,126 @@
+// /**
+//       GRHHDR - HEADER FOR GRID HEADER
+//       ------------------------------
+//
+//       Manifest definitions for the areal header operation
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       17.6.87     1       SA        Initial version
+// **/
+
+MANIFEST
+$(
+m.gd.buffsize  = 100                 // G.gd.buff length (words)
+m.gd.unitsY    = m.sd.linW*19        // Y-coord of Units field
+m.gd.dataY     = m.sd.linW*15        // Y-coord of Data field
+m.gd.incidY    = m.gd.dataY          // Y-coord of Incidence field
+m.gd.rasterY   = m.sd.linW*10        // Y-coord of Raster field
+m.gd.nfacY     = m.sd.linW*6         // Y-coord of Normalising Factor field
+m.gd.posX      = 16                  // O.5 chars in
+m.gd.ulength   = 39                  // Length of Units field (chars)
+m.gd.nflength  = 3                   // Length of Normalising Factor field
+m.gd.inclength = 11                  // Length of Incidence field (chars)
+m.gd.replength = 1                   // Length of Y/N reply field (chars)
+m.gd.unitsX    = m.gd.posX+(32*m.gd.ulength)+m.sd.disXtex // Last X for Units
+m.gd.nfacX     = m.gd.posX+(32*m.gd.nflength)+m.sd.disXtex // Last X for nfac
+m.gd.incidX    = m.gd.posX+(32*m.gd.inclength)+m.sd.disXtex // Last X for incid
+m.gd.incidXstr = 55*m.gd.posX        // first X for incid
+m.gd.nfacXstr  = 5*m.gd.posX   // first X for nfac
+m.gd.dstrwords     = 15        // words in data cycle field string
+m.gd.incidwords    = 6         // words in data cycle field string
+
+
+m.gd.absolute      = 0       // sequential string number in datatype field
+m.gd.ratio         = 2       // sequential string number in datatype field
+m.gd.percentage    = 3       // sequential string number in datatype field
+m.gd.incidence     = 5       // sequential string number in datatype field
+m.gd.categorised   = 6       // sequential string number in datatype field
+m.gd.means         = 7       // sequential string number in datatype field
+m.gd.raster.types  = 10      // number of possible raster types
+
+// Values for variables
+
+m.gd.unknown   = -1          // Initial value for variables
+m.gd.entry     = 1
+m.gd.cycle     = 2
+m.gd.off       = 0
+m.gd.on        = 1           // status
+
+m.lsb = 0
+m.msb = 1
+m.lsw = 0
+m.msw = 1
+
+// screen definitions
+// NB: m.sd.disw = 1280, m.sd.dish = 888 in SDHDR ;
+//     mappable data displays only use 220 of the 222 pixels available
+//     in the display area; this area is centred within the full area
+
+m.gd.pixel.width  = 160
+m.gd.pixel.height = 220           // NB: if this changes, NAHDR must be changed
+
+m.gd.x.pixels.to.graphics = 1280/m.gd.pixel.width
+m.gd.y.pixels.to.graphics = 880/m.gd.pixel.height
+
+m.gd.max.data.size     =  2         // in words
+                                    // NB: assumed to be = 2 in NN.a.classify
+                                    //     and in some optimised modules where
+                                    //     an equivalent shift manifest is
+                                    //     declared; any change must be made
+                                    //     to all files
+m.gd.max.negative.value =  #X8000
+m.gd.max.pos.low        =  #Xffff
+m.gd.max.pos.high       =  #X7fff
+
+m.gd.num.of.ranges = 5                  // NB: duplicated in NN.a.classify; any
+                                        // changes must be made to both files
+
+
+//   ****  Word offsets into context data in g.gd.buff ****
+
+m.gd.data.rec      = 0            // Record (frame) number to data
+m.gd.box           = 1            // Current box or unknown
+m.gd.screenstate   = 2            // 1,2 or 3 (or unknown)
+m.gd.last.box      = 3            // The last box entered
+m.gd.boxtype       = 4            // cycle, selection or entry field
+m.gd.datatype      = 5            // index into data types
+m.gd.raster        = 6            // buffer for raster size string
+m.gd.raster.size   = 8            // current raster size
+m.gd.nfac          = 9            // Buffer for Normalising Factor (3 bytes)
+m.gd.cycol         = 11           // colour of cycle
+m.gd.cycstr        = 12           // cycle field set
+m.gd.data          = 13           // buffer for data type cycle strings
+m.gd.status        = 28           // status of entry boxes
+m.gd.oldstr        = 29           // string modified - yes/no
+m.gd.xpos          = 30           // cursor position
+m.gd.ypos          = 31           // cursor position
+m.gd.incid         = 32           // buffer for incidence value
+m.gd.firstincid    = 39           // flag for first time into incidence
+m.gd.reply         = 40           // buffer for reply to Y/N
+m.gd.readreply     = 42           // flag to allow reading of reply
+m.gd.size          = 43           // size of data elements
+m.gd.default.ranges= 44           // number of default ranges
+m.gd.inc.cut.off   = 45           // 32-bit value of incidence cut-off point
+
+m.gd.intervals.changed = 47       // at first free position in buffer
+m.gd.entry.mode        = 48
+                                                                   // key sizes
+m.gd.box.position      = 49       // vector of graphics x coords,
+                                  // 0 -> no. class intervals
+m.gd.range.box         = 55       // current box in manual entry mode
+m.gd.number.string     = 56       // number string in entry mode (max 20 chrs)
+m.gd.ranges.set        = 67       // flag set on entry into ranges operation
+m.gd.ranges            = 68       // area to store current ranges values
+m.gd.norm              = 77       // normalising factor
+m.gd.units             = 78       // units string
+m.gd.number.width      = 99       // width of numbers in range operation
+m.gd.data.size         = 100      // Bytes per cell
+$)
+
+
+
+
+
+

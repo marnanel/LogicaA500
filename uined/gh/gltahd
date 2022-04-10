@@ -1,0 +1,92 @@
+// /**
+//       GLHDR - GLOBALS HEADER FOR TABULAR
+//       ----------------------------------
+//
+//       This is the master system Global definition file
+//       Reserved for state, routine and data globals
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       5.10.87     1       MH        ADOPTED FOR UNI SYSTEM
+// **/
+
+// $$debug    // SYSTEM WIDE DEBUG FLAG FOR CONDITIONAL COMPILATION
+
+GLOBAL $(
+
+// TA state routines
+G.ta.labels    :FGTA+0
+G.ta.initl     :FGTA+1
+G.ta.data      :FGTA+2
+G.ta.initd     :FGTA+3
+G.ta.header    :FGTA+4
+G.ta.inith     :FGTA+5
+
+// other TA globals
+G.ta.area      :FGTA+6
+G.ta.variables :FGTA+7
+G.ta.categories:FGTA+8
+G.ta.I.or.D    :FGTA+9
+G.ta.readlabel :FGTA+10
+G.ta.edit      :FGTA+11
+G.ta.delete    :FGTA+12
+G.ta.redrawv   :FGTA+13
+G.ta.page      :FGTA+14
+G.ta.highlight :FGTA+15
+G.ta.update.pages:FGTA+16
+G.ta.hi        :FGTA+17
+G.ta.redrawc   :FGTA+18
+G.ta.highc     :FGTA+19
+G.ta.hic       :FGTA+20
+G.ta.redrawdv  :FGTA+21
+G.ta.redrawdc  :FGTA+22
+G.ta.highd     :FGTA+23
+G.ta.getlabel  :FGTA+24
+G.ta.change    :FGTA+25
+G.ta.d.cats    :FGTA+26
+G.ta.d.edit    :FGTA+27
+G.ta.hidc      :FGTA+28
+G.ta.box       :FGTA+29
+G.ta.get.data  :FGTA+30
+G.ta.read.labels:FGTA+31
+G.ta.write.labels:FGTA+32
+G.ta.prompt:FGTA+33
+G.ta.buff:FGTA+34
+G.ta.selcol:FGTA+35
+G.ta.hi.label:FGTA+36
+G.ta.valid.colours:FGTA+37
+G.ta.char.input:FGTA+38
+G.ta.valid:FGTA+39
+G.ta.data.store:FGTA+40
+G.ta.select:FGTA+41
+G.ta.parse.data:FGTA+42
+G.ta.prompt1:FGTA+43                //changed 22/7/87
+G.ta.max.labels:FGTA+44             //changed 31/7/87
+
+// Matrix handling
+G.ma.remove.var:FGTA+45
+G.ma.delete.cat:FGTA+46
+G.ma.insert.cat:FGTA+47
+G.ma.inibuf:FGTA+48
+G.ma.getbuf:FGTA+49                 //changed 22/7/87
+G.ma.addval:FGTA+50
+G.ma.endbuf:FGTA+51
+G.ma.calc.num.val:FGTA+52
+G.ma.calc.data:FGTA+53
+G.ma.move.data:FGTA+54
+G.ma.init.data:FGTA+55
+G.ma.delete.data:FGTA+56
+G.ma.add.data:FGTA+57
+G.ma.write.block:FGTA+58
+G.ma.read.block:FGTA+59
+G.ma.get.block.no:FGTA+60
+G.ma.calc.offset:FGTA+61
+G.ma.get.buf.offset:FGTA+62
+G.ma.tidy.up:FGTA+63
+G.ma.space:FGTA+64
+
+$)
+
+//   ***  The End  ***
+

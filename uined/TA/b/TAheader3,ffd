@@ -1,0 +1,207 @@
+SECTION "TAheader3"
+
+/**
+      TABULAR 4 - DATA STORE FUNCTION
+      -------------------------------
+
+      This module contains
+         g.ta.data.store
+
+      NAME OF FILE CONTAINING RUNNABLE CODE:
+
+      r.areal
+
+      REVSION HISTORY:
+
+      DATE     VERSION   AUTHOR     COMMENTS
+       5.5.87     1        SA       Initial Version
+       8.5.87     2        SA       Mods to g.ta.incidence
+      21.5.87     3        SA       ranges implemented
+      26.5.87     4        SA       Converted for tabular
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.TAhd"
+
+LET g.ta.select (on) BE
+$( LET def  = g.ta.buff!m.ta.disp.default
+   LET last = g.ta.buff!m.ta.dispbox
+   TEST on
+   THEN $( LET line = ?
+           line := cursor.position()
+           IF last ~= line
+           THEN $( LET ptr = g.sc.pointer (m.sd.off)
+                   UNLESS last = m.ta.unknown DO
+                      $( LET colour = g.ta.buff!(m.ta.display+last) ->
+                                                           m.sd.blue, m.sd.cyan
+                         write.line (colour, last)
+                      $)
+                   UNLESS line = def DO
+                      write.line (m.sd.yellow, line)
+                   g.sc.pointer (ptr)
+                   g.ta.buff!m.ta.dispbox := line
+                $)
+            UNLESS line = def DO
+         $( IF (g.key = m.kd.change) &
+               (g.ta.buff!(m.ta.display+line))
+            THEN $( g.ta.buff!(m.ta.display+line) := false
+                    write.line (m.sd.cyan, line)
+                    g.ut.wait (50)
+                    write.line (m.sd.yellow, line)
+                 $)
+
+            IF g.key = m.kd.return
+            THEN TEST (g.ta.buff!(m.ta.display+line))
+                 THEN $( write.def.line (false)
+                         g.ta.buff!m.ta.disp.default := line
+                         write.def.line (true)
+                      $)
+                 ELSE $( g.ta.buff!(m.ta.display+line) := true
+                         write.line (m.sd.blue, line)
+                         g.ut.wait (50)
+                         write.line (m.sd.yellow, line)
+                      $)
+         $)
+         $)
+   ELSE $( LET ptr = g.sc.pointer (m.sd.off)
+           FOR H = 1 TO 6
+              THEN UNLESS H = def DO
+                   $( LET colour = g.ta.buff!(m.ta.display+H) -> m.sd.blue,
+                                                                      m.sd.cyan
+                      write.line (colour, H)
+                   $)
+           write.def.line (true)
+           g.sc.pointer (ptr)
+           g.ta.buff!m.ta.dispbox := m.ta.unknown
+        $)
+$)
+
+AND write.def.line (line.on) BE
+$( LET colour = line.on -> m.sd.yellow, m.sd.black
+   LET line = g.ta.buff!m.ta.disp.default
+   write.line (m.sd.blue, line)
+   g.sc.selcol (colour)
+   g.sc.mover (0, -m.sd.charwidth)
+   g.sc.linea (m.sd.plot, m.sd.display, m.ta.halfX,
+                                      m.ta.dispY-line*m.sd.linW-m.sd.charwidth)
+$)
+
+AND write.line (colour, line) BE
+$( LET string = VEC 6
+   string!1 := "Bar Chart"
+   string!2 := "Pie Chart"
+   string!3 := "Line Graph"
+   string!4 := "Back to Back Chart"
+   string!5 := "Looping Bar Chart"
+   string!6 := "Multi-line Graph"
+   g.sc.selcol (colour)
+   g.sc.movea (m.sd.display, m.ta.halfX, m.ta.dispY-line*m.sd.linW)
+   g.sc.ofstr ("%s", string!line)
+$)
+
+AND cursor.position() = VALOF
+$( LET Ypos = m.ta.dispY-m.sd.linW
+   IF (Ypos-  m.sd.linW <= g.ypoint <= Ypos) THEN RESULTIS 1
+   IF (Ypos-2*m.sd.linW <= g.ypoint <= Ypos) THEN RESULTIS 2
+   IF (Ypos-3*m.sd.linW <= g.ypoint <= Ypos) THEN RESULTIS 3
+   IF (Ypos-4*m.sd.linW <= g.ypoint <= Ypos) THEN RESULTIS 4
+   IF (Ypos-5*m.sd.linW <= g.ypoint <= Ypos) THEN RESULTIS 5
+   IF (Ypos-6*m.sd.linW <= g.ypoint <= Ypos) THEN RESULTIS 6
+   RESULTIS 3
+$)
+
+AND g.ta.selcol() BE
+$( LET string = VEC 3
+   LET Xpos   = VEC 3
+   LET ptr = ?
+   string!1 := "Pointer"
+   string!2 := "Foreground"
+   string!3 := "Background"
+   Xpos!1, Xpos!2, Xpos!3 := m.ta.Xcol1, m.ta.Xcol2, m.ta.Xcol3
+
+   IF g.key = m.kd.change
+   THEN $( IF g.ta.buff!m.ta.old.cols
+           THEN $( g.sc.clear (m.sd.message)
+                   g.sc.selcol (m.sd.yellow)
+                   g.sc.movea (m.sd.message, m.sd.mesXtex, m.sd.mesYtex)
+                   g.sc.oprop ("Press ACTION to confirm colour selection")
+                $)
+           g.ta.buff!m.ta.old.cols := false
+           change.col()
+        $)
+
+   IF g.key = m.kd.noact
+   $( ptr := g.sc.pointer (m.sd.off)
+      FOR H = 1 TO 3 DO
+      $( g.sc.movea (m.sd.display, Xpos!H, m.ta.colY)
+         g.sc.selcol (g.ta.buff!(m.ta.temp.cols+H-1))
+         g.sc.ofstr ("%s", string!H)
+      $)
+      g.sc.pointer (ptr)
+   $)
+
+   IF g.key = m.kd.return & g.ta.buff!m.ta.old.cols = false
+   THEN IF g.ta.valid.colours()
+        THEN $(
+                g.ta.buff!m.ta.old.cols := true
+                g.sc.clear (m.sd.message)
+             $)
+$)
+
+AND g.ta.valid.colours() = VALOF
+$(
+   FOR G = 0 TO 2 DO
+   g.ta.buff!(m.ta.palette+G) :=
+                            g.sc.physical.colour (g.ta.buff!(m.ta.temp.cols+G))
+   TEST g.ta.buff!(m.ta.palette+0) = g.ta.buff!(m.ta.palette+1) |
+        g.ta.buff!(m.ta.palette+0) = g.ta.buff!(m.ta.palette+2) |
+        g.ta.buff!(m.ta.palette+1) = g.ta.buff!(m.ta.palette+2)
+   THEN $( reset.palette()
+           g.sc.ermess ("All colours must be different")
+           RESULTIS false
+        $)
+   ELSE RESULTIS true
+$)
+
+AND reset.palette() BE
+$( LET defpal = VEC 3
+   defpal!0 := m.sd.yellow
+   defpal!1 := m.sd.blue
+   defpal!2 := m.sd.cyan
+   FOR H = 0 TO 2 DO
+   $( g.ta.buff!(m.ta.temp.cols+H) := defpal!H
+      g.ta.buff!(m.ta.palette+H)   := defpal!H
+   $)
+   g.sc.setpal (m.sd.defpal)
+$)
+
+AND change.col() BE
+$( LET col = ?
+   let field = which.colour()
+   $( g.sc.palette (g.ta.buff!(m.ta.temp.cols+field),
+                          g.sc.next.colour (g.ta.buff!(m.ta.temp.cols+field)) )
+      col := g.sc.physical.colour (g.ta.buff!(m.ta.temp.cols+field))
+   $) REPEATUNTIL col ~= m.sd.black
+$)
+
+AND which.colour() = VALOF
+$( IF G.xpoint < m.ta.Xcol2 RESULTIS 0
+   IF G.xpoint < m.ta.Xcol3 RESULTIS 1
+   RESULTIS 2
+$)
+.
+
+
+
+
+
+
+
+
+
+
+

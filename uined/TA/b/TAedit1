@@ -1,0 +1,460 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.variables
+            G.ta.categories
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+**/
+
+SECTION "TAedit1"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.tahd"
+
+
+/**
+         G.TA.VARIABLES
+         --------------
+
+         This routine reads in the tabular labels and performs edits
+         on the Variable labels.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.variables[]
+         ----------------
+
+         IF just entered THEN
+            initialise
+         END IF
+
+
+         IF local state is inactive THEN
+            find area of screen
+            IF different from last area THEN
+               dehighlight old area
+               highlight new area
+            END IF
+         END IF
+
+
+         CASE OF local state
+            readlabel: G.ta.readlabel()
+                        ENDCASE
+            I.or.D: G.ta.I.or.D()
+                    ENDCASE
+         END OF CASE
+
+         CASE OF G.key
+         fkey5: save input file
+                ENDCASE
+         ACTION:IF local state is inactive THEN
+                   IF pointer over "NEW" box THEN
+                      operation = new
+                      set to 1st time for G.ta.readlabel()
+                      G.ta.readlabel()
+                   ELSE IF pointer over a variable THEN
+                      operation = update
+                      set to 1st time for G.ta.readlabel()
+                      G.ta.readlabel()
+                   END IF
+                   ENDCASE
+         CHANGE:IF local state is inactive THEN
+                   set 1st time for G.ta.I.or.D
+                   G.ta.I.or.D()
+                   ENDCASE
+         END OF CASE
+         IF variable has been locked THEN
+            remove "Categories" form menu bar
+         ELSE
+            add "Categories" to menu bar
+         END IF
+         IF number of variables = number of labels THEN
+            remove "Data" from menu bar
+         ELSE
+            add "Data" to menu bar
+         END IF
+         IF menu bar has changed THEN
+            redraw menu bar
+         END IF
+**/
+
+let G.ta.variables() = VALOF
+$(
+   test G.ta.area%m.ta.1st.time = m.ta.true then
+   $(
+      G.sc.pointer(m.sd.off)
+      G.ta.area%m.ta.1st.time := m.ta.false
+      G.ta.area%m.ta.sel.var := m.ta.INACTIVE
+      G.ta.area%m.ta.sel.cat := m.ta.INACTIVE
+      G.ta.area%m.ta.c.l := m.ta.INACTIVE
+      G.ta.area%m.ta.lock := m.ta.false
+      G.ta.area%m.ta.l.st := m.ta.INACTIVE
+      G.ta.area%m.ta.op := m.ta.INACTIVE
+
+      test G.ta.area%m.ta.no.vars = m.ta.v.max |
+           G.ta.area%m.ta.no.labels = G.ta.max.labels()
+      then g.sc.mess("Select variable to define")
+      else g.sc.mess("Select variable, or New")
+
+      test G.ta.area%m.ta.no.vars = 0 then
+      $(
+           G.ta.area%m.ta.base.l := 0    //empty variable list
+           G.ta.area%m.ta.no.l := 0      //no labels
+           G.ta.area%m.ta.mp := 1       //zero pages
+      $)
+      else
+      $( G.ta.area%m.ta.base.l := 1
+         test G.ta.area%m.ta.no.vars > m.ta.lines then
+         $( G.ta.area%m.ta.no.l := m.ta.lines  
+                               //maximum number of lines that can
+                                       //be displayed
+            G.ta.area%m.ta.mp := 2   //2 pages of variable labels
+         $)
+         else
+         $( G.ta.area%m.ta.mp :=  1  //only 1 page of variable labels
+            G.ta.area%m.ta.no.l := G.ta.area%m.ta.no.vars   
+                                   //number of labels to display
+         $)
+      $)
+      G.ta.area%m.ta.pg := 1     //1st page of variable list
+      G.ta.redrawv(false,m.ta.all) //draw variable list on screen
+      G.sc.pointer(m.sd.on)
+   $)
+   else
+   $(
+      if G.ta.area%m.ta.l.st = m.ta.INACTIVE & 
+           G.ta.area%m.ta.lock = m.ta.false then
+         G.ta.highlight()
+      unless G.ta.area%m.ta.lock = m.ta.true then
+         switchon G.ta.area%m.ta.l.st into
+         $(
+         case m.ta.r.l:    G.ta.readlabel()
+                           endcase
+         case m.ta.I.or.D: G.ta.I.or.D()
+                           endcase
+         case m.ta.prompt: unless G.ta.prompt() resultis false
+                           endcase
+         case m.ta.prompt1:unless G.ta.prompt1() resultis false
+                           endcase
+         $)  //end of case
+      switchon G.key into
+      $(
+      case m.kd.action: if G.ta.area%m.ta.l.st = m.ta.INACTIVE then
+                          test G.ta.area%m.ta.sel.var ~= m.ta.INACTIVE then
+                           $( G.ta.area%m.ta.1st.time := m.ta.true
+                              G.ta.area%m.ta.op := m.ta.update
+                              G.ta.hi(m.sd.blue,m.ta.d.both)
+                              G.ta.readlabel()
+                           $)
+                           else test G.ta.area%m.ta.op = m.ta.new then
+                           $(
+                              G.ta.area%m.ta.1st.time := m.ta.true
+                              G.ta.readlabel()
+                           $)
+                           else if G.ta.area%m.ta.op = m.ta.more
+                              G.ta.page()
+                        endcase
+      case m.kd.change: if G.ta.area%m.ta.l.st = m.ta.INACTIVE &
+                          G.ta.area%m.ta.sel.var ~= m.ta.INACTIVE then
+                        $( G.ta.area%m.ta.1st.time := m.ta.true
+                           G.ta.I.or.D()  //insert or delete a variable
+                        $)
+      $)  //end of case
+   $)
+   unless G.redraw then
+   $( let i = false
+      let l = putdata()
+
+      if G.menubar!m.box3 = m.sd.act G.menubar!m.box3 := m.wData
+      if G.menubar!m.box3 = m.sd.wBlank G.menubar!m.box3 := m.wBlank
+      unless G.menubar!m.box3 = l
+      $( i := true
+         test l = m.wBlank then
+         $(
+            G.menubar!m.box2 := m.wBlank
+            G.menubar!m.box3 := m.wBlank
+            G.menubar!m.box5 := m.wBlank
+            G.menubar!m.box6 := m.wBlank
+         $)
+         else
+         $(
+            G.menubar!m.box2 := m.wMain
+            G.menubar!m.box3 := m.wData
+            G.menubar!m.box5 := m.wSave
+            G.menubar!m.box6 := m.wExit
+         $)
+      $)
+      test G.ta.area%m.ta.op = m.ta.update | G.ta.area%m.ta.op = m.ta.update1
+      then
+         unless G.menubar!m.box4 = m.wCategories then
+         $( G.menubar!m.box4 := m.wCategories
+            i := true
+         $)
+      else
+         unless G.menubar!m.box4 = m.wBlank then
+         $( G.menubar!m.box4 := m.wBlank
+            i := true
+         $)
+      if i G.sc.menu(G.menubar) //redraw menu bar
+   $)
+   resultis true
+$)
+
+
+
+/**
+         G.TA.CATEGORIES
+         ---------------
+
+         This routine performs edits on the Category labels of the currently
+         selected Variable.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.categories[]
+         ----------------
+
+         IF just entered THEN
+            initialise
+         END IF
+
+         IF local state is inactive THEN
+            find area of screen
+            IF different from last area THEN
+               dehighlight old area
+               highlight new area
+            END IF
+         END IF
+
+         CASE OF local state
+            readlabel: G.ta.readlabel()
+                        ENDCASE
+            edit: G.ta.edit()      //edit for category label and abbreviaton
+                  ENDCASE
+            I.or.D: G.ta.I.or.D()
+                    return
+         END OF CASE
+
+         CASE OF G.key
+         fkey5: save input file
+                ENDCASE
+         ACTION:IF local state is inactive THEN
+                   IF pointer over "NEW" box THEN
+                      operation = new
+                      set to 1st time for G.ta.readlabel()
+                      G.ta.readlabel()
+                   END IF
+                END IF
+                ENDCASE
+         CHANGE:IF local state is inactive THEN
+                   set 1st time for G.ta.I.or.D
+                   G.ta.I.or.D()
+                END IF
+                ENDCASE
+         DEFAULT:IF local.state = inactive THEN
+                    G.ta.edit()
+                 END IF
+         END OF CASE
+         IF number of variables = number of labels THEN
+            remove "Data" from menu bar
+         ELSE
+            add "Data" to menu bar
+         END IF
+         IF menu bar has changed THEN
+            redraw menu bar
+         END IF
+**/
+
+
+and G.ta.categories() = VALOF
+$(
+   let sel.var = G.ta.area%m.ta.sel.var
+
+   test G.ta.area%m.ta.1st.time = m.ta.true then
+   $(
+      G.sc.pointer(m.sd.off)
+      G.ta.area%m.ta.1st.time := m.ta.false
+      G.ta.area%m.ta.sel.cat := m.ta.INACTIVE
+      G.ta.area%m.ta.c.l := m.ta.INACTIVE
+      G.ta.area%m.ta.l.st := m.ta.INACTIVE
+      G.ta.area%m.ta.lock := m.ta.false
+      G.ta.area%m.ta.do := m.ta.true
+      test G.ta.area%(m.ta.var.table+G.ta.area%m.ta.sel.var-1) = m.ta.c.max |
+           G.ta.area%m.ta.no.labels = G.ta.max.labels()
+      then g.sc.mess("Select category to define")
+      else g.sc.mess("Select category, or New")
+      test G.ta.area%(m.ta.var.table + sel.var - 1) = 0 then
+      $(
+         G.ta.area%m.ta.base.l := 0    //empty variable list
+         G.ta.area%m.ta.no.l := 0      //zero labels
+         G.ta.area%m.ta.mp := 1        //maximum page number
+      $)
+      else
+      $( G.ta.area%m.ta.base.l := 1
+         test G.ta.area%(m.ta.var.table + sel.var - 1) > m.ta.lines then
+         $( G.ta.area%m.ta.no.l := m.ta.lines  //maximum number of lines that can
+                                       //be displayed
+            G.ta.area%m.ta.mp := 2   //2 pages of variable labels
+         $)
+         else
+         $( G.ta.area%m.ta.mp :=  1  //only 1 page of variable labels
+            G.ta.area%m.ta.no.l := G.ta.area%(m.ta.var.table + sel.var - 1)   //number of labels to display
+         $)
+      G.sc.pointer(m.sd.on)
+      $)
+      G.ta.area%m.ta.pg := 1     //1st page of variable list
+      G.ta.redrawc(false) //draw variable list on screen
+   $)
+   else
+   $(
+      if (G.ta.area%m.ta.l.st = m.ta.INACTIVE | G.ta.area%m.ta.l.st = m.ta.edit) &
+         G.ta.area%m.ta.lock = m.ta.false then
+         G.ta.highc()
+      unless G.ta.area%m.ta.l.st = m.ta.INACTIVE then
+         switchon G.ta.area%m.ta.l.st into
+         $(
+         case m.ta.r.l:    unless G.ta.readlabel() resultis false
+                           endcase
+         case m.ta.edit:   G.ta.edit()
+                           endcase
+         case m.ta.I.or.D: G.ta.I.or.D()
+                           endcase
+         case m.ta.prompt: unless G.ta.prompt() resultis false
+                           endcase
+         $)  //end of case
+      switchon G.key into
+      $(
+      case m.kd.action: if G.ta.area%m.ta.l.st = m.ta.INACTIVE then
+                        $( test G.ta.area%m.ta.op = m.ta.new then
+                           $( G.ta.area%m.ta.1st.time := m.ta.true
+                              G.ta.readlabel()
+                           $)
+                           else if G.ta.area%m.ta.op = m.ta.more then
+                              G.ta.page()
+                        $)
+                        endcase
+      case m.kd.change: test (G.ta.area%m.ta.l.st = m.ta.INACTIVE |
+                             (G.ta.area%m.ta.l.st = m.ta.edit &
+                              G.ta.area%m.ta.lock = m.ta.false)) &
+                             (G.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE |
+                              G.ta.area%m.ta.c.l ~= m.ta.INACTIVE) then
+                        $( G.ta.area%m.ta.1st.time := m.ta.true
+                           G.ta.I.or.D()  //insert or delete a variable
+                        $)
+                        else
+                           G.sc.beep()
+      $)  //end of case
+   $)
+   unless G.redraw then
+   $( let i = false
+      let l = putdata()
+
+      if G.menubar!m.box3 = m.sd.act G.menubar!m.box3 := m.wData
+      if G.menubar!m.box3 = m.sd.wBlank G.menubar!m.box3 := m.wBlank
+      unless G.menubar!m.box3 = l then
+         test l = m.wBlank then
+         $(
+            G.menubar!m.box2 := m.wBlank
+            G.menubar!m.box3 := m.wBlank
+            G.menubar!m.box5 := m.wBlank
+            G.menubar!m.box6 := m.wBlank
+            i := true
+         $)
+         else
+         $(
+            G.menubar!m.box2 := m.wMain
+            G.menubar!m.box3 := m.wData
+            G.menubar!m.box5 := m.wSave
+            G.menubar!m.box6 := m.wExit
+            i := true
+         $)
+      unless G.menubar!m.box4 = m.wVariables then
+      $( G.menubar!m.box4 := m.wVariables
+         i := true
+      $)
+      if i G.sc.menu(G.menubar) //redraw menu bar
+   $)
+resultis true
+$)
+
+and putdata() = VALOF
+$(
+   let p = true
+
+   test G.ta.area%m.ta.no.vars = 0 then
+      p := false
+   else
+      for i = 1 to G.ta.area%m.ta.no.vars do
+         if G.ta.area%(m.ta.var.table + i - 1) < 2
+            p := false
+   if G.ta.area%m.ta.l.st = m.ta.r.l | G.ta.area%m.ta.l.st = m.ta.prompt1
+      p := false
+   resultis p -> m.wData, m.wBlank
+$)
+.
+
+
+
+
+
+
+
+
+
+
+
+
+

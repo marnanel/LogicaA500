@@ -1,0 +1,3 @@
+.key dest/a
+. set destination directory for CP command
+set alias$cp copy %0 :4.ADS.<dest>.%0 ~C~VF

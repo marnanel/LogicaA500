@@ -1,0 +1,330 @@
+/**
+         NATIONAL FIND
+         -------------
+
+         NF.DIALOGUE - DIALOGUE STATE ROUTINES
+         -------------------------------------
+
+         Initialisation and action routines for the find dialogue
+         state/window.
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         12.04.88  1        SA      Initial version.
+         26.04.88  2        SA      replaced dh.open by OSFind
+         11.05.88  3        SA      update g.windows when closing window
+**/
+
+
+SECTION "FIND.dialogue"
+
+GET "LIBHDR"  
+    
+GET ":4.DSH.gh.glhd"
+GET ":4.DSH.gh.glnfhd"
+GET ":4.DSH.H.vhhd"
+GET ":4.DSH.H.kdhd"
+GET ":4.DSH.H.sdhd"
+GET ":4.DSH.H.sthd"
+GET ":4.DSH.H.iohd"
+GET ":4.DSH.H.wmhd"
+GET ":4.DSH.H.dhphd"     // SA 26.04.88
+GET ":4.DSH.H.nfhd"
+
+
+MANIFEST
+$(
+   m.chart.icon = 5  // special icon for entering the chart state
+
+   // icon flag
+   m.shaded = 1<<22  // bit 22 set
+$)
+
+/**
+    G.NF.DIALINI
+
+    PDL:
+       set_up 'find dialogue window' as current dialogue box
+       IF correct data type
+       THEN set up strings to be displayed on the dialogue box
+            activate the ok button
+       ELSE deactivate the ok button
+       ENDIF
+**/
+
+LET window.for( state ) = G.states!(state*m.st.esize + m.st.whandle)     
+
+AND g.nf.dialini() BE
+$(
+   LET handle = window.for( m.st.find.dialogue )
+   LET title = g.nf.p + s.title
+   LET itemrecord = g.context + m.itemrecord
+
+   // restrict mouse to find dataset information dialogue box
+   restrict.mouse( handle )
+
+   // setup strings for the dialogue box
+   g.ut.movebytes( itemrecord, 0, title, 0, itemrecord%0 + 1 )
+
+   TEST g.nf.p!s.type = m.data.type.chart
+   THEN
+   $(
+      LET data.ptr = ?
+
+      read.dataset.header()
+      dimensions.text()
+      additive.flag.text()
+      display.methods.text()
+      G.wm.set.icon.state( handle, m.nf.dial.ok, 0, m.shaded )
+   $)
+   ELSE
+   $(
+      G.wm.set.icon.state( handle, m.nf.dial.ok, m.shaded, m.shaded )
+   $)
+$)
+
+AND read.dataset.header() BE
+$(
+   LET bytes.to.read = m.nf.chart.data.bsize
+   LET low.16 = ?
+   LET high.16 = ?
+   LET tb = ?
+   LET handle = ?
+   LET data.ptr = VEC 3/BYTESPERWORD
+   LET itemrecord = G.context + m.itemrecord
+   LET string = 
+     "-ADFS-*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S*S"
+
+   low.16 := G.ut.get32(G.context+m.itemaddress, @high.16)
+   tb := (high.16 & #X8000) ~= 0
+   G.ut.set32(low.16, high.16 & #X7FFF, data.ptr)
+
+   TEST itemrecord%1 = '~'
+   THEN $( g.ut.movebytes(itemrecord, 2, string, 7, itemrecord%0 - 1)
+           string%0 := itemrecord%0 + 5
+           handle := G.ud.open(string)
+        $)
+   ELSE handle := OSFind(m.osfind.open.read.op, tb-> "-vfs-DATA2","-vfs-DATA1")
+                  // SA 26.04.88  G.dh.open(tb -> "DATA2", "DATA1")
+
+   IF handle = 0 THEN g.ut.trap("NF", 1, true, 3, 1, 2, 3 )
+
+   IF G.ud.read(handle, data.ptr,
+                g.nf.p+p.chart.data, bytes.to.read) = 0
+   THEN g.ut.trap("NF", 2, true, 3, 1, 2, 3 )
+
+   g.dh.close( handle )
+$)
+
+AND dimensions.text() BE
+$(
+   g.nf.p!s.dims := (g.nf.p + p.chart.data)%m.nf.dims.offset - 1
+$)
+
+AND additive.flag.text() BE
+$(
+   LET flag = (g.nf.p + p.chart.data)%m.nf.add.flag.offset
+   LET str = (flag = 0) -> "Additive data", "Non-additive data"
+
+   g.ut.movebytes( str, 0, g.nf.p + s.add, 0, str%0 + 1)
+$)
+
+AND display.methods.text() BE
+$(
+   LET disp.vec = VEC 5
+   LET location = 0
+   LET str.vec = VEC 10
+   LET data = g.nf.p + p.chart.data
+   LET byte = 0
+   LET method = data%(m.nf.disp.meths.offset + 0)
+
+   // Contains pointers to all possible strings.
+   // Offset to str.vec corresponds to the method code.
+   str.vec!0  := ' '
+   str.vec!1  := "Simple bar chart"
+   str.vec!2  := "Back to back bar chart"
+   str.vec!3  := ' '
+   str.vec!4  := ' '
+   str.vec!5  := ' '
+   str.vec!6  := "Looping bar chart"
+   str.vec!7  := "Pie chart"
+   str.vec!8  := "Single line graph"
+   str.vec!9  := ' '
+   str.vec!10 := "Multi-line graph"
+
+   // Contains pointers to private statics area used for storing the
+   // the strings to be displayed in the find dialogue box.
+   disp.vec!0 := g.nf.p + s.disp1
+   disp.vec!1 := g.nf.p + s.disp2
+   disp.vec!2 := g.nf.p + s.disp3
+   disp.vec!3 := g.nf.p + s.disp4
+   disp.vec!4 := g.nf.p + s.disp5
+   disp.vec!5 := g.nf.p + s.disp6
+   
+   FOR location = 0 TO 5
+   $(
+      LET method = data%(m.nf.disp.meths.offset + location)
+      LET string = str.vec!method
+
+      g.ut.movebytes( string, 0, disp.vec!location, 0, string%0+1 )
+   $)
+$)
+
+/**
+    G.NF.DIAL.ACTION
+
+    PDL:
+        IF cancel button clicked
+        THEN return to find review state
+        ENDIF
+
+        IF redraw request issued
+        THEN rewrite dataset title
+             IF dataset of the correct type
+             THEN rewrite the strigs set up in the private statics area
+             ELSE rewrite error message
+             ENDIF
+        ENDIF
+**/
+
+AND g.nf.dial.action() BE
+$(
+   LET handle = window.for( m.st.find.dialogue )
+
+   IF G.context!m.window = handle
+   THEN TEST G.context!m.icon = 2               // cancel button
+        THEN
+        $( 
+           G.wm.close( G.context!m.window )   // close find dialogue box
+           G.windows!0 := G.windows!0 - 1     // decrement window list pointer
+                                              // SA 11.05.88
+        $)
+        ELSE IF G.context!m.icon = 3            // O.K. button
+             THEN g.nf.select.item()            // go to chart overlay
+
+   IF G.context!m.redraw
+   THEN redraw.dial.window( handle )
+$)
+
+AND redraw.dial.window( handle ) BE
+$(
+   // write the title
+   G.wm.MoveA.Window( handle, m.nf.dial.TextX, m.nf.dial.TextY )
+   writes(g.nf.p + s.title)
+
+   // write the rest
+   TEST g.nf.p!s.type = m.data.type.chart
+   THEN
+   $(
+      move.rel.dial( handle, 40, 2 )
+      writes(g.nf.p + s.add)
+
+      move.rel.dial( handle, 40, 3 )
+      writef("Number of dimensions: %n", g.nf.p!s.dims )
+
+      move.rel.dial( handle, 40, 4 )
+      writes("Display Methods:")
+
+      move.rel.dial( handle, 80, 5 )
+      writes(g.nf.p + s.disp1)
+
+      move.rel.dial( handle, 80, 6 )
+      writes(g.nf.p + s.disp2)
+
+      move.rel.dial( handle, 80, 7 )
+      writes(g.nf.p + s.disp3)
+
+      move.rel.dial( handle, 80, 8 )
+      writes(g.nf.p + s.disp4)
+
+      move.rel.dial( handle, 80, 9 )
+      writes(g.nf.p + s.disp5)
+
+      move.rel.dial( handle, 80, 10 )
+      writes(g.nf.p + s.disp6)
+   $)
+   ELSE
+   $(
+      move.rel.dial( handle, 40, 2 )
+      writes("No display methods implemented!")
+   $)
+$)
+
+AND move.rel.dial( handle, Indent, Line ) BE
+    G.wm.MoveA.Window( handle, m.nf.dial.TextX + Indent,
+                        m.nf.dial.TextY - Line * m.nf.icon.height )
+
+AND g.nf.select.item() BE
+$(
+   IF g.nf.p!s.type = m.data.type.chart
+   THEN 
+   $(
+      G.context!m.window := window.for( m.st.find.dialogue )
+      G.context!m.icon   := m.chart.icon // force change into chart overlay
+      G.context!m.key    := 2
+      G.context!m.justselected := TRUE
+   $)
+$)
+
+//let selectitem.(q) be
+//$(  let type = q%31
+//    g.ut.movebytes(q,0,g.context+m.itemrecord,0,
+//                   m.names.rec.bsize-8) // MH 28.7.87
+//    g.ut.unpack32(q,32,g.context+m.itemaddress)
+//    g.ut.unpack32(q,36,g.context+m.itemh.level) //unpack hierachy MH 28.7.87
+//    g.key := -(type!table 0, m.st.datmap, m.st.datmap, m.st.datmap,
+//                             m.st.chart, 0, m.st.ntext, m.st.ntext,
+//                             m.st.nphoto, 0, 0) // no walk and film
+//    g.context!m.itemselected := true // 19.6.86
+//    IF g.key = -m.st.nphoto do g.context!m.picture.no := 1
+//    IF g.key = -m.st.ntext do    // addition of 23.6.86
+//    $( g.ut.set32(-1,-1,g.context+m.itemadd2)
+//       g.ut.set32(-1,-1,g.context+m.itemadd3)
+//    $)
+//$)
+
+AND restrict.mouse( window.handle ) BE
+$(
+   LET flags = ?
+
+   G.wm.Get.Window.State( window.handle )
+   flags := G.wm.q!(32/BYTESPERWORD)
+
+   // Allow for scroll & title bars SA 07.04.88
+   TEST (flags & m.wm.NewForm) ~= 0
+   THEN
+   $(
+      IF (flags & m.wm.NewForm.VScroll) ~= 0
+      THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+      IF (flags & m.wm.NewForm.HScroll) ~= 0
+      THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+      IF (flags & m.wm.NewForm.Titlebar) ~= 0
+      THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+   $)
+   ELSE
+   $(
+      IF (flags & m.wm.VScroll) ~= 0
+      THEN G.wm.q!m.wm.X1 := G.wm.q!m.wm.X1 + 40
+
+      IF (flags & m.wm.HScroll) ~= 0
+      THEN G.wm.q!m.wm.Y0 := G.wm.q!m.wm.Y0 - 40
+
+      IF (flags & m.wm.Titlebar) ~= 0
+      THEN G.wm.q!m.wm.Y1 := G.wm.q!m.wm.Y1 + 40
+   $)
+
+   G.wm.Mouse.Rectangle( G.wm.q!m.wm.X0, 
+                         G.wm.q!m.wm.Y0, 
+                         G.wm.q!m.wm.X1, 
+                         G.wm.q!m.wm.Y1 )
+
+   G.context!m.dialogue := window.handle
+$)
+.

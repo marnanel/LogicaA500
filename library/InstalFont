@@ -1,0 +1,47 @@
+*| > InstalFont
+
+*GOS
+*DIR :0.$
+*CDIR Fonts
+*CDIR Fonts.Courier
+*CDIR Fonts.Helvetica
+*CDIR Fonts.Times
+*CDIR Fonts.Thin
+*cdir Fonts.courier.Bold
+*cdir Fonts.courier.Oblique
+*cdir Fonts.Helvetica.Bold
+*cdir Fonts.Helvetica.Oblique
+*cdir Fonts.Times.Bold
+*cdir Fonts.Times.Roman
+*cdir Fonts.Times.Roman2
+*cdir Fonts.Times.Italic
+
+*| Copy Fonts
+
+*TRANSFER DIR:4.$.Fonts.courier DIR:0.$.Fonts.courier IntMetrics
+*TRANSFER DIR:4.$.Fonts.courier DIR:0.$.Fonts.courier X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Helvetica DIR:0.$.Fonts.Helvetica IntMetrics
+*TRANSFER DIR:4.$.Fonts.Helvetica DIR:0.$.Fonts.Helvetica X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Helvetica.bold DIR:0.$.Fonts.Helvetica.bold IntMetrics
+*TRANSFER DIR:4.$.Fonts.Helvetica.bold DIR:0.$.Fonts.Helvetica.bold X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Helvetica.oblique DIR:0.$.Fonts.Helvetica.oblique IntMetrics
+*TRANSFER DIR:4.$.Fonts.Helvetica.oblique DIR:0.$.Fonts.Helvetica.oblique X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Times.Bold DIR:0.$.Fonts.Times.Bold IntMetrics
+*TRANSFER DIR:4.$.Fonts.Times.Bold DIR:0.$.Fonts.Times.Bold X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Times.Roman DIR:0.$.Fonts.Times.Roman IntMetrics
+*TRANSFER DIR:4.$.Fonts.Times.Roman DIR:0.$.Fonts.Times.Roman X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Times.Roman2 DIR:0.$.Fonts.Times.Roman2 IntMetrics
+*TRANSFER DIR:4.$.Fonts.Times.Roman2 DIR:0.$.Fonts.Times.Roman2 X90Y45
+
+*TRANSFER DIR:4.$.Fonts.Times.Italic DIR:0.$.Fonts.Times.Italic IntMetrics
+*TRANSFER DIR:4.$.Fonts.Times.Italic DIR:0.$.Fonts.Times.Italic X90Y45
+
+*TRANSFER DIR:4.$.Fonts.THIN DIR:0.$.Fonts.THIN IntMetrics
+*TRANSFER DIR:4.$.Fonts.THIN DIR:0.$.Fonts.THIN X90Y45
+

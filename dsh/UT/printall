@@ -1,0 +1,25 @@
+*| print the UT source code
+*|
+set alias$pr echo |<2|> |M type %0 |M echo |<12|>|<3|>
+*|
+pr b.utils1
+pr b.utils2
+pr b.utils3
+pr b.utils4
+pr b.grid1
+pr b.grid2
+pr b.print
+pr b.write
+pr b.errtext
+pr b.bookmark
+pr b.helplnk
+pr b.calc32b
+pr b.RCPlib
+pr b.FPlib
+pr b.Debug
+pr a.VFSlib
+pr a.GrafLib
+pr a.BICI
+pr comp
+pr linc
+pr printall

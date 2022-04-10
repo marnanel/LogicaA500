@@ -1,0 +1,175 @@
+//  AES SOURCE  6.87
+
+/**
+         NM.ANALYSE1 - NATIONAL MAPPABLE ANALYSE OPERATION
+         -------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         MAPPROC
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         11.03.86 1        D.R.Freed   Initial version
+
+         g.nm.to.anal
+         g.nm.analyse
+**/
+
+section "nmanalyse1"
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNMhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.sihd"
+get ":4.DSH.H.kdhd"
+get ":4.DSH.H.nmhd"
+get ":4.DSH.H.nmclhd"
+
+
+/**
+         G.NM.TO.ANAL - INITIALISATION FOR ENTRY TO ANALYSE
+         --------------------------------------------------
+
+         Initialisation for entering top level of analyse
+         operation, from anywhere.
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.nm.s
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.nm.to.anal []
+         ------------
+
+         initialise local data unpacked static
+
+         IF class intervals are changed THEN
+            restore class intervals from g.nm.s
+            restore palette from g.nm.s
+            clear changed flag
+         ENDIF
+
+         restore logical colour flashing white
+         restore message area
+
+         set all menu bar boxes to active
+         IF dataset is incidence THEN
+            suppress Class function
+         ENDIF
+
+         IF variable has already been windowed OR
+               area of interest was chosen by grid ref OR
+                     all data is missing THEN
+            suppress window function
+         ENDIF
+
+         draw resultant menu bar
+**/
+
+let g.nm.to.anal () be
+$(
+   // initialise static which indicates if the grid-square data within the
+   // area of interest has been unpacked into the areal vector - for the
+   // benefit of Quantiles
+   g.nm.s!m.nm.local.data.unpacked := FALSE
+
+   if g.nm.s!m.nm.intervals.changed then
+
+      $(
+         MOVE (g.nm.s + m.plotted.upb, g.nm.class.upb,
+               (m.nm.num.of.class.intervals + 1) * m.nm.max.data.size)
+
+         // reassign palette using physical colours that
+         // were saved before going to class operation
+         for i = 1 to m.nm.num.of.class.intervals do
+            g.sc.palette (g.nm.class.colour!i,
+                          g.nm.s!(m.plotted.palette + i - 1))
+
+         g.nm.s!m.nm.intervals.changed := FALSE
+      $)
+
+   // restore the logical colour flashing white which may have
+   // been temporarily reassigned in the Detail operation
+   g.sc.palette (m.nm.flash.white, m.sd.flash.white2)
+
+   g.nm.restore.message.area ()
+
+   for i = m.box1 to m.box6 do
+      g.nm.s!(m.nm.menu + i) := m.sd.act
+
+   if (g.nm.s!m.nm.value.data.type = m.nm.incidence.type) then
+      g.nm.s!(m.nm.menu + m.box3) := m.wblank   // suppress class function
+
+   if (g.nm.s!m.nm.windowed) |
+         (g.context!m.type.AOI = -1) |
+            (g.nm.s!m.nm.num.areas = 0) then
+      g.nm.s!(m.nm.menu + m.box5) := m.wblank   // suppress window function
+
+   g.sc.menu (g.nm.s + m.nm.menu)
+$)
+
+
+/**
+         G.NM.ANALYSE - ACTION ROUTINE FOR ANALYSE SUB-OPERATION
+         -------------------------------------------------------
+
+         Action routine for top level of the analyse
+         sub-operation.
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.nm.s
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         g.nm.analyse []
+         ------------
+
+         IF function key corresponding to Window pressed THEN
+            remove "Window" option from menu bar
+            window the variable
+            reposition videodisc for underlay map
+         ENDIF
+
+**/
+
+and g.nm.analyse () be
+$(
+   if g.key = m.kd.fkey5 then    // Window
+      $(
+         g.nm.s!(m.nm.menu + m.box5) := m.wblank
+         g.sc.menu (g.nm.s + m.nm.menu)
+         g.nm.load.child ("cnmWIND")
+         g.nm.window.variable ()
+         g.nm.position.videodisc ()
+      $)
+$)
+
+.

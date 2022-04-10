@@ -1,0 +1,11 @@
+*dir :4.ARC.r
+*gos
+*initstore
+*tv 0,0
+*RMLoad $.Modules.JonSCSI
+*RMLoad $.Modules.VideoCom
+*RMLoad $.Modules.VFSA500
+*RMLoad $.Library.FPE
+*Vfs
+*Mount 0
+*/-adfs-kernel

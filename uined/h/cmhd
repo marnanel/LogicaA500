@@ -1,0 +1,172 @@
+// /**
+//       H.CMHDR - COMMUNITY MAP MAIN HEADER
+//       -----------------------------------
+//
+//       Contains definitions of map static area, map sizes,
+//       heights, offsets etc., map cache and screen info.
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//     24.04.87   1        SRY         Adopted for Input Editor
+// **/
+
+manifest $(
+
+// Vector sizes for init and free. (Must be in step with iophdr)
+
+m.cm.statics.size =     75 // a few spare
+m.cm.cache.size   =    500 // min ~450  n.b. change back to 5500 for BBC master
+m.cm.keep.size    =     20
+m.fine.index.bytes =    64
+m.buffer.size =       6176/bytesperword
+                            // enough words for the biggest packed 32x32 block
+
+// General constants
+
+m.block.SRAM.bytes = 4096 // size of 1 32x32 block at 4 bytes each value
+                        // NB - 4 of these held in SRAM
+m.cm.map.rec.size = 816 // max size for map records in mapdata file(s)
+m.cm.data.length = 11   // byte length of string for data input
+m.max.blocks.w = 22     // max 32x32 blocks w/e & s/n
+m.max.blocks.n = 35
+m.coarse.index.size = m.max.blocks.w * m.max.blocks.n * 2 // words
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+//                  Following are offsets in g.cm.s                          //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+m.base = 0     // base of freespace
+m.top =1       // top of freespace
+m.uptr =2      // pointer into freespace
+m.now =3       // simple timer for freespace items
+m.recptr =4    // current map record
+m.frame =5     // frame address of current map, for level 0
+m.map =6       // frame address of current map
+m.parent =7    // frame address of parent of current map
+m.x0 =8        // current map easting
+m.y0 =9        // current map northing
+m.grid.system =10  // grid system of current map: GB, NI or Channel grid.
+m.a0 =11
+m.b0 =12       // a0, b0: screen offsets to corner of map's grid of submaps
+m.a1 =13       // a1, b1: offsets to top right corner of grid
+m.b1 =14
+m.cmlevel =15  // current map level
+m.width =16    // current map width
+m.height =17   // current map height
+m.km.x = 18
+m.km.y = 19
+m.old.km.x = 20
+m.old.km.y = 27
+m.istart = 21     // icon offset down p for current map
+m.iend = 22       // icon list end down p for current map
+m.isolatedmap =23 // is true for level 4 & 5 maps which are not part of a
+                 // submap matrix
+m.sind =24       // submap indicator
+m.keep =25       // vector for preserved info
+m.reason =26     // global reason for failure to move
+// see 20/21 (=27)
+
+m.old.x0 =28      // holds info for 'shrink.frame.to' about last submap
+m.old.y0 =29
+m.old.x1 =30
+m.old.y1 =31
+
+m.old.a0 =28      // NB !!   Same locations as old.x0 etc. one at a time!
+m.old.b0 =29
+m.old.a1 =30
+m.old.b1 =31
+m.clear.is.pending =32  // boolean. Set if display area must be cleared
+                        // on exit from this map due to icons
+m.substate =33    // current substate within Map
+
+m.km.x0 = 34      // km x origin of map
+m.km.y0 = 35
+m.datasize = 36
+
+m.old.xpoint        =37 // used for detecting cursor movement for clear of
+m.old.ypoint        =38 // final box after a zoom out.
+m.other.side.parent =37 // for turn disc over. set in g.cm.submap
+m.other.side.sind   =38
+
+m.data.accessed = 39 // must switch on video on redisplay of map in 'showframe'
+m.data.string = 40   // Data string for input
+m.fhandle = 41       // mapdata file handle.
+m.km.width = 42      // km width of map
+m.km.height = 43
+m.turn.over.pending = 44 // boolean, true if awaiting reply to "Eject disc?"
+m.km.base.x = 45  // Base GR of dataset so far (lower LH corner)
+m.km.base.y = 46
+m.km.top.x = 47   // ditto top right
+m.km.top.y = 48
+m.blocks.w = 49   // Current no of 32x32 blocks west-east
+m.blocks.n = 50   // ditto south-north
+m.bmap = 51       // These 4 words hold block numbers for the 32x32 blocks
+m.coarse.index = 55 // pointer to coarse.index (1540 words)
+m.fine.index = 56   // pointer to fine.index (32 words)
+m.data.rec = 57     // record number where data starts (often 1)
+m.fs = 58           // Current filing system - vfs or adfs
+m.buffer = 59
+m.changed = 60      // Four words - whether each buffer has been modified
+m.bl1 = 64          // LRU implementation - b1 to b4 are the block numbers
+m.bl2 = 65          // of the four blocks held in SRAM in MRU order
+m.bl3 = 66
+m.bl4 = 67
+m.cur.block = 68    // Current block referred to
+m.base32x = 69      // Base km GRs for cur.block
+m.base32y = 70
+m.data.grid = 71    // Grid system of dataset
+m.video.muted = 75  // Separate from data.accessed for grid purposes
+//  LAST ONE MUST BE <= 'M.CM.STATICS.SIZE'  (see top)
+
+
+//  substate values
+m.box.clear.pending.substate =-1    // just zoomed out
+m.mapwalk.substate  =0     // initial Map substate
+
+//  map cache info
+headsize = 5  // word size of item header in freespace
+
+// offsets into item header
+usage = -1
+lastused =-2
+id1 = -3
+id0 = -4
+size = -5
+
+//  special L0 map frame for passing to Find (part of the Key, really)
+// L0.no.highlight = 18758
+
+//  mapdata file info
+map.L0 = 18791 // frame address of first UK L0 map; this is also the frame
+               // address of first map for which there is a map record
+
+L0.south = map.L0      // frame addresses (= map numbers) of L0 map pics
+L0.north = map.L0+1
+L0.shet  = map.L0+2
+L0.ire   = map.L0+3
+L0.man   = map.L0+4
+L0.chan  = map.L0+5
+
+map.L1 = map.L0 + 6     // frame address of first L1 map
+
+// various hectometre values for L1 maps: used to match an L1 map to a
+// GB grid reference.  Values from Helen Mounsey
+// These don't appear to be used - Input Editor
+// m.cm.man.L1.mine = 2140
+// m.cm.man.L1.maxe = 2540
+// m.cm.man.L1.minn = 4640
+// m.cm.man.L1.maxn = 5070
+// m.cm.south.L1.maxn = 4800
+// m.cm.north.L1.minn = 4500
+// m.cm.north.L1.maxn = 9900
+
+// bit values for dispflags parameter
+m.cm.no.bit       = #X00
+m.cm.frame.bit    = #X01
+m.cm.graphics.bit = #X02
+m.cm.messages.bit = #X04
+m.cm.icons.bit    = #X08
+$)

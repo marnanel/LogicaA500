@@ -1,0 +1,822 @@
+ REM > DeskTopMgr : Desk50 crunched
+ REM (c) Acorn Computers 1987
+ REM Version 0.5
+  
+ *FX200,1
+ ONERRORMODE0
+ OSCLI"FX4"
+ REPORT
+ PRINT" at line ";ERL
+ END
+ mos$=""
+ FORI%=0TO3
+ mos$=mos$+CHR$(I%?(&3800000+5100))
+ NEXT
+
+ testing%=FALSE
+ mode%=12
+
+ CASEmode% OF
+   WHEN12 
+    icon_bgcol=12
+    icon_fgcol=13
+    scrollbar_bgcol=14
+    desk_bgcol=15
+    focus_bgcol=11
+    menutitle_bgcol=12
+    menutitle_fgcol=13
+    menuwork_bgcol=0
+    menuwork_fgcol=7
+    dialogue_fgcol=13
+    dialogue_bgcol=0
+   OTHERWISE PRINT"Mode ";mode%;" not supported"
+    STOP
+ ENDCASE
+ MODEmode%
+ VDU23,16,&40,&BF|  
+ 
+ PROCvars
+ IFmos$="0.10" THENOSCLI("PRINT WimpChars") ELSEOSCLI("PRINT WimpFont")
+ *SLOAD Icons.DeskTop
+ SYSInit
+ DIMwindow%(28),window$(28),windowpoll%(28)
+ DIMiconlist%(28),iconlist$(28)
+ 
+ DIMsys_b% &300,sys_b2% &300
+ b=sys_b%
+ initbrx%=20
+ brx%=initbrx%
+ bry%=900
+ csx%=0
+ csy%=0
+ chx%=16
+ chy%=96
+ installatL%=0
+ installat%=1280
+ iconlistindex%=0
+ windowindex%=0
+ pollindex%=0
+ claimpoll$=""
+ iconbar%=FNsys_definewindow("","",&50,icon_fgcol,scrollbar_bgcol, 1280,196, 2,4,1278,120)
+ dialogue%=FNsys_definewindow("","",&50,7,0, 1,1, 0,0,1,1)
+ void=FNinstall_file_exit 
+ fileindex%=0
+ 
+ REPEAT
+   SYSMultiple,10,"Accessory",b,1,fileindex%,&300,"*" TO ,,,numread%
+   IFnumread%=1 ANDb!16=1 AND(b!1AND&FFF)=&FE0 THEN
+     filename$=FNstring_zero(b+20)
+     LIBRARY "Accessory."+filename$
+     void=EVAL("FNinstall_file_"+filename$)
+   ENDIF
+   fileindex%+=1
+ UNTILnumread%=0
+
+ PROCfront(iconbar%)
+ VDU23,25,3,2,4,6,8,10,12,14
+ PLOT&D0,0,0
+ COLOUR128
+ COLOUR1
+ PRINT
+ IFmode%=0
+ VDU23,25,1,3|
+ *POINTER
+ PROCgetpalette 
+ 
+ IFmode%=0
+ VDU20
+ SYSScreen,-1,0,0,1280,1024 
+ 
+ *FX4 1
+ ONERRORVDU4,30
+ OSCLI"FX4"
+ REPORT
+ PRINT" at line ";ERL
+ END
+ oldtime$=""
+ olddate$=""
+ newtime$=TIME$
+
+ REPEAT
+   PROCpoll(0)
+   IFaction% ELSEPROCaction(FNuseractions)
+ UNTILFALSE
+
+ DEFPROCpoll(mask%)
+ !b=mask%
+ SYSPoll,0,b TO action%
+  IFaction% PROCaction(action%)
+ ENDPROC
+
+ DEFPROCaction(action%)
+ CASEaction% OF
+   WHEN1 
+    PROCredraw_window(!b)
+   WHEN2 
+    PROCopen_window(!b,b!4,b!8,b!12,b!16,b!20,b!24,b!28)
+   WHEN3 
+    PROCclose_window(!b)
+   WHEN4
+   WHEN5
+   WHEN6 
+    PROCcheckmouse(!b,b!4,b!8,b!12,b!16,b!20)
+   WHEN7 
+    PROCquit_userdrag
+   WHEN8 
+    PROCuserkeypressed(!b,b!4,b?24)
+   WHEN9 
+    PROCmenuselect(!b,b!4)
+ ENDCASE
+ ENDPROC
+
+ DEFPROCcheckmouse(mousex%,mousey%,button%,handle%,icon%,ob%)
+ IFhandle%=-1THENENDPROC
+ PROCgetw(handle%)
+ IFhandle%=iconbar% THEN
+   IFicon%<>-1 THEN
+     CASETRUE OF
+       WHEN(button%AND1)=1 
+        PROCbringup(icon%)
+       WHEN(button%AND2)=2 
+        void=EVAL("FNmenu_"+iconlist$(icon%))
+       WHEN(button%AND4)=4 
+        PROCbringup(icon%)
+     ENDCASE
+   ENDIF
+   ENDPROC
+ ENDIF
+ IFhandle%=dialogue% THEN
+   IFicon%>=0 void=EVAL("FNdialogueselect_"+claimdialogue$)
+   ENDPROC
+ ENDIF
+ index%=windowindex%
+ REPEAT
+   index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid window"
+    STOP
+ UNTILwindow%(index%)=handle%
+ void=EVAL("FNbutton_"+window$(index%))
+ ENDPROC
+
+ DEFPROCuserkeypressed(handle%,icon%,key%)
+ IFhandle%=-1 ORhandle%=iconbar% ORhandle%=dialogue% ENDPROC
+ PROCgetw(handle%)          
+ 
+ LOCALindex%
+ index%=windowindex%
+ REPEAT
+   index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid window"
+    STOP
+ UNTILwindow%(index%)=handle%
+ void=EVAL("FNkeypress_"+window$(index%))
+ ENDPROC
+
+ DEFPROCmenuselect(item0%,item1%)
+ void=EVAL("FNmenuselect_"+claimmenu$)
+ ENDPROC
+
+ DEFFNuseractions
+ IFclaimpoll$="" ELSEvoid=EVAL("FNuseraction_"+claimpoll$)
+ LOCALI%
+  I%=windowindex%
+ REPEAT
+   IFpollindex%=0 ORpollindex%>windowindex% pollindex%=windowindex%
+   pollindex%-=1
+    I%-=1
+ UNTILI%<0 ORwindowpoll%(pollindex%)
+ IFwindowpoll%(pollindex%) void=EVAL("FNuseraction_"+window$(pollindex%))
+ =0
+
+ DEFPROCquit_userdrag
+ void=EVAL("FNquit_drag_"+window$(index%))
+ ENDPROC
+
+ DEFPROCbringup(icon%)
+ handle%=iconlist%(icon%)
+ IFhandle%<=0 iconlist%(icon%)=EVAL("FNaction_"+iconlist$(icon%))
+ handle%=iconlist%(icon%)
+ IFhandle%<=0 ENDPROC
+ PROCgetw(handle%)
+ IF(flags%AND(1<<16))THENPROCfront(handle%)
+ ENDPROC
+ PROCopen_window(handle%,brx%,bry%+y0%-y1%,brx%+x1%-x0%,bry%,scx%,scy%,-1)
+ brx%=brx%+32
+ bry%=bry%-64
+ IFbry%<350 THEN
+   initbrx%=initbrx%+640
+   IFinitbrx%>800THENinitbrx%=20
+   brx%=initbrx%
+   bry%=900
+ ENDIF
+ ENDPROC
+
+ DEFPROCfront(handle%)
+ IFhandle%=-1THENENDPROC
+ PROCgetw(handle%)
+ b!28=-1
+ SYSOpenW,0,b
+ ENDPROC
+
+ DEFPROCpopup(handle%)
+ PROCgetw(handle%)
+ xo%=mousex%-(x0%+x1%)/2
+ yo%=mousey%-(y1%+20)
+ PROCopen_window(handle%,x0%+xo%,y0%+yo%,x1%+xo%,y1%+yo%,scx%,scy%,-1)
+ ENDPROC
+
+ DEFPROCsysdrag(handle%,type%)
+ !b=handle%
+ b!4=type%
+ SYSDrag,0,b
+ ENDPROC
+
+ DEFPROCuserdrag(x0%,y0%,x1%,y1%)
+ !b=handle%
+ b!4=7
+ b!8=mousex%
+ b!12=mousey%
+ b!16=mousex%
+ b!20=mousey%
+ b!24=x0%
+ b!28=y0%
+ b!32=x1%
+ b!36=y1%
+ SYSDrag,0,b
+ ENDPROC
+
+ DEFPROCopen_window(handle%,x0%,y0%,x1%,y1%,scx%,scy%,bhandle%)
+ IFhandle%=-1THENENDPROC
+ b!0=handle%
+ b!28=bhandle%
+ b!4=x0%
+ b!8=y0%
+ b!12=x1%
+ b!16=y1%
+ b!20=scx%
+ b!24=scy%
+ SYSOpenW,0,b
+ ENDPROC
+
+ DEFPROCgetw(handle%)
+ !b=handle%
+ SYSGetW,0,b
+ PROCinfo(b+4)
+ bhandle%=b!28
+ flags%=b!32
+ ENDPROC
+
+ DEFPROCinfo(b)
+ x0%=!b
+ y0%=b!4
+ x1%=b!8
+ y1%=b!12
+ scx%=b!16
+ scy%=b!20
+ bx%=x0%-scx%
+ by%=y1%-scy%
+ ENDPROC
+
+ DEFPROCupdate(handle%,ux0%,uy0%,ux1%,uy1%)
+ !b=handle%
+ b!4=ux0%
+ b!8=uy0%
+ b!12=ux1%
+ b!16=uy1%
+ SYSUpdateW,0,b TO more%
+ PROCinfo(b+4)
+ ENDPROC
+
+ DEFPROCsys_forceredraw(handle%)
+ SYSScreen,handle%,-3E4,-3E4,3E4,3E4
+ ENDPROC
+
+ DEFPROCredraw_window(handle%)
+ b!0=handle%
+ SYSRedrawW,0,b TO more%
+ PROCinfo(b+4)
+ IFhandle%=iconbar% PRINT"redraw_window(iconbar) called"
+  STOP
+ IFhandle%=dialogue% PRINT"redraw_window(dialogue) called"
+  STOP
+ index%=windowindex%
+ REPEAT
+   index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid window"
+    STOP
+ UNTILwindow%(index%)=handle%
+ void=EVAL("FNredraw_"+window$(index%))
+ ENDPROC
+
+ DEFPROCclose_window(handle%)
+ LOCALcode%
+ IFhandle%=dialogue% !b=handle%
+  SYSCloseW,0,b
+  ENDPROC
+ index%=windowindex%
+ REPEAT
+   index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid window"
+    STOP
+ UNTILwindow%(index%)=handle%
+ code%=EVAL("FNclose_"+window$(index%))
+ CASEcode% OF
+   WHEN0
+   WHEN1 
+    !b=handle%
+    SYSCloseW,0,b
+   WHEN2 
+    !b=handle%
+    SYSCloseW,0,b
+    PROCdelete(handle%)
+   OTHERWISE MODE12
+   PRINT"Bad return code from FNclose_"+window$(index%)
+    STOP
+ ENDCASE
+ ENDPROC
+
+ DEFPROCdelete(handle%)
+ LOCALfound%
+ b!0=handle%
+ SYSDeleteW,0,b
+ found%=FNsys_searchI(handle%,window%(),windowindex%)
+ PROCsys_removeSII(found%,window$(),window%(),windowpoll%(),windowindex%)
+ found%=FNsys_searchI(handle%,iconlist%(),iconlistindex%)
+ IFfound%>=0 iconlist%(found%)=0
+ ENDPROC
+
+ DEFPROCvars
+ Byte    = 6
+ File    = 8
+ Multiple= &0C
+ ReadPal = &2F
+ Font    = (1<<18) + (2<<6)
+ Width   = Font+1
+ Wimp    = (1<<18) + (3<<6)
+ Init    = Wimp+0
+ CreateW = Wimp+1
+ CreateI = Wimp+2
+ DeleteW = Wimp+3
+ DeleteI = Wimp+4
+ OpenW   = Wimp+5
+ CloseW  = Wimp+6
+ Poll    = Wimp+7
+ RedrawW = Wimp+8
+ UpdateW = Wimp+9
+ GetR    = Wimp+10
+ GetW    = Wimp+11
+ GetWI   = Wimp+12
+ SetI    = Wimp+13
+ GetI    = Wimp+14
+ GetP    = Wimp+15
+ Drag    = Wimp+16
+ Screen    = Wimp+17
+ SetCaret  = Wimp+18
+ GetCaret  = Wimp+19
+ CreateM   = Wimp+20
+ DecodeM   = Wimp+21
+ WhichI    = Wimp+22
+ SetExtent = Wimp+23
+ ENDPROC
+
+ DEFPROCgetpointer
+ SYSGetP,0,b
+ mousex%=!b
+ mousey%=b!4
+ b%=b!8
+ handle%=b!12
+ icon%=b!16
+ ob%=b!20
+ ENDPROC
+
+ DEFPROCerrorbox
+ x0%=400
+ y0%=400
+ x1%=640+240
+ y1%=600
+ MOVEx0%,y0%
+ PLOT&67,x1%-1,y1%-1
+ MOVEx0%,y0%
+ DRAWx1%-1,y0%
+ DRAWx1%-1,y1%-1
+ DRAWx0%,y1%-1
+ DRAWx0%,y0%
+ MOVEx0%+32,(y0%+y1%)/2+12
+ VDU5
+ GCOL0,7
+ PRINTREPORT$;" at line ";ERL
+ A%=GET
+ IFA%=13 END
+ ENDPROC
+
+ DEFFNsys_definewindow(suffix$,title$,flags%,fgcol%,bgcol%,maxX%,maxY%,waL%,waB%,waR%,waT%)
+ IFwindowindex%>DIM(window$(),1) ERROR&01000001,"Too many windows"
+ !b=waL%
+  b!4=waB%
+  b!8=waR%
+  b!12=waT% 
+  b!16=0
+  b!20=0                         
+  b!24=-1                                
+  b!28=flags%                            
+  b?32=icon_fgcol
+  b?33=icon_bgcol       
+  b?34=fgcol%
+  b?35=bgcol%                
+  b?36=scrollbar_bgcol
+  b?37=icon_bgcol  
+  b?38=focus_bgcol                       
+  b?39=0                                 
+  b!40=0
+  b!44=-maxY%                    
+  b!48=maxX%
+  b!52=0                      
+  b!56=&2D                               
+  b!60=&3000                             
+  $(b+72)=LEFT$(title$,11)               
+  b!84=0                                 
+  SYSCreateW,0,b TO handle%
+  window$(windowindex%)=suffix$
+  window%(windowindex%)=handle%
+  windowpoll%(windowindex%)=FALSE
+  windowindex%+=1                               
+ =handle%
+
+ DEFFNsys_definewindowW(suffix$,title0%,title1%,title2%,flags%,fgcol%,bgcol%,maxX%,maxY%,waL%,waB%,waR%,waT%)
+ IFwindowindex%>DIM(window$(),1) ERROR&01000001,"Too many windows"
+  !b=waL%
+  b!4=waB%
+  b!8=waR%
+  b!12=waT% 
+  b!16=0
+  b!20=0                         
+  b!24=-1                                
+  b!28=flags%                            
+  b?32=icon_fgcol
+  b?33=icon_bgcol       
+  b?34=fgcol%
+  b?35=bgcol%                
+  b?36=scrollbar_bgcol
+  b?37=icon_bgcol  
+  b?38=focus_bgcol                       
+  b?39=0                                 
+  b!40=0
+  b!44=-maxY%                    
+  b!48=maxX%
+  b!52=0                      
+  b!56=&2D OR&100                       
+  b!60=&3000                             
+  b!72=title0%
+  b!76=title1%             
+  b!80=title2%                           
+  b!84=0                                 
+  SYSCreateW,0,b TO handle%
+  window$(windowindex%)=suffix$
+  window%(windowindex%)=handle%
+  windowindex%+=1                               
+ =handle%
+
+ DEFPROCsys_setwindowextent(waL%,waB%,waR%,waT%)
+  !b=waL%
+  b!4=waB%
+  b!8=waR%
+  b!12=waT% 
+  SYSSetExtent,handle%,b
+ ENDPROC
+
+ DEFPROCsys_defineicon(boxL%,boxB%,boxR%,boxT%,flags%,fgcol%,bgcol%,data$)
+  !b=handle%
+  b!4=boxL%
+  b!8=boxB%
+  b!12=boxR%
+  b!16=boxT% 
+  b!20=flags%                                  
+  b?23=(fgcol% AND&F)+(bgcol% <<4)            
+  $(b+24)=data$                                
+  SYSCreateI,0,b
+ ENDPROC
+
+ DEFPROCsys_defineiconW(boxL%,boxB%,boxR%,boxT%,flags%,fgcol%,bgcol%,data0%,data1%,data2%)
+  !b=handle%
+  b!4=boxL%
+  b!8=boxB%
+  b!12=boxR%
+  b!16=boxT% 
+  b!20=flags% OR&100                          
+  b?23=(fgcol% AND&F)+(bgcol% <<4)            
+  b!24=data0%
+  b!28=data1%
+  b!32=data2%        
+  SYSCreateI,0,b
+ ENDPROC
+
+ DEFPROCsys_seticonstate(handle%,icon%,flags%,mask%)
+  !b=handle%
+  b!4=icon%
+  b!8=flags%    
+  b!12=mask%    
+  SYSSetI,0,b
+ ENDPROC
+
+ DEFPROCsys_addtoiconbar(suffix$,data$,flags%,fgcol%,bgcol%,width%)
+  boxB%=-120
+  boxT%=4
+  handle%=iconbar%
+  PROCsys_defineicon(installat%-width%,boxB%,installat%,boxT%,flags%,fgcol%,bgcol%,data$)
+  installat%-=width%
+  iconlist$(iconlistindex%)=suffix$
+  iconlistindex%+=1
+ ENDPROC
+
+ DEFPROCsys_addtoiconbar_left(suffix$,data$,flags%,fgcol%,bgcol%,width%)
+  boxB%=-120
+  boxT%=4
+  handle%=iconbar%
+  PROCsys_defineicon(installatL%,boxB%,installatL%+width%,boxT%,flags%,fgcol%,bgcol%,data$)
+  installatL%+=width%
+  iconlist$(iconlistindex%)=suffix$
+  iconlistindex%+=1
+ ENDPROC
+
+ DEFFNsys_searchS(name$,array$(),index%)
+  REPEAT
+   index%-=1
+    IFindex%<0 =-1
+  UNTILname$=array$(index%)
+ =index%
+
+ DEFFNsys_searchI(num%,array%(),index%)
+  REPEAT
+   index%-=1
+    IFindex%<0 =-1
+  UNTILnum%=array%(index%)
+ =index%
+
+ DEFPROCsys_removeS(at%,array$(),RETURN index%)
+  index%-=1
+  WHILE at%<index% array$(at%)=array$(at%+1)
+   at%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCsys_removeSI(at%,array$(),array%(),RETURN index%)
+  index%-=1
+  WHILE at%<index%
+    array$(at%)=array$(at%+1)
+    array%(at%)=array%(at%+1)
+    at%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCsys_removeSS(at%,array0$(),array1$(),RETURN index%)
+  index%-=1
+  WHILE at%<index%
+    array0$(at%)=array0$(at%+1)
+    array1$(at%)=array1$(at%+1)
+    at%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCsys_removeSSI(at%,array0$(),array1$(),array%(),RETURN index%)
+  index%-=1
+  WHILE at%<index%
+    array0$(at%)=array0$(at%+1)
+    array1$(at%)=array1$(at%+1)
+    array%(at%) =array%(at%+1)
+    at%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCsys_removeSII(at%,array$(),array0%(),array1%(),RETURN index%)
+  index%-=1
+  WHILE at%<index%
+    array$(at%) =array$(at%+1)
+    array0%(at%)=array0%(at%+1)
+    array1%(at%)=array1%(at%+1)
+    at%+=1
+  ENDWHILE
+ ENDPROC
+
+ DEFPROCsys_definetextmenu(suffix$,title$,text$)
+  LOCALptr%,shade%,tick%
+  $sys_b2%=LEFT$(title$,11)
+  sys_b2%?12=menutitle_fgcol
+  sys_b2%?13=menutitle_bgcol
+  sys_b2%?14=menuwork_fgcol
+  sys_b2%?15=menuwork_bgcol  
+  sys_b2%!16=100+32                                
+  sys_b2%!20=32+8                                  
+  sys_b2%!24=10                                    
+  IFRIGHT$(text$,1)<>"|" text$+="|"
+  ptr%=sys_b2%+28
+  REPEAT
+    shade%=0
+    tick%=0
+   IFLEFT$(text$,1)="<" shade%=&400000
+    text$=MID$(text$,2)
+   IFLEFT$(text$,1)=">" tick%=1
+    text$=MID$(text$,2)
+   $(ptr%+12)=LEFT$(LEFT$(text$,INSTR(text$,"|")-1),11) 
+   text$=MID$(text$,INSTR(text$,"|")+1)
+   ptr%!0=tick% OR(&80 AND(text$=""))        
+   ptr%!4=-1                                   
+   ptr%!8=shade% OR&010021 ORmenuwork_bgcol<<28 ORmenuwork_fgcol<<24 
+   ptr%+=24
+  UNTILtext$=""
+  SYSCreateM,0,sys_b2%,mousex%,mousey%
+  claimmenu$=suffix$
+ ENDPROC
+
+ DEFPROCsys_claiminputfocus(window%,icon%,xofst%,yofst%,height%,index%)
+  SYSSetCaret, window%,icon%,xofst%,yofst%,height%,index%
+ ENDPROC
+
+ DEFPROCsys_getcaretposition(RETURN window%,RETURN icon%,RETURN xofst%,RETURN yofst%,RETURN height%,RETURN indx%)
+  SYSGetCaret,0,b
+  window%=!b
+  icon%=b!4
+  xofst%=b!8
+  yofst%=b!12
+  height%=b!16
+  indx%=b!20
+ ENDPROC
+
+ DEFPROCsys_claimpoll(name$)
+  LOCALindex%
+  index%=windowindex%
+  REPEAT
+    index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid name"
+    STOP
+  UNTILwindow$(index%)=name$
+  windowpoll%(index%)=TRUE
+ ENDPROC
+
+ DEFPROCsys_releasepoll(name$)
+  LOCALindex%
+  index%=windowindex%
+  REPEAT
+    index%-=1
+    IFindex%<0 MODE12
+    PRINT"Invalid name"
+    STOP
+  UNTILwindow$(index%)=name$
+  windowpoll%(index%)=FALSE
+ ENDPROC
+
+ DEFPROCsys_geticoninfo(h%,i%,RETURN f%,RETURN n$)
+  !b=h%
+  b!4=i%
+  SYSGetI,0,b
+  f%=b!24
+  n$=$(b+28)
+ ENDPROC
+
+ DEFPROCsys_createdialogue(suffix$,waW%,waH%)
+  LOCALwaL%,waT%,void
+  MOUSE waL%,waT%,void
+  IFdialogue%<>-1 THEN
+    PROCgetw(dialogue%)
+  IFb!32 AND&10000 
+    waL%=b!4
+    waT%=b!16
+    PROCdelete(dialogue%)
+  ENDIF
+  IF(waL%+waW%)>=1278 waL%=1278-(waW%)
+  IF(waT%-waH%)<=100  waT%=100+waH%
+  dialogue%=FNsys_definewindow("","",&50,7,0, waW%,waH%, waL%,waT%-waH%,waL%+waW%,waT%)
+  claimdialogue$=suffix$
+ ENDPROC
+
+ DEFPROCsys_opendialogue
+  PROCgetw(dialogue%)
+  MOUSE RECTANGLE b!4,b!8,b!12-b!4,b!16-b!8
+  PROCfront(dialogue%)
+ ENDPROC
+
+ DEFPROCsys_closedialogue
+  MOUSE RECTANGLE 0,0,1279,1023
+  PROCclose_window(dialogue%)
+  claimdialogue$=""
+ ENDPROC
+
+ DEFPROCsys_warningbox(suffix$,text0$,text1$,text2$,buttons$)
+  LOCALboxW%,boxH%
+  LOCALbutL%,butB%,butR%,butT%, butW%
+  LOCALptr%
+  boxW%=LENtext0$
+  IFboxW%<LENtext1$ boxW%=LENtext1$
+  IFboxW%<LENtext2$ boxW%=LENtext2$
+  boxW%=(4+boxW%)*16
+  boxH%=32*(10-(text1$<>"")-(text2$<>"")) +32
+  butW%=16*5
+  butB%=16-boxH%
+  butT%=butB%+48
+  butL%=(boxW%-2*butW%)/3
+  butR%=boxW%-butL%
+  IFLEFT$(buttons$,1)="-" ORMID$(buttons$,2,1)="-" THEN
+    butL%=(boxW%-butW%)/2
+    butR%=butL%+butW%
+  ENDIF
+  PROCsys_createdialogue(suffix$,boxW%,boxH%)
+  IFLEFT$(buttons$,1)="o" PROCsys_defineicon(butL%,butB%,butL%+butW%,butT%,&402D,7,1,"OK")
+  IFLEFT$(buttons$,1)="y" PROCsys_defineicon(butL%,butB%,butL%+butW%,butT%,&402D,7,1,"Yes")
+  IFMID$(buttons$,2,1)="n" PROCsys_defineicon(butR%-butW%,butB%,butR%,butT%,&402D,7,1,"No")
+  IFMID$(buttons$,2,1)="q" PROCsys_defineicon(butR%-butW%,butB%,butR%,butT%,&402D,7,1,"Quit")
+  PROCsys_defineicon(0,-200,boxW%,0,&1A,7,1,"warning")
+  IFtext0$<>"" THEN
+    ptr%=data
+    $ptr%=text0$
+    PROCsys_defineiconW(0,-248,boxW%,-200,&0109,7,1, ptr%,-1,100)
+  ENDIF
+  IFtext1$<>"" THEN
+    ptr%+=1+LEN$ptr%
+    $ptr%=text1$
+    PROCsys_defineiconW(0,-296,boxW%,-248,&0109,7,1, ptr%,-1,100)
+  ENDIF
+  IFtext2$<>"" THEN
+    ptr%+=1+LEN$ptr%
+    $ptr%=text2$
+    PROCsys_defineiconW(0,-340,boxW%,-296,&0109,7,1, ptr%,-1,100)
+  ENDIF
+  PROCsys_opendialogue
+ ENDPROC
+
+ DEFPROCsys_yesnobox(suffix$,text0$,text1$,text2$)
+  LOCALboxW%,boxH%
+  LOCALbutL%,butB%,butR%,butT%, butW%
+  LOCALptr%
+  boxW%=LENtext0$
+  IFboxW%<LENtext1$ boxW%=LENtext1$
+  IFboxW%<LENtext2$ boxW%=LENtext2$
+  boxW%=(4+boxW%)*16
+  boxH%=16+48*(3-(text1$<>"")-(text2$<>""))
+  butL%=32
+  butR%=boxW%-32
+  butW%=16*5
+  butL%=(boxW%-2*butW%)/3
+  butR%=boxW%-butL%
+  butB%=16-boxH%
+  butT%=48+16-boxH%
+  PROCsys_createdialogue(suffix$,boxW%,boxH%)
+  PROCsys_defineicon(butL%,butB%,butL%+butW%,butT%,&402D,7,1,"Yes")
+  PROCsys_defineicon(butR%-butW%,butB%,butR%,butT%,&402D,7,1,"No")
+  IFtext0$<>"" THEN
+    ptr%=data
+    $ptr%=text0$
+    PROCsys_defineiconW(32,-64,boxW%,-32,&0101,7,1, ptr%,-1,100)
+  ENDIF
+  IFtext1$<>"" THEN
+    ptr%+=1+LEN$ptr%
+    $ptr%=text1$
+    PROCsys_defineiconW(32,-112,boxW%,-80,&0101,7,1, ptr%,-1,100)
+  ENDIF
+  IFtext2$<>"" THEN
+    ptr%+=1+LEN$ptr%
+    $ptr%=text2$
+    PROCsys_defineiconW(32,-152,boxW%,-128,&0101,7,1, ptr%,-1,100)
+  ENDIF
+  PROCsys_opendialogue
+ ENDPROC
+
+ DEFFNstring_zero(ptr%)
+  LOCALres$
+  res$=""
+  WHILE ?ptr%<>0 res$+=CHR$(?ptr%)
+  ptr%+=1
+  ENDWHILE
+ =res$
+
+ DEFFNinstall_file_exit
+  PROCsys_addtoiconbar("exit","exit",&301A,icon_fgcol,icon_bgcol, 100)
+ =0
+
+ DEFFNselect_exit
+ =0
+
+ DEFFNmenu_exit
+ =0
+
+ DEFFNaction_exit
+  PROCsys_warningbox("exit","Do you really want to","leave the desktop","","yn-") =-1
+
+ DEFFNdialogueselect_exit
+  CASEicon%=0 OF
+   WHENTRUE 
+    VDU4
+    COLOUR0
+    COLOUR128+desk_bgcol
+    CLS
+   OSCLI"FX4"
+   OSCLI"FX200"
+   END
+   WHENFALSE
+    PROCsys_closedialogue
+   =0
+ ENDCASE
+ =0

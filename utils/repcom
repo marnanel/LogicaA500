@@ -1,0 +1,25 @@
+. replace all comps
+*dir $.ADS
+.
+replace "c $.compile" co -in   CF
+replace "c $.compile" co -in   CM
+replace "c $.compile" co -in   CO
+replace "c $.compile" co -in   CP
+replace "c $.compile" co -in   CT
+replace "c $.compile" co -in   NA
+replace "c $.compile" co -in   NC
+replace "c $.compile" co -in   NE
+replace "c $.compile" co -in   NF
+replace "c $.compile" co -in   NM
+replace "c $.compile" co -in   NN
+replace "c $.compile" co -in   NP
+replace "c $.compile" co -in   NT
+replace "c $.compile" co -in   NV
+replace "c $.compile" co -in   NW
+replace "c $.compile" co -in   HE
+replace "c $.compile" co -in   KE
+replace "c $.compile" co -in   SI
+replace "c $.compile" co -in   SC
+replace "c $.compile" co -in   DH
+replace "c $.compile" co -in   UT
+replace "c $.compile" co -in   VH

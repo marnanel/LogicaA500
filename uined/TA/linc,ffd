@@ -1,0 +1,12 @@
+*dir :4.UINED.ma.c
+join MA1 MA2 MA3 MA4 -to m
+*back
+*dir c
+join TAedit TAedit1 TApage TApage1 TApage2 TAprim TAprim1 TAprim2 TAprim3 TAinit TArdwt -to labels
+join ^.^.ma.c.m labels TAdata TAdata1 TAdata2 TAdata3 TAdata4 -to ld
+*delete labels
+*delete ^.^.ma.c.m
+*| :4.UINED.l.insert taken out
+join TAhelp TAheader TAheader1 TAheader2 TAheader3 TAheader4 ld -to :4.UINED.l.chart
+*delete ld 
+*dir ^

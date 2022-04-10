@@ -1,0 +1,101 @@
+/**
+         RS423 FILE TRANSFER
+         -------------------
+
+         This section contains :
+
+            G.df.receive
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.DFtransfer
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         17.03.87 1        MH          Initial version
+         16.04.87 2        MH          Changed $TEMP to %TEMP
+         16.06.87 3        SRY         Changed %TEMP to !RS423
+          7.07.87 4        SRY         Removed CRC check. Old module
+                                       is in CRCDFtrans
+**/
+
+SECTION "File transfer"
+
+GET "libhdr"
+GET ":4.format.gh.glhd"
+GET ":4.format.h.sdhd"
+GET ":4.format.h.uthd"
+GET ":4.format.h.dfhd"
+
+manifest $( EOT = 2 $)  // CNTRL-B
+
+/**
+         G.DF.RECEIVE
+         ------------
+
+         This routine receives a "user data" file from another machine
+         via the RS423 serial interface. The data is received in 1024
+         byte data frame along with a 2 byte crc (cyclic redundency check)
+         tagged on the end of the data frame. The transfered file is written
+         to a temporary file called "!RS423".
+         The end of the transmission is determined be either an "END OF
+         TRANSMISSION" character (CONTROL B) or by a crc error.
+
+
+         INPUTS:
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         contents of G.df
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.df.receive[]
+         ---------------
+
+            open temporary file ("!RS423")
+            IF open operation is successful THEN
+               select RS423 interface as the input stream
+               REPEAT
+                  clear crc
+                  clear data frame counter
+                  REPEAT
+                     read a data byte from the RS423 interface
+                     calculate crc data
+                     increment data frame counter
+                     UNLESS data byte is EOT THEN
+                        write data byte to temporary file
+                     ENDUNLESS
+                  UNTIL EOT OR data frame counter = 1024
+                  read transmitted crc
+                  IF calculated crc <> transmitted crc THEN
+                     error
+                  ENDIF
+               UNTIL EOT OR error
+               close temporary file
+            ENDIF
+**/
+
+let G.df.receive() be
+$( G.df!m.df.dummy := false
+   if G.df.initw("!RS423") = m.ut.success then
+   $( G.df.RS423.input()  // select rs423 interface as input stream
+      $( let ch = G.df.getkey() // read char from RS423
+         if ch = EOT break
+         G.df.wrch(ch)
+      $) repeat
+      G.df.keyboard.input() //select keyboard as input stream
+   $)
+   G.df.endw()
+$)
+.
+

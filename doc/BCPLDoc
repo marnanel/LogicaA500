@@ -1,0 +1,1378 @@
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                              
+   This is IoHdr
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+/* BCPL I/O Library
+ * Stream control block definitions
+ */
+
+GLOBAL $(
+   MakeNewStream : 135;
+   EndStream: 136 $);
+
+MANIFEST $(
+s.name.max.size  = 32
+
+// Stream vector offsets
+s.magic          = 0                    // Must be s.is.a.stream
+s.stream.chain   = s.magic          + 1 // All streams are linked on this
+s.flags          = s.stream.chain   + 1 // A flag word
+s.name           = s.flags          + 1 // First byte of stream name
+s.name.end       = s.name + ( s.name.max.size / bytesperword )
+s.channel        = s.name.end           // The OS file handle
+s.error.handler  = s.channel        + 1 // Caller if any serious errors
+s.selecter       = s.error.handler  + 1 // Called before any IO on this stream
+s.reader         = s.selecter       + 1 // The rdch() function
+s.writer         = s.reader         + 1 // The wrch() routine
+s.unreader       = s.writer         + 1 // The unrdch() routine
+s.last.char      = s.unreader       + 1 // Last character read by the reader()
+s.real.reader    = s.last.char      + 1 // The real reader if unreadch pending
+s.error.count    = s.real.reader    + 1 // Number of OS errors since created
+s.last.error     = s.error.count    + 1 // The last OS error from this stream
+s.endreader      = s.last.error     + 1 // The endread() routine
+s.endwriter      = s.endreader      + 1 // The endwrite() routine
+s.buffer.size    = s.endwriter      + 1 // The size of the IO buffer
+s.buffer.address = s.buffer.size    + 1 // The machine address of the buffer
+s.buffer.pointer = s.buffer.address + 1 // The extraction pointer
+s.buffer.count   = s.buffer.pointer + 1 // Number of elements in the buffer
+
+s.stream.size    = s.buffer.count       // The size of the stream block
+
+s.is.a.stream    = #x52A5A552 // A magic number indicating the stream is valid
+s.is.a.store.file= (('s'<<8|'t')<<8|'o')<<8|'r'
+
+s.stream.type.bits    = #b00000000000000000000000011111111
+s.is.wrch.bit         = #b00000000000000000000000000000001
+s.is.vdu.bits         = #b00000000000000000000000000000011
+s.is.printer.bits     = #b00000000000000000000000000000101
+s.is.serial.bits      = #b00000000000000000000000000001001
+s.is.store.bits       = #b00000000000000000000000000010000
+s.is.null.bits        = #b00000000000000000000000001000000
+s.is.file.bits        = #b00000000000000000000000010000000
+s.has.channel.bit     = #b00000100000000000000000000000000
+s.is.input.bit        = #b00010000000000000000000000000000
+s.is.output.bit       = #b00100000000000000000000000000000
+s.ended.bit           = #b10000000000000000000000000000000
+
+
+// Store file vector offsets
+store.magic        = 0                    // magic to test validity
+store.nextfile     = store.magic + 1      // Pointer to next store file
+store.name         = store.nextfile + 1   // name of the file (first byte)
+store.name.end     = store.name + (s.name.max.size/bytesperword)
+store.start        = store.name.end + 1   // where file is in store (bcpl ptr)
+store.size         = store.start + 1      // size of data (bytes)
+store.maxsize      = store.size + 1       // space allocated for file (bytes)
+store.block.size   = store.maxsize        // The size of the file block
+
+
+e.no.work.space              = 700
+e.bad.input.stream           = 701
+e.bad.output.stream          = 702
+e.has.been.ended             = 703
+e.must.not.read              = 704
+e.must.not.write             = 705
+e.no.buffer.room             = 706
+e.nasty.error                = 707
+e.cant.load.file             = 708
+e.store.file.full            = 709
+
+s.op.close                   = #x00
+s.op.input                   = #x40
+s.op.output                  = #x80
+s.op.update                  = #xC0
+
+$)
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                              
+   This is IoLib
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+                
+// BCPLIB
+// BCPL part of the BCPL library for ARM
+// Adapted from the run-time library for the NS16032
+
+// The version number and date last modified occur ONLY in BCPLIBversion()
+
+SECTION "BCPLIOLib"
+
+GET "LibHdr"
+
+STATIC
+$( dummy = #x4e524556;
+   version = 1*256+5;
+   storechain = 0;
+   lastRandom = #x54321987;
+   originalVDUState = 0
+$)
+
+GET "b.iohdr"
+
+GLOBAL {
+   ReadOffset: 59;
+   SetOffset: 60;
+   LibraryInitIO: 111;
+   LibraryTerminateIO: 143 };
+
+LET FindStream(direction, name) = VALOF
+$( result2 := 0
+   TEST CompString(name, "VDU:")=0 THEN
+      RESULTIS vduStream
+   ELSE TEST CompString(name, "RS423:")=0 |
+             CompString(name, "RS232:")=0 THEN
+      RESULTIS MakeSerialStream(direction, name)
+   ELSE TEST CompString(name, "PRINTER:")=0 THEN
+      RESULTIS MakePrinterStream(direction, name)
+   ELSE TEST name%0=0 |
+             CompString(name, "NULL:")=0 THEN
+      RESULTIS MakeNewStream(name,
+                             s.is.null.bits,
+                             direction,
+                             NullReader,  // RdCh()
+                             Nothing)      // WrCh()
+   ELSE TEST name%(name%0)=':' THEN
+      RESULTIS 0
+   ELSE
+      RESULTIS MakefileStream(direction, name)
+$)
+
+AND MakeSerialStream(direction, name) = VALOF
+$( LET stream = ?
+
+   LET SerialSelect(serial, direction) BE
+      IF direction=s.is.input.bit THEN
+         OSByte(2, 1) // Central input stream is the serial line
+
+   AND SerialWrite(ch, channel) BE
+   $( WHILE OSByte(#x80, 253, 255)<2 DO LOOP;
+      IF OSByte(#x8A, 2, ch)  // Put ch in RS423 buffer
+      IF ch='*N' THEN OSByte(#x8A, 2, '*C')
+   $)
+
+   stream := MakeNewStream(name,
+                           s.is.serial.bits,
+                           direction,
+                           OSRdCh,            // RdCh()
+                           SerialWrite)       // WrCh()
+   stream!s.selecter := SerialSelect
+   RESULTIS stream
+$)
+
+AND MakePrinterStream(direction, name) = VALOF
+$( LET stream = ?
+
+   LET PrinterOn(ch, printer) BE
+   $( OSByte(3, #b00010000, 0) // Turn on vdu to handle the VDU 2
+      OSWrCh(2)  // Claim the printer
+      PrinterSelect(printer, s.is.output.bit)
+      PrinterWrCh(ch)
+      cos!s.writer := PrinterWrCh
+   $)
+
+   AND PrinterWrCh(ch) BE
+   $( IF ch='*n' THEN OSWrCh('*c');
+      OSWrCh(ch)
+   $)
+
+   AND PrinterEnd(printer) BE
+   $( OSByte(3, #b00010000, 0) // Turn on vdu to handle the VDU 3
+      OSWrCh(3)  // Stop sending to the printer
+      OSByte(3, #b00000100, 0) // VDU only from now on
+      EndStream(printer)
+   $)
+
+   AND PrinterSelect(printer, direction) BE
+      IF direction=s.is.output.bit THEN
+      $( // Do the necessary OSByte()s to turn off things on central
+         // output stream except for the currently selected printer !
+         OSByte(3, #b00011010, 0) $)
+
+   IF direction~=s.op.output THEN RESULTIS 0
+   stream := MakeNewStream(name,
+                           s.is.printer.bits,
+                           direction,
+                           ErrorRd,    // RdCh()
+                           PrinterOn)   // WrCh()
+   stream!s.selecter := PrinterSelect
+   stream!s.endwriter := PrinterEnd
+   RESULTIS stream
+$)
+
+AND MakeFileStream(direction, name) = VALOF
+$( LET stream = ?
+   LET channel = ?
+
+   LET FileEndReadWrite(stream) BE
+   $( /* called when EndRead or EndWrite done of a disk file */
+      IF (stream!s.flags & s.has.channel.bit)~=0 THEN
+         OSFind(s.op.close, stream!s.channel)
+      stream!s.flags := stream!s.flags & ~s.has.channel.bit
+      EndStream(stream)
+   $)
+
+   channel := OSFind(direction, name)
+   IF channel=0 THEN
+   $( result2 := channel  // Save error number
+      RESULTIS 0 $);
+   stream := MakeNewStream(name,
+                           s.is.file.bits,
+                           direction,
+                           OSBGet,   // RdCh()
+                           OSBPut)   // WrCh()
+   stream!s.channel := channel
+   stream!s.flags := stream!s.flags | s.has.channel.bit
+   stream!s.endreader := FileEndReadWrite
+   stream!s.endwriter := FileEndReadWrite
+   RESULTIS stream
+$)
+
+AND MakeNewStream(name, type, direction, rd, wr) = VALOF
+$( MANIFEST { s.name.max.size.m.1 = s.name.max.size-1 };
+   LET stream = GetVec(s.stream.size)
+
+   AND hcdr(channel) BE
+   $( /* called when UnRdCh() done on the current stream */
+      LET NextRdCh(channel) = VALOF
+      $( /* called on next RdCh() after a UnRdCh() */
+         cis!s.reader := cis!s.real.reader
+         RESULTIS cis!s.last.char
+      $)
+      cis!s.reader := NextRdCh
+   $)
+
+   IF stream=0 THEN
+      Fault("No room for streams", e.no.work.space)
+   stream!s.magic := s.is.a.stream
+   stream!s.stream.chain := streamchain
+   streamchain := stream
+   stream!s.flags := type | (direction~=s.op.output -> s.is.input.bit,
+                             direction~=s.op.input -> s.is.output.bit, 0)
+   FOR i = 0 TO s.name.max.size.m.1 DO
+      (@(stream!s.name))%i := i>name%0 -> ' ', name%i
+   IF name%0>=s.name.max.size THEN
+      (@(stream!s.name))%0 := s.name.max.size-1
+   stream!s.channel := -1
+   stream!s.error.handler := NastyErrorHandler
+   stream!s.selecter := Nothing
+   stream!s.reader := direction~=s.op.output -> rd, ErrorRd
+   stream!s.writer := direction~=s.op.input -> wr, ErrorWr
+   stream!s.unreader := direction~=s.op.output -> hcdr, ErrorRd
+   stream!s.last.char := EndStreamCh
+   stream!s.real.reader := stream!s.reader
+   stream!s.error.count := 0
+   stream!s.last.error := 0
+   stream!s.endreader := EndStream
+   stream!s.endwriter := EndStream
+   stream!s.buffer.size := 0
+   stream!s.buffer.address := 0
+   stream!s.buffer.count := 0
+   stream!s.buffer.pointer := 0
+   RESULTIS stream
+$)
+
+AND ErrorRd() BE
+/* called when trying do read from a write only stream */
+   Fault("Read not permitted on stream *"%S*"",
+          e.must.not.read, @(cis!s.name))
+
+AND ErrorWr() BE
+/* called when trying to write to a read only stream */
+   Fault("Write not permitted on stream *"%S*"",
+          e.must.not.write, @(cos!s.name))
+
+AND EndStream(stream) BE
+$( /* called when EndRead() or EndWrite() done on this stream */
+   LET ss = -s.stream.chain+@streamChain;
+   LET s = streamChain;
+   WHILE s~=0 DO $(
+      IF s=stream THEN $(
+         s.stream.chain!ss := s.stream.chain!stream; BREAK $);
+      ss := s; s := s.stream.chain!s $);
+   TEST stream=cis
+      THEN cis := errorstream
+      ELSE cos := errorstream;
+   FreeVec(stream)
+$)
+
+AND NastyErrorHandler(stream, error) BE
+$( /* default routine to handle HOST errors, just blows him away... */
+
+   LET message = VEC 256/BytesPerWord
+
+   stream!s.error.count := stream!s.error.count+1
+   stream!s.last.error := error
+   tkrerr(message, 256)
+   Fault("Fatal I/O error %x8 %s on %s stream *"%s*"",
+          e.nasty.error,
+          error,
+          message,
+          (stream!s.flags & s.is.input.bit)~=0 -> "input", "output",
+          @(stream!s.name))
+   TEST (stream!s.flags & s.is.input.bit)~=0
+      THEN stream!s.reader := NullReader
+      ELSE stream!s.writer := Nothing
+$)
+
+AND NullReader() = EndStreamCh
+
+AND MakePermanentStreams() BE
+$( /* to make the VDU: and error streams */
+
+   LET NotMuch(stream) BE
+   $( /* called when EndRead() or EndWrite() done to the console stream */
+      stream!s.reader := stream!s.real.reader;
+      stream!s.error.count := 0;
+      stream!s.last.error := 0
+   $)
+
+   AND VduReader() = VALOF
+   $( LET ch = ?;
+      LET old.cos = Output();
+
+      WHILE linebuff%2=0 DO  // line buffer is empty, so fill it
+      $( LET paramblock = VEC 1;
+
+         SelectOutput(vdustream);
+         paramblock!0 := (linebuff << 2)+3;
+         paramblock%4 := linebuff%0;
+         paramblock%5 := 32;
+         paramblock%6 := 126;
+         linebuff%2 := OSWord(0, paramblock)+1; // Read a line
+         linebuff%1 := 0;
+         IF result2 THEN
+         $( linebuff%2 := 0;
+            cis!s.last.char := '*E';
+            selectoutput(old.cos);
+            RESULTIS '*E' $) $);
+      ch := linebuff%(linebuff%1+3);
+      linebuff%1 := linebuff%1+1;
+      linebuff%2 := linebuff%2-1;
+      IF ch='*C' THEN ch := '*N';
+      cis!s.last.char := ch;
+      SelectOutput(old.cos);
+      RESULTIS ch
+   $)
+
+   AND VduWriter(ch, handle, binary) BE
+   $( IF ~binary THEN $(
+         IF ch='*N' THEN OSWrCh('*C');
+         IF ch<'*S' & (ch~='*P' & ch~='*N' & ch~='*C') THEN
+         $( OSWrCh('^'); ch := ch+#x60 $) $);
+      OSWrCh(ch)
+   $)
+
+   AND VduAgain(stream, direction) BE
+   $( /* called when the vdu stream is (re)selected. Makes vdu work again */
+
+      TEST direction=s.is.output.bit THEN
+         OSByte(3, #b00000100, 0)
+      ELSE $(
+         LET s = streamchain
+
+         WHILE s~=0 DO $(
+            IF (s!s.flags & s.ended.bit)~=0 &
+               (s!s.flags & s.stream.type.bits)=s.is.serial.bits THEN $(
+               OSByte(2, 2) // Enable Keyboard, leave RS423 enabled
+               RETURN $);
+            s := s!s.stream.chain $);
+         OSByte(2, 0) $) // Enable Keyboard, Disable RS423
+   $);
+
+   vdustream := MakeNewStream("VDU:",
+                              s.is.vdu.bits,
+                              s.op.update,
+                              VduReader,
+                              VduWriter)
+   vdustream!s.endreader := NotMuch
+   vdustream!s.endwriter := NotMuch
+   vdustream!s.selecter := VduAgain
+   errorstream := MakeNewStream("No selected stream",
+                                0, // s.is.nothing.at.all.bits !!
+                                s.op.update,
+                                ErrorRd,
+                                ErrorWr)
+
+   errorstream!s.endreader := Nothing  // Make it permanent
+   errorstream!s.endwriter := Nothing
+$)
+
+/*************************************************************
+ *                                                           *
+ * The user interface routines                               *
+ *                                                           *
+ *************************************************************/
+
+
+AND LibraryInitIO() BE
+$( /* to initialise the I/O system */
+   IF linebuff~=0 THEN FreeVec(linebuff)
+   linebuff := GetVec(30)  // for use by RdCh
+   linebuff%0 := 30*4+1  // max. no. of bytes
+   linebuff%1 := 0         // pointer to next char
+   linebuff%2 := 0         // number of bytes in buffer
+
+   originalVDUState := OSByte(3, 0, 0);
+   OSByte(3, originalVDUState, 0);
+
+   LibraryTerminateIO();
+   MakePermanentStreams()
+   cis := vdustream
+   cos := vdustream
+$)
+
+AND LibraryTerminateIO() BE
+$( WHILE streamchain~=0 DO
+   $( LET stream = streamchain;
+      streamchain := streamchain!s.stream.chain;
+      TEST stream!s.magic=s.is.a.stream THEN
+         [stream!s.endwriter](stream)
+      ELSE
+         streamchain := 0 $); // It was corrupt, GIVE UP!!
+   OSByte(3, originalVDUState, 0)
+$)
+
+AND SelectInput(new.stream) BE
+$( /* to change the current input stream */
+   LET old.stream = cis
+
+   IF new.stream=0 THEN
+      new.stream := errorstream  // The manual says delay the error message
+   IF new.stream!s.magic~=s.is.a.stream DO
+      Fault("Bad input stream", e.bad.input.stream)
+   IF (new.stream!s.flags & s.ended.bit)~=0 THEN
+      Fault("Stream *"%S*" has been ended", e.has.been.ended,
+                                @(new.stream!s.name))
+   (new.stream!s.selecter)(new.stream, s.is.input.bit)
+   cis := new.stream
+$)
+
+
+AND SelectOutput(new.stream) BE
+$( /* to change the current output stream */
+   LET old.stream = cos
+
+   IF new.stream=0 THEN
+      new.stream := errorstream  // The manual says delay the error message
+   IF new.stream!s.magic~=s.is.a.stream DO
+      Fault("Bad output stream", e.bad.output.stream)
+   IF (new.stream!s.flags & s.ended.bit)~=0 THEN
+      Fault("Stream *"%S*" has been ended", e.has.been.ended,
+                                @(new.stream!s.name))
+   (new.stream!s.selecter)(new.stream, s.is.output.bit)
+   cos := new.stream
+$)
+
+
+AND FindInput(name) = FindStream(s.op.input, name)
+
+AND FindOutput(name) = FindStream(s.op.output, name)
+
+AND RdCh() = VALOF
+$( /* to read an ASCII character from the current input stream */
+   LET ch = (cis!s.reader)(cis!s.channel)
+   IF 0<=ch<EndStreamCh THEN {
+      cis!s.last.char := ch  // The grotty UnRdCh() needs this
+      RESULTIS ch }
+
+   IF ch=EndStreamCh THEN $(
+      cis!s.last.char := ch
+      cis!s.reader := NullReader
+      RESULTIS EndStreamCh $);
+   (cis!s.error.handler)(cis, ch)
+   cis!s.last.char := ch
+   RESULTIS ch
+$)
+
+AND RdBin() = RdCh()
+
+AND WrCh(ch) BE
+$( /* to write an character to the current output stream */
+   LET error.code = (cos!s.writer)(ch, cos!s.channel, FALSE)
+   IF error.code<0 THEN (cos!s.error.handler)(cos, error.code)
+$)
+
+AND WrBin(byte) BE
+$( /* to write an character to the current output stream */
+   LET error.code = (cos!s.writer)(byte, cos!s.channel, TRUE)
+   IF error.code<0 THEN (cos!s.error.handler)(cos, error.code)
+$)
+
+AND EndRead() = VALOF $( (cis!s.endreader)(cis); RESULTIS TRUE $)
+
+AND EndWrite() = VALOF $( (cos!s.endwriter)(cos); RESULTIS TRUE $)
+
+AND UnRdCh() BE
+$( /* a very silly way to do putback()
+    * UnRdCh() makes the next charcter read by RdCh() the same as the last one.
+    */
+   (cis!s.unreader)(cis)
+$)
+
+AND ReadOffset(stream, vector) BE
+$( CheckFile(stream, "Read.Offset");
+   OSArgs(0, stream!s.channel, 0);
+   vector!0 := result2
+$)
+
+AND SetOffset(stream, vector) BE
+$( CheckFile(stream, "Set.Offset");
+   OSArgs(1, stream!s.channel, vector!0)
+$)
+
+AND Extent(stream) = VALOF
+$( CheckFile(stream, "Extent");
+   OSArgs(2, stream!s.channel, 0);
+   RESULTIS result2
+$)
+
+AND CheckFile(stream, caller) BE
+$( LET flags = stream!s.flags;
+   IF (flags&s.has.channel.bit)=0 | (flags&s.is.file.bits)=0
+      THEN Fault("Stream for %s should be a file", 709, caller)
+$)
+
+AND MaxVec() = VALOF
+$( LET biggest, p = 0, ?
+
+   GetVec(maxint/BytesPerWord)  // Compact free memory
+
+   p := blockList;
+   WHILE !p~=0 DO $(
+      LET q=!p;
+      TEST q>=0
+         THEN // block is free
+              IF q>biggest THEN biggest := q
+         ELSE q := -q;
+      p := p+q $);
+   RESULTIS biggest-2
+$)
+
+AND time() = VALOF
+$( LET v = VEC 4;
+   OSWord(3, v);
+   RESULTIS v!0
+$)
+
+
+AND Date()      = DateAndTimeOfDay()
+
+AND TimeOfDay() = DateAndTimeOfDay()+3
+
+AND DateAndTimeOfDay() = VALOF
+$( LET v = TABLE 0, 0, 0, 0, 0, 0;
+   LET v1 = VEC 4;
+   LET leap = FALSE;
+   LET years, months, days, hours, mins, secs, ticks =
+       ?, ?, ?, ?, ?, ?, ?;
+   LET Plant(v, b, c, n) BE
+   $( v%b     := c;
+      v%(b+1) := '0'+(n/10);
+      v%(b+2) := '0'+(n REM 10)
+   $);
+   $( LET s = "<unset>";
+      LET w0, w1 = s!0, s!1;
+      v!0, v!1, v!3, v!4 := w0, w1, w0, w1 $);
+
+   OSWord(1, v1);                      // Read system timer
+
+   ticks := (v1!0 >> 8) | (v1%4 << 24);// High order 32 bits
+   days := ticks / 33750;
+   ticks := ((ticks REM 33750) << 8) | (v1%0);
+
+   hours := ticks / 360000;   ticks := ticks-360000*hours;
+   mins  := ticks / 6000;     ticks := ticks-6000*mins;
+   secs  := ticks / 100;  //  ticks := ticks-100*secs;
+
+// Times are kept starting from January 1st 1900 as day zero. 1904 was
+// the first leap year after that.
+
+   years := 4*((days+1)/1461)
+   days := (days+2) REM 1461;
+   $( TEST (years REM 4)=0
+         THEN TEST days>366
+            THEN days := days-366
+            ELSE $( leap := TRUE; BREAK $)
+      ELSE TEST days>365
+         THEN days := days-365
+         ELSE BREAK;
+      years := years + 1
+   $) REPEAT;
+
+   IF (years<83) | (years>99) THEN RESULTIS v;  // <unset>
+
+   months := 0;
+   $( LET monlen = months!table 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31;
+      IF leap & (months=1) THEN monlen := 29;
+      IF monlen>=days THEN BREAK;
+      days := days-monlen;
+      months := months+1
+   $) REPEAT;
+
+   v!2, v!5 := 0, 0;    // Tidy out final bytes
+
+   Plant(v, 0, 9, days);
+   v%3 := '-';
+   FOR i = 1 TO 3 DO
+      v%(i+3) := "JanFebMarAprMayJunJulAugSepOctNovDec"%(3*months+i);
+   Plant(v, 7, '-', years);
+
+   Plant(v, 12, 8, hours);
+   Plant(v, 15, ':', mins);
+   Plant(v, 18, ':', secs);
+
+   RESULTIS v
+$)
+
+AND Random(n) = VALOF
+$( IF n=0 THEN n := lastRandom;
+   lastRandom := 2147001325 * n + 715136305;
+   RESULTIS lastRandom
+$)
+
+AND Nothing(much.at.all) BE
+$( much.at.all := much.at.all
+$)
+
+AND Fault(message, code, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) BE
+$( LET realFault = Fault;
+   Fault := Nothing;
+   SelectOutput(vdustream);
+   OSByte(#xDA, 0, -1); // Abort any VDU parameters still needed
+   WriteF("*NError %N: ", code);
+   WriteF(message, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+   WriteS("*N");
+   Abort();
+   Fault := realFault
+$)
+
+AND UnpackString(s, v) BE
+   FOR i = s%0 TO 0 BY -1 DO v!i := s%i
+
+AND PackString(v, s) = VALOF
+$( LET n = v!0 & 255;
+   LET size = n/BytesPerWord;
+   FOR i = 0 TO n DO s%i := v!i;
+   FOR i = n+1 TO (size+1)*BytesPerWord-1 DO s%i := 0;
+   RESULTIS size
+$)
+
+AND Input() = cis
+
+AND Output() = cos
+
+AND ReadN() = VALOF
+$( LET sum, ch, neg = 0, 0, FALSE
+
+l: ch := RdCh();
+   IF ~('0'<=ch<='9') THEN SWITCHON ch INTO
+   $( DEFAULT:    UnRdCh();
+                  result2 := -1;
+                  RESULTIS 0
+      CASE '*S':
+      CASE '*T':
+      CASE '*N': GOTO l
+      CASE '-':  neg := TRUE
+      CASE '+':  ch := RdCh() $)
+
+   WHILE '0'<=ch<='9' DO
+   $( sum := 10*sum+ch-'0';
+      ch := RdCh() $)
+
+   IF neg THEN sum := -sum;
+   UnRdCh();
+   result2 := 0;
+   RESULTIS sum
+$)
+
+AND NewLine() BE WrCh('*N')
+
+AND NewPage() BE WrCh('*P')
+
+AND WriteD(n, d) BE
+$( LET t = VEC 10
+   AND i, k = 0, n;
+   IF n<0 THEN d, k := d-1, -n;
+   t!i, k, i := k REM 10, k/10, i+1 REPEATUNTIL k=0;
+   FOR j = i+1 TO d DO WrCh('*S');
+   IF n<0 THEN WrCh('-');
+   FOR j = i-1 TO 0 BY -1 DO WrCh(t!j+'0')
+$)
+
+AND WriteN(n) BE WriteD(n, 0)
+
+AND WriteHex(n, d) BE
+$( IF d>1 DO WriteHex(n>>4, d-1);
+   WrCh((n&15)!TABLE
+        '0','1','2','3','4','5','6','7',
+        '8','9','A','B','C','D','E','F')
+$)
+
+AND WriteOct(n, d) BE
+$( IF d>1 DO WriteOct(n>>3, d-1);
+   WrCh((n&7)+'0')
+$)
+
+AND WriteS(s) BE
+   FOR i = 1 TO s%0 DO WrCh(s%i)
+
+AND WriteT(s, n) BE
+$( WriteS(s);
+   FOR i = 1 TO n-s%0 DO WrCh('*S')
+$)
+
+AND WriteU(n, d) BE
+$( LET m = (n>>1)/5;
+   IF m~=0 THEN $(
+      WriteD(m, d-1)
+      d := 1 $);
+   WriteD(n-m*10, d)
+$)
+
+AND WriteF(format, a, b, c, d, e, f, g, h, i, j, k) BE
+$( LET t = @a
+
+   FOR p = 1 TO format%0 DO $(
+      LET k = format%p
+
+      TEST k='%' THEN $(
+         LET f, arg, n = 0, t!0, 0
+         p := p+1
+         SWITCHON CapitalCh(format%p) INTO
+         $( DEFAULT: WrCh(format%p); ENDCASE
+            CASE 'S': f := WriteS; GOTO l
+            CASE 'T': f := WriteT; GOTO m
+            CASE 'C': f := WrCh; GOTO l
+            CASE 'O': f := WriteOct; GOTO m
+            CASE 'X': f := WriteHex; GOTO m
+            CASE 'I': f := WriteD; GOTO m
+            CASE 'N': f := WriteN; GOTO l
+            CASE 'U': f := WriteU; GOTO m
+
+            m: p := p+1
+               n := format%p
+               n := '0'<=n<='9' -> n-'0',
+                                   n-'A'+10
+
+            l: f(arg, n)
+
+            CASE '$':
+               t := t+StackFrameDirection
+         $) $)
+
+      ELSE
+         WrCh(k) $)
+$)
+
+AND CapitalCh(ch) = 'a'<=ch<='z' -> ch+'A'-'a', ch
+
+AND CompCh(ch1, ch2) = CapitalCh(ch1)-CapitalCh(ch2)
+
+AND CompString(s1, s2) = VALOF
+$( LET lens1, lens2 = s1%0, s2%0
+   LET smaller = lens1<lens2 -> s1, s2
+
+   FOR i = 1 TO smaller%0 DO
+   $( LET res = CompCh(s1%i, s2%i)
+
+      IF res~=0 THEN RESULTIS res $)
+
+   IF lens1=lens2 THEN RESULTIS 0
+
+   RESULTIS smaller=s1 -> -1, 1
+$)
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                              
+   This is FPOutPut
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                   
+SECTION "FPOutput";
+
+GET "LibHdr";
+
+LET WriteF(format, a, b, c, d, e, f, g, h, i, j, k) BE
+{  LET t = @a
+
+   FOR p = 1 TO format%0 DO {
+      LET k = format%p
+
+      TEST k='%' THEN {
+         LET f, arg, n = 0, t!0, 0
+         p := p+1
+         SWITCHON CapitalCh(format%p) INTO
+         {  DEFAULT: WrCh(format%p); ENDCASE
+            CASE 'S': f := WriteS; GOTO l
+            CASE 'T': f := WriteT; GOTO m
+            CASE 'C': f := WrCh; GOTO l
+            CASE 'O': f := WriteOct; GOTO m
+            CASE 'X': f := WriteHex; GOTO m
+            CASE 'I': f := WriteD; GOTO m
+            CASE 'N': f := WriteN; GOTO l
+            CASE 'U': f := WriteU; GOTO m
+            CASE 'F': f := WrFlNum; GOTO l
+
+            m: p := p+1
+               n := format%p
+               n := '0'<=n<='9' -> n-'0',
+                                   n-'A'+10
+
+            l: f(arg, n)
+
+            CASE '$':
+               t := t+StackFrameDirection } }
+
+      ELSE
+         WrCh(k) } }
+
+AND WriteT(s, n) BE {
+   WriteS(s);
+   FOR i = 1 TO n-s%0 DO WrCh('*S') }
+
+AND WriteU(n, d) BE {
+   LET m = (n>>1)/5;
+   IF m~=0 THEN {
+      WriteD(m, d-1)
+      d := 1 };
+   WriteD(n-m*10, d) }
+
+AND WrFlNum(a) BE {
+// The main agony in a floating point print routine is in computing
+// a scaled version of the input (multiplied by a power of 10) without
+// loss of accuracy.
+   LET bx= (a & #X7F800000) >> 23
+   LET dx=(16103*(bx-#X7F)+8051)/53493
+                               // 16103/53493 = log10(2) to about 8 decimals
+   LET n, when, sign = 0, 0, FALSE;
+   LET fpnumbase = 1e9;
+
+   TEST bx=0 THEN // special case with 0.0
+      IF a=0 THEN dx := 0
+   ELSE {
+      IF a#<0.0 THEN sign := TRUE
+      a := #ABS a;
+
+      TEST dx<3 THEN {  // Input number is smallish
+         dx := dx-3; n := -dx
+         UNTIL n<9 DO {
+            a := a#*fpnumbase; n := n-9 }
+         UNTIL n=0 DO {
+            a := a#*10.0; n := n-1 } }
+
+      ELSE TEST dx<6 THEN // up to about a million
+         dx := 0
+
+      ELSE {  // Big numbers
+         dx := dx-3; n := dx
+         UNTIL n<9 DO {
+            a := a#/fpnumbase; n := n-9 }
+         UNTIL n=0 DO {
+            a := a#/10.0; n := n-1 } } };
+
+   n := Truncate(a);
+   a := a#-FLOAT n;
+
+// Now I have split the number into its sign, an integer N that is in
+// the range 100 to 1000000, and a fraction (fpws2). The fraction may
+// occasionally be -ve or >=1.0 here, so adjust for same. I only expect
+// the fraction to be wrong occasionally, and then only by + or -1.
+   WHILE a#<0.0 DO {
+      n := n-1; a := a#+1.0 };
+   WHILE 1.0#<=a DO {
+      n := n+1; a := a#-1.0 };
+
+// Convert number to decimal in FPBuffer
+   {  LET FPBuffer = VEC 24/BytesPerWord;
+      LET p = PackNum(n, FPBuffer, 4);
+      LET howMany = 9;
+
+      dx := dx+p-5
+      FOR i=1 TO 8 DO {
+         a := a#*10.0;
+         n := Truncate(a);
+         a := a#-FLOAT n;
+         FPBuffer%p := n
+         p := p+1 }
+
+      IF 0%(FPBuffer+howMany+4)>=5 THEN {  // Round up
+         p := howMany+3
+         {  LET d=FPBuffer%p
+            TEST d=9 THEN
+               TEST p=4 THEN {
+                  FPBuffer%p := 1; dx := dx+1; BREAK }
+               ELSE {
+                  FPBuffer%p := 0; p := p-1 }
+            ELSE {
+               FPBuffer%p := d+1; BREAK }
+         } REPEAT }
+
+      WHILE howMany>2 &
+            FPBuffer%(howMany+3)=0 DO
+         howMany := howMany-1
+
+// Print out.
+      IF sign THEN WrCh('-')
+      TEST 0<dx<10 THEN {
+         when := dx; dx := 0
+         IF howMany<when+2 THEN howMany := when+2 }
+      ELSE
+         when := 0
+      FOR i=0 TO howMany-1 DO {
+         WrCh('0'+FPBuffer%(i+4))
+         IF i=when THEN WrCh('.') };
+      IF dx~=0 THEN {
+         WrCh('e')
+         IF dx<0 THEN { WrCh('-'); dx := -dx }
+         WriteN(dx) } } }
+
+AND PackNum(n, buff, offset) = VALOF {
+   IF n>=10 THEN offset := PackNum(n/10, buff, offset)
+   buff%offset := n REM 10
+   RESULTIS offset+1 }
+
+AND Truncate(n) = VALOF {
+// n known to be positive
+   LET i = FIX n;
+   LET n1 = FLOAT i;
+   RESULTIS n1#>n -> i-1, i }
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                              
+   This is DecodeArgs
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+SECTION "DecodeArgs"
+
+GET "LibHdr"
+
+MANIFEST $(
+   DeleteChar = 127 $);
+
+LET RdArgs(keys, argv, size) = VALOF
+$( LET w = argv;
+   LET numbargs = ?;
+
+   !w := 0;
+   FOR p = 1 TO keys%0 DO
+   $( LET kch = keys%p;
+      IF kch='/' THEN $(
+         LET c = CapitalCh(keys%(p+1));
+         IF c='A' THEN !w := !w | 1;
+         IF c='K' THEN !w := !w | 2;
+         IF c='S' THEN !w := !w | 4;
+         LOOP $);
+      IF kch=',' THEN $(
+         w := w+1;
+         !w := 0 $) $);
+   w := w+1;
+   numbargs := w-argv;
+
+// At this stage, the argument elements of argv have been
+// initialised to  0    -
+//                 1   /A
+//                 2   /K
+//                 3   /A/K
+//                 4   /S
+//                 5   /S/A
+//                 6   /S/K
+//                 7   /S/A/K
+
+   $( LET argno = -1;
+      LET wsize = size+argv-w;
+
+      SWITCHON RdItem(w, wsize) INTO
+      $( DEFAULT:
+err:     $( LET ch = ?;
+            ch := RdCh() REPEATUNTIL ch='*N' | ch='*E' |
+                                      ch=EndStreamCh
+         $)
+         CASE -3:
+            result2 := 120;
+            RESULTIS 0
+
+         CASE 0:  // *N, EndStreamCh
+            FOR i = 0 TO numbargs-1 DO $(
+               LET a = argv!i;
+               IF 0<=a<=7 THEN
+                  TEST (a&1)=0 THEN
+                     argv!i := 0
+                  ELSE
+                     GOTO err $);
+            RdCh();
+            RESULTIS w
+
+         CASE 1:  // keyword name
+            argno := FindArg(keys, w);
+            TEST argno>=0 THEN
+               TEST 4<=argv!argno<=7 THEN $( // no value for key.
+                  argv!argno := -1;
+                  LOOP $)
+               ELSE $(
+                  LET item = RdItem(w, wsize);
+                  IF item=-2 THEN item := RdItem(w, wsize);
+                  IF item<=0 THEN GOTO err $)
+            ELSE TEST RdCh()='*N' & FindArg("HELP,?", w)>=0 THEN $(
+               // help facility
+               WriteF("Arguments %S: ", keys);
+               ENDCASE $)
+            ELSE
+               GOTO err
+
+         CASE 2:  // quoted item (i.e. arg value)
+            IF argno<0 THEN
+               FOR i = 0 TO numbargs-1 DO SWITCHON argv!i INTO
+               $( CASE 0: CASE 1:
+                    argno := i;
+                    BREAK
+                  CASE 2: CASE 3:
+                    GOTO err
+               $);
+            IF argno<0 THEN GOTO err;
+            argv!argno := w;
+            w := w+w%0/BytesPerWord+1
+      $)
+   $) REPEAT
+$)
+
+// Read an item from command line
+// returns -3    escape
+//         -2    "=" Symbol
+//         -1    error
+//          0    *N or EndStreamCh
+//          1    keyword
+//          2    nonkeyword (maybe quoted)
+
+AND RdItem(v, size) = VALOF
+$( LET p = 0;
+   LET pmax = (size+1)*BytesPerWord-1;
+   LET ch = ?;
+   LET quoted, keyword = FALSE, FALSE;
+
+   FOR i = 0 TO size DO v!i := 0;
+
+   ch := RdCh() REPEATWHILE ch='*S';
+
+   TEST ch='"' THEN $(
+      quoted := TRUE;
+      ch := RdCh() $)
+   ELSE IF ch='-' THEN $(
+      keyword := TRUE;
+      ch := RdCh() $);
+
+   UNTIL ch='*N' | ch=EndStreamCh DO
+   $( IF ch='*E' THEN RESULTIS -3;  // escape has been pressed
+      TEST quoted THEN $(
+         IF ch='"' THEN RESULTIS 2;
+         IF ch='**' THEN $(
+            ch := RdCh();
+            IF CapitalCh(ch)='E' THEN ch := '*E';
+            IF CapitalCh(ch)='N' THEN ch := '*N' $) $)
+      ELSE IF ch=';' | ch='=' |
+              (ch='*S' & p>0 & v%1~='**') THEN
+         BREAK;
+      IF p=pmax THEN RESULTIS -1;
+      v%(p+1) := ch;
+      p := (ch=DeleteChar -> (p=0 -> 0, p-1), p+1);
+      v%0 := p;
+      ch := RdCh() $);
+
+   IF quoted THEN RESULTIS -1;
+   UnRdCh();
+   TEST p=0 THEN
+      TEST ch='=' THEN $(
+         RdCh();
+         RESULTIS -2 $)
+      ELSE
+         RESULTIS 0
+   ELSE
+      RESULTIS keyword -> 1, 2
+$)
+
+AND FindArg(keys, w) = VALOF  // =argno if found, =-1 otherwise
+$( MANIFEST $( matching = 0; skipping = 1 $);
+   LET state, wp, argno = matching, 0, 0;
+
+   FOR i = 1 TO keys%0 DO $(
+      LET kch = keys%i;
+      IF state=matching THEN $(
+         IF (kch='=' | kch='/' | kch=',') & wp=w%0 THEN
+            RESULTIS argno;
+         wp := wp+1;
+         IF compch(kch,w%wp)~=0 THEN state := skipping $);
+      IF kch=',' | kch='=' THEN state, wp := matching, 0;
+      IF kch=',' THEN argno := argno+1$);
+   IF state=matching & wp=w%0 THEN RESULTIS argno;
+   RESULTIS -1
+$)
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                                                              
+   This is Map
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+SECTION "map"
+
+GET "LibHdr"
+
+STATIC
+$( /* Version of 18 Jul 85 08:28:45
+   */
+   dummy = VersionMark;
+   version = 1*256 + 3
+$)
+
+MANIFEST
+$( SectionStart       = #x4c504342;
+   StartRelocation    = #x12345678;
+   EndRelocation      = #x87654321;
+   EndMark            = 1002;
+   HunkMark           = 1001;
+   linelength         = 80;
+   UnsetGlobalMask    = #xFFFF0000;
+   UnsetGlobalValue   = #xAE950000;
+   PCMask             = #x03FFFFFC
+$)
+
+GLOBAL
+$( g0:0
+$)
+
+LET backtrace() BE
+$( LET firstloc = 0       // first local variable in stack
+   LET sb = stackBase;
+   stackBase!4 := Level();
+   WriteS("*NBacktrace called*N")
+
+   $( LET base = (sb+6)<<2
+      LET lastp = sb!4;
+      LET newp = ?
+      LET p = VCAR[lastp+4]
+      LET topframe = lastp-4
+
+      TEST sb!5 = -1
+         THEN writes("*NRoot stack:*N")
+         ELSE $( newline()
+                 writearg(sb!5, p)
+                 writes(" coroutine stack:*N")
+              $)
+
+      IF topframe>[(sb!2)<<2]
+         THEN writes("WARNING: Stack has overflowed or been corrupted*N");
+
+      WriteS("*NStack-frame     Function    Arg 1     Arg 2     Arg 3     .....*N")
+
+      FOR i = 1 TO 50 DO
+      $( WriteF("%x6/%x6:  ", p, p>>2)  // stack frame
+         WriteFName(VCAR p, p)
+         WriteS("  ")
+         FOR j = p+16 TO topframe BY 4 DO
+         $( WriteArg(VCAR j, p)
+            IF ((j-p-16) REM 20)=16 & (j~=topframe)
+               THEN WriteS("*n                            ")
+         $)
+         newline();
+         topframe := p-4;
+         newp := VCAR[p+4]
+         IF newp=p THEN $( WriteS("Base of stack*N")
+                           BREAK
+                        $);
+         p := newp;
+         UNLESS base<=p<=topframe THEN
+         $( WriteF("Improper link %X8 %X8 %X8*N", base, p, topframe)
+            BREAK
+         $)
+         IF topframe-p>200 THEN topframe := p+200  // not more than 50 args
+      $)
+      sb := sb!1
+   $) REPEATUNTIL sb=-1;
+   WriteS("*NEnd of backtrace*N")
+$)
+
+AND WriteFName(n, p) BE
+   TEST n=-1
+      THEN WriteS("ROOT      ")
+      ELSE WriteArg(n, p)  // function name
+
+
+AND WriteArg(n,p) BE  // Writes a hex no./function name in a 10 char field
+$( // P is BCPL stack pointer
+   LET f = n-8
+
+   IF #x1000<f<=topOfStore & 0%f=7 & VCAR[f-4]=-1 THEN
+   $( WriteF("%s   ", f>>2)
+      RETURN
+   $);
+
+   IF -1000<n<1000 THEN
+   $( WriteF("%x3(%i4) ", n, n)
+      RETURN
+   $)
+
+   p := p>>2;
+   IF p+4<=n<=p+54 THEN  // does n point to an item in this stack frame?
+                         // (first 50 args)
+   $( n := n-p-3
+      WriteF("-> Arg%I2  ", n)
+      RETURN
+   $)
+
+   WriteF("%x8  ", n)
+$)
+
+AND mapstore() BE
+$( LET g = @G0
+   LET nglobs = G0
+   LET column = 0
+   LET p = blocklist
+
+   writes("*NMapstore called*N")
+
+   DescribeCode(loadPoint);
+   TEST ug<=G0<=10000
+      THEN writef("*N%N globals allocated*N", G0)
+      ELSE $( writes("Global zero is corrupted*N"); nglobs := 250 $)
+
+   writef("*NValues set in Global Vector (%X6/%X6):*N", g, g<<2)
+
+   FOR t = 0 TO nglobs DO
+   $( LET val = g!t;
+      IF [val&UnsetGlobalMask]~=UnsetGlobalValue THEN
+      $( IF column>linelength-20 THEN
+         $( newline()
+            column := 0
+         $)
+         TEST t>=1000
+            THEN writef("%i4: ",t)
+            ELSE writef("G%I3: ", t)
+         writearg(val, 0)
+         writes("   ")
+         column := column+20
+      $)
+   $)
+
+ /*  writes("*n*nMemory blocks:")
+
+   UNTIL !p=0 DO
+   $( LET len = !p;
+      writef("*n%x6/%x6: ", p+1, (p+1)<<2)
+      TEST len<0 THEN  // used block
+      $( TEST g = p+1
+            THEN writes("Global vector")
+         ELSE TEST stackbase = p+1
+            THEN writes("Current stack")
+         ELSE TEST p!1=HunkMark
+            THEN DescribeCode(p)
+            ELSE writef("Allocated Block of %N BCPL words", -len-1);
+         len := -len
+      $)
+
+      ELSE  // freeblock
+         writef("Free Block of %N BCPL words", len-1)
+
+      p := p+len  // next block
+   $) */
+   writes("*NEnd of mapstore*N")
+$)
+
+AND DescribeCode(q) BE
+$( LET column = 0;
+   LET sectionEnd = q;
+   writes("Program code")
+   UNTIL q>=sectionEnd & !q=EndMark DO
+   $( LET word = !q;
+      TEST q>=sectionEnd & word=SectionStart
+         THEN $( LET name = VEC 2
+                 AND date = VEC 2
+                 AND time = VEC 2
+                 AND unsetstring = "<unset>";
+                 LET namel = 8;
+                 LET versionWord = q!9;
+                 sectionEnd := q+[(q!1)>>2];
+                 FOR i = 0 TO 7 DO
+                 $( LET c = q%(i+8);
+                    IF c=0 & namel=8 THEN $( namel := i; BREAK $);
+                    name%(i+1) := c
+                 $);
+                 name%0 := namel;
+                 TEST q%16='<'
+                    THEN date, time := unsetstring, unsetstring
+                    ELSE $( FOR i = 0 TO 8 DO
+                            $( date%(i+1) := q%(i+16);
+                               time%(i+1) := q%(i+26)
+                            $);
+                            date%0 := 9;
+                            time%0 := 8
+                         $);
+                 WriteF("*n*n%X6  Section %s", q<<2, name);
+                 IF q!11=-1 & q%48=7 THEN
+                 $( LET local = q!10;
+                    IF VCAR local = VersionMark THEN
+                    $( LET n = VCAR(local+4);
+                       WriteF("  version %n.%n", n>>8, n&255)
+                    $)
+                 $)
+                 WriteF("*n    compiled on %s at %s", date, time);
+                 IF versionWord~=0 THEN
+                    WriteF(" using CG version %n.%n",
+                             versionWord>>24, (versionWord>>16)&255);
+                 NewLine();
+                 q := q+10;
+                 column := 0
+              $)
+
+      ELSE TEST q=SectionEnd
+         THEN // skip global initialisations
+              q := q+2 REPEATWHILE (-1)!q~=0
+
+      ELSE TEST q>=SectionEnd & word=StartRelocation
+         THEN q := q+1 REPEATWHILE !q~=EndRelocation
+
+      ELSE TEST word=-1 & q%4=7
+         THEN $( LET procStart = q+2;
+                 IF [(!procstart)>>24]=0
+                    THEN procStart := procStart+1;
+                 IF column>=linelength-16 THEN
+                 $( newline()
+                    column := 0
+                 $);
+                 writef("  %x6: %s", procStart<<2, q+1);
+                 column := column+17;
+                 q := procStart
+              $)
+         ELSE q := q+1
+   $)
+   newline()
+$)
+
+AND abort(n) BE
+$( LET pc = (VCAR[Level()+12])&PCMask;
+   SWITCHON n INTO
+   $( CASE 1: WriteS("*nUndefined Instruction"); ENDCASE
+      CASE 2: WriteS("*nPrefetch Abort"); ENDCASE
+      CASE 3: WriteS("*nData Abort"); ENDCASE
+      CASE 4: WriteS("*nAddress Exception"); ENDCASE
+      DEFAULT:WriteF("*nUnexpected abort code %n", n)
+   $);
+   WriteF(" at %x8", pc);
+   IF (pc&UnsetGlobalMask)=(UnsetGlobalValue&PCMask) THEN
+      WriteF("*nIs Global %N defined?", [(pc&~UnsetGlobalMask)>>2]-1);
+   BackTrace();
+   MapStore();
+   Stop(256)
+$)
+

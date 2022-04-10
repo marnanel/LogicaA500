@@ -1,0 +1,17 @@
+|*  join all the areal overlay code
+|*  join the areal header
+join c.area0 c.area c.area2 c.area3 c.area4 -to head
+*| :4.UINED.l.insert taken out
+join c.save c.help -to save
+|*  join the areal ranges code
+join c.manual1 c.manual2 -to c1
+join c1 c.key2 -to range
+*delete c1
+|*  join the data header
+join c.data c.data1 c.data2 c.data3 c.data4 -to data
+|* link all the code
+join head save range data -to :4.uined.l.areal
+*delete head
+*delete save
+*delete data
+*delete range

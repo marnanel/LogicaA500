@@ -1,0 +1,165 @@
+/**************************************************
+*                   AUI / top_level               *
+*                   ***************               *
+*                                                 *
+* Program Id     :  top_level                     *
+* Author         :  Alan Bustany / Simon Dickens  *
+* Installation   :  Logica Cambridge Ltd.         *
+* Project Name   :  AUI                           *
+* Language       :  Quintus PROLOG                *
+* Date Written   :  29 / 07 / 87                  *
+* Function       :  Maintains overall control,    *
+*                   initialises the environment   *
+*                   and reads the user model      *
+* Entry Predicate:  aui / 0                       *
+* Called by      :  top_level loop                *
+* Modules called :  dmagb, admin                  *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*               Revision History 1                *
+* Revised by   : S Ala'i                          *
+* Date Revised : 17/12/87                         *
+* Description  : WP3300 for DISH.                 *
+*            R1: Changes made                     *
+*                for the new start up routine.    *
+*            R2: Any prolog output directed to the*
+*                prolog_out file.                 *
+***************************************************
+*               Revision History 2                *
+* Revised by   : S Ala'i                          *
+* Description  : debugging dish                   *
+* 14/03/88   R3: Introduced cut in aui loop to    *
+*                prevent processor running out of *
+*                heap space.                      *
+* 14/03/88   R4: Introduced exit button.          *
+* 18/03/88   R5: removed writes for compiled      *
+*                version                          *
+* 19/03/88   R6: Enter Domesday immediately on    *
+*                start_up.                        *
+*            R7: Halt when 'QUIT' is pressed      *
+**************************************************/
+
+dish:-
+   telling(Old),                                        %R2
+   tell(prolog_out),                                    %R2
+   send_message(".EXIT"),                               %R6
+   aui,
+   told,                                                %R2
+   tell(Old),                                           %R2
+   halt.                                                %R7
+
+/* Interface call to top-level loop
+*  n.b. any prolog output directed to file aui_errors
+*/
+
+/*
+*  Name      :  aui
+*  Function  :  Interface call to top_level loop to initiate program
+*  Arguments :  none
+*/
+aui:-
+   init_env(Env, current_window_stack([]) ~ WimpEnv),
+   init_options(Options, WimpEnv ~ NewWimpEnv),
+   set_input(['PROCEDURE', 'DOME']),
+   aui(on, Options, Env, NewWimpEnv).
+
+/*
+*  Name      :  aui(+Mode, +Options, +Environment)
+*  Function  :  This is the top_level loop function itself.  It gets user input,*               processes it, displays the results, and awaits further input
+*  Arguments :  Mode; describes the state of the dialogue manager, either on or
+*               off
+*               Options; this is a list of the options available, initially only*               next and quit
+*               Environment; large structure containing the present context,
+*               user information and user model
+*/
+
+aui(_, [], Environment, WimpEnv) :-
+   um_save_and_quit(Environment).
+aui(Mode, Options, Environment, WimpEnv) :-
+   Options ~= [],
+   get_input(Input, WimpEnv ~ WimpEnv1),
+   env(Environment ~ New_Environment,
+       Context,
+       User_Info,
+       User_Model ~ New_User_Model),
+   dm(Mode ~ New_Mode, Input, Context, User_Model, Events),
+   %nl,writeln(events(Events)),       %R5
+   ad_process_events(Events,
+                     User_Info,
+                     Options ~ New_Options,
+                     User_Model ~ New_User_Model,
+                     WimpEnv1 ~ WimpEnv2),
+   display_options(Options, New_Options, WimpEnv2 ~ NewWimpEnv),
+   !,                                                             %R3
+   aui(New_Mode, New_Options, New_Environment, NewWimpEnv).
+
+/*
+*  Name         :  verify_quit
+*  Function     :  ensure quit has been correctly chosen
+*  Arguments    :  none
+*/
+
+verify_quit :-
+   send_message('QUIT').
+
+/*
+*  Name         :  init_env(-Env)
+*  Function     :  initialises Env to the structure representing the overall
+*                  environment, and reads the user model for the particular
+*                  user
+*  Arguments    :  Env; the environment structure
+*/
+init_env(env(context([],timeline([])),
+    user_info(UserName,user,UserFile),
+    UserModel),
+    WimpEnv ~ NewWimpEnv
+   ):-
+    new_output(no_text, ".IDUSR", WimpEnv ~ WimpEnv1),
+    new_output(wait, ".COM", WimpEnv1 ~ NewWimpEnv),
+    buffer_name(Buffer),
+    see(Buffer),
+    read(UserName),
+    read(FileName),
+    (\+(FileName = 'NEWUSER') -> (UserFile=FileName)
+                          ; read(UserFile)),
+    seen,
+    init_um(FileName, UserFile, UserModel).
+
+/* Name         :  init_um(+FileName, +UserFile, -UserModel)
+*/
+init_um('NEWUSER', UserFile, UserModel):-
+   see('new_um'),
+   read(user_model(UserModel)),
+   seen.
+init_um(UserFile, UserFile, UserModel):-
+   see(UserFile),
+   read(user_model(UserModel)),
+   seen.
+
+/*
+*  Name         :  display_options(+Old_Options, +New_Options)
+*  Function     :  sends the present options to the option area in two lists,
+*                  those unavailable and those available
+*  Arguments    :  Old_Options; list of options previously available
+*                  New_Options; list of options available
+*/
+display_options(Old_Options, New_Options, WimpEnv):-
+   minus(Old_Options, New_Options, Off),
+   minus(New_Options, Old_Options, On),
+   new_output(options(On,Off),".OPT", WimpEnv).
+
+/*
+*  Name         :  init_options(-Options)
+*  Function     :  sets up the initially available options and informs the
+*                  C code
+*  Arguments    :  Options; list of initially available options
+*/
+init_options(On, WimpEnv):-
+   On=[next,quit,exit],                                    %R4
+   Off=[how,why,summary,yes,no,stack,help,remediation],
+   new_output(options(On,Off),".OPT", WimpEnv).

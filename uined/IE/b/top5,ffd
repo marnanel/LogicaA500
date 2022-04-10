@@ -1,0 +1,122 @@
+SECTION "Top 5"
+
+/**
+         TOP LEVEL UTILITY ROUTINE
+         -------------------------
+
+         This section contains :
+
+             g.ie.file.type
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.top
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+          3.7.87     1       SA        Initial version
+         16.10.87    2       MH        updated for uni version
+**/
+
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.iehd"
+
+/**
+         G.IE.FILE.TYPE - TOP LEVEL
+         --------------------------
+
+         Utility routine to determine validity of a given file for use
+         in the User Data Input Editor - only to be called from top level
+         action routine - moved to save space
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.ie.buff!m.ie.type
+         g.ie.buff+m.ie.header
+
+         SPECIAL NOTES FOR CALLERS:
+
+         ony called from within g.ie.main
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ie.file.type []
+         -----------------
+
+**/
+
+LET g.ie.file.type() = VALOF
+$( LET ptr = VEC 1
+   LET h.bytes = VEC 1
+   LET mess = 0
+   LET len = VEC 1
+   LET tag = true
+   LET header = ?
+   LET header.buff = VEC m.ie.header.size / bytesperword
+   header := G.ut.align(G.ie.buff, m.ie.header.byte, header.buff,
+                             m.ie.header.size+m.ie.aggregated.size)
+   G.ut.set32(0, 0, ptr)
+   G.ut.set32(m.ie.h.bytes, 0, h.bytes)
+   g.dh.length (g.context!m.data.handle, len)
+   IF g.ut.cmp32 (len, h.bytes) = m.lt
+   THEN $( tag := false
+           mess := "file has no data"
+        $)
+
+   IF tag
+   THEN TEST g.dh.read (g.context!m.data.handle, ptr, header,
+                                               m.ie.h.bytes) = 0
+        THEN $( tag := false
+                mess := "header read failure"
+             $)
+        ELSE G.ut.movebytes(header, 0, G.ie.buff, m.ie.header.byte,
+                                  m.ie.header.size+m.ie.aggregated.size)
+   g.ie.buff!m.ie.type := header%m.ie.type.of.byte
+   IF tag DO
+   SWITCHON g.ie.buff!m.ie.type INTO
+   $( CASE m.ie.chart :
+      CASE m.ie.areal : ENDCASE
+      CASE m.ie.grid  : $( LET ptr = VEC 1
+                           LET agg = ?
+                           LET agg.buff = VEC m.ie.aggregated.size/bytesperword
+                           agg := G.ut.align(G.ie.buff, m.ie.aggregated.byte,
+                                    agg.buff, m.ie.aggregated.size)
+                           G.ut.set32(m.ie.datasets, 0, ptr)
+                           TEST g.dh.read (g.context!m.data.handle, ptr, 
+                                                                 agg, 2) = 0
+                           THEN $( tag := false
+                                   mess := "no data"
+                                $)
+                           ELSE G.ut.movebytes(agg, 0, G.ie.buff,
+                                 m.ie.aggregated.byte, m.ie.aggregated.size)
+                           UNLESS g.ut.unpack16(g.ie.buff, 
+                                    m.ie.aggregated*bytesperword) = 1
+                           THEN $( G.sc.ermess(
+                                      "Aggregated dataset: cannot edit")
+                                   resultis false
+                                $)
+                        $)
+                        ENDCASE
+      DEFAULT         : tag := false
+                        mess := "invalid file type"
+                        ENDCASE
+   $)
+   if tag RESULTIS true
+   g.sc.ermess ("Cannot process file: %s", mess)
+   RESULTIS false
+$)
+.
+

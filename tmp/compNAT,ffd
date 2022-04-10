@@ -1,0 +1,157 @@
+*| compNAT DSH Version 1.0 14.9.87
+*| national disc overlays
+*|     
+*time
+Thu,21 Apr 1988.11:36:04
+cd NF
+c comp
+*| compile all national find source
+co main
+ARM BCPL Version 2.4
+Section FIND.main
+Tree size 8898
+ARM CodeGenerator 2.16
+Section FIND.main: size 2860 bytes
+Program size = 2860 bytes
+c1 titles
+ARM BCPL Version 2.4
+Section titles
+Tree size 7185
+ARM CodeGenerator 2.16
+Section titles: size 3092 bytes
+Program size = 3092 bytes
+c1 dialogue
+ARM BCPL Version 2.4
+Section FIND.dialogue
+Tree size 8652
+ARM CodeGenerator 2.16
+Section FIND.dialogue: size 2792 bytes
+Program size = 2792 bytes
+c1 find1
+ARM BCPL Version 2.4
+Section find1
+Tree size 6763
+ARM CodeGenerator 2.16
+Section find1: size 2312 bytes
+Program size = 2312 bytes
+c1 find2
+ARM BCPL Version 2.4
+Section find2
+Tree size 7433
+ARM CodeGenerator 2.16
+Section find2: size 3500 bytes
+Program size = 3500 bytes
+c1 find3
+ARM BCPL Version 2.4
+Section find3
+Tree size 6982
+ARM CodeGenerator 2.16
+Section find3: size 3136 bytes
+Program size = 3136 bytes
+c1 find5
+ARM BCPL Version 2.4
+Section find5
+Tree size 6229
+ARM CodeGenerator 2.16
+Section find5: size 4556 bytes
+Program size = 4556 bytes
+c1 find7
+ARM BCPL Version 2.4
+Section find7
+Tree size 5313
+ARM CodeGenerator 2.16
+Section find7: size 700 bytes
+Program size = 700 bytes
+*|
+cd NC         
+c comp
+*|| compile the Chart overlay
+co dummy
+ARM BCPL Version 2.4
+Section NC.dummy
+Tree size 6821
+ARM CodeGenerator 2.16
+Section NC.dummy: size 744 bytes
+Program size = 744 bytes
+c1 chart0
+ARM BCPL Version 2.4
+Section chart0
+Tree size 7724
+Warning near line 208: value of VALOF block may be undefined
+ARM CodeGenerator 2.16
+Section chart0: size 2504 bytes
+Program size = 2504 bytes
+*|c1 chart1
+c1 chart2
+ARM BCPL Version 2.4
+Section chart2
+Tree size 8605
+ARM CodeGenerator 2.16
+Section chart2: size 3336 bytes
+Program size = 3336 bytes
+c1 chart3
+ARM BCPL Version 2.4
+Section chart3
+Tree size 11391
+ARM CodeGenerator 2.16
+Section chart3: size 7728 bytes
+Program size = 7728 bytes
+c1 chart4
+ARM BCPL Version 2.4
+Section chart4
+Tree size 10075
+Warning near line 373: value of VALOF block may be undefined
+ARM CodeGenerator 2.16
+Section chart4: size 5172 bytes
+Program size = 5172 bytes
+c1 chart5
+ARM BCPL Version 2.4
+Section chart5
+Tree size 9546
+Warning near line 536: value of VALOF block may be undefined
+ARM CodeGenerator 2.16
+Section chart5: size 7488 bytes
+Program size = 7488 bytes
+c1 chart6
+ARM BCPL Version 2.4
+Section Chart6
+Tree size 8727
+Warning near line 468: value of VALOF block may be undefined
+Warning near line 474: value of VALOF block may be undefined
+Warning near line 490: value of VALOF block may be undefined
+Warning near line 493: value of VALOF block may be undefined
+ARM CodeGenerator 2.16
+Section Chart6: size 5356 bytes
+Program size = 5356 bytes
+c1 chart7
+ARM BCPL Version 2.4
+Section Chart7
+Tree size 8827
+Warning near line 117: value of VALOF block may be undefined
+Warning near line 163: value of VALOF block may be undefined
+ARM CodeGenerator 2.16
+Section Chart7: size 4044 bytes
+Program size = 4044 bytes
+c1 chart8
+ARM BCPL Version 2.4
+Section chart8
+Tree size 10604
+Warning near line 70: value of VALOF block may be undefined
+Warning near line 340: value of VALOF block may be undefined
+Warning near line 429: value of VALOF block may be undefined
+ARM CodeGenerator 2.16
+Section chart8: size 6060 bytes
+Program size = 6060 bytes
+*| *dir ^.NA         
+*| c comp
+*| *dir ^.NM         
+*| c comp
+*| *dir ^.NN         
+*| c comp
+*| *dir ^.NT         
+*| c comp
+*dir $.DSH.utils
+*time
+Thu,21 Apr 1988.11:39:46
+*spool
+

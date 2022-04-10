@@ -1,0 +1,283 @@
+// /**
+//         TAHDR - HEADER FOR TABULAR INPUT EDITOR SECTION
+//         ------------------------------------------------
+//
+//
+//         REVISION HISTORY:
+//
+//         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//         24/4/87    1        MH        initial version.
+//         17/7/87    2        MH        data type manifests eliminated
+//         21/10/87   3        MH        updated for UNI version
+// **/
+
+
+
+
+MANIFEST
+$(
+   // Manifest for G.ta.area
+
+   m.ta.area.size = 3100/bytesperword //n.b divided for getvec
+
+   // Relative addresses
+   //
+   // N.B. ALL RELATIVE ADDRESSES ARE BYTE ADDRESSES
+   //
+   m.ta.no.labels = 0             //number of labels
+   m.ta.no.vars = 1            //number of variables
+   m.ta.sel.var = 2            //currently selected variable
+   m.ta.sel.cat = 3            //currently selected category
+   m.ta.var.table = 4          //start address of variable table
+                               //n.b. var.table holds the number of categories
+                               //per variableeK   m.ta.labels = 28
+   m.ta.labels = 28            //start address of labels. There can be upto
+                               //52 labels. Structure of labels is as follows:
+                               //   1st byte variable tag
+                               //   2nd byte category tag
+                               //   N.B if bytesperword = 2 then
+                               //          3rd byte start of label string
+                               //          44th byte abbreviation
+                               //       else
+                               //           5th byte start of label string
+                               //           46th byte abbreviation
+   m.ta.temp.label = 2524      //temporary location for current input string
+   m.ta.l.st = 2565            //local state indicator
+   m.ta.1st.time = 2566        //"1st time into module" indicator
+   m.ta.v.or.c = 2567          // variable or category operation indicator
+   m.ta.handle = 2568          // file handle
+   m.ta.base.l = 2570          //base label number for current page
+   m.ta.no.l = 2571            //number of labels in current page
+   m.ta.pg = 2572              //current page number
+   m.ta.mp = 2573              //maximum number of pages for currently
+                               //selected type
+   m.ta.do = 2574             //for printing of categories
+                               //current page
+   m.ta.c.l = 2575             //currently selected label
+   m.ta.op = 2576              //operation type indicator
+   m.ta.lock = 2577            //lock for variable select
+   m.ta.cat.table = 2580       //24 byte array for currently selcted variable
+   m.ta.xco = 2604             //last x co-ordinate
+   m.ta.yco = m.ta.xco + bytesperword //add no.bytes to next
+                               //word for last y co-ordinate
+   m.ta.cur.var = 2612         //currently selected variable for data edit
+   m.ta.hv = 2613             //currently selected variable hi-lite flag
+                    //locations used for page turning of categories in
+                    //data input section
+   m.ta.base.lc = 2567          //base label number for current page
+   m.ta.no.lc = 2575            //number of labels in current page
+   m.ta.pgc = 2577              //current page number
+   m.ta.mpc = 2613              //maximum number of pages for currently
+
+   // data edit area
+   m.ta.offset = 2616           //data offset area i.e. to calculate offset
+                                //to data element
+   m.ta.data.area = 2808        //area where data values are stored
+   m.ta.f.ptr = 3000            //pointer to data area within the file
+   m.ta.st.data = 3008         //offset value to start address of data values
+   m.ta.change = 3016           //flag to indicate if the data values have
+                                //changed
+   m.ta.datasize = 3017         //data size can be 1, 2 or 4 bytes
+   m.ta.del.mess = 3018         //flag to remove prompt from message area
+   m.ta.data.size = 3019         //data size can be 1,2 or 4 bytes
+   m.ta.data.sign = 3020         //data can be signed or unsigned
+// 4 byte signed   -2147483648 to 2147483648
+// 2 byte signed   -32768 to 32767
+// 2 byte unsigned 0 to 65535
+// 1 byte signed   -128 to 127
+// 1 byte unsigned 0 to 255
+   m.ta.l.written = 3021         // flag to indicate if space for labels in
+                                 // file has been allocated.
+// addresses 2814 to 2838 are used for the additive flag table
+// 3022 and 3023 not used
+   m.ta.add.table = 3024         //additive flag table
+// next free location = 3049
+
+   //Maximum number of labels
+   m.ta.l.max = 49             //total number of labels allowed
+                               // 52 labels - (Title label + yaxis label +
+                               // dummy label) = 49 labels
+   m.ta.v.max = 24             //total number of variables allowed
+   m.ta.c.max = 24             //total number of categories allowed
+
+   //maximum offset to data
+   m.ta.data.offset = 2268     //maximum offset to the data
+   m.ta.label.space = 2184     //space needed = 52 labels * 42 bytes
+
+   //operation type
+   m.ta.delete = 0             //delete operation
+   m.ta.insert = 1             //insert labeloperation
+   m.ta.new = 2                //new label operation
+   m.ta.new.c = 3              //new category operation
+   m.ta.new.a = 4              //new abbreviation operation
+   m.ta.update = 5             //update variable operation
+   m.ta.more = 6             //more pages operation
+   m.ta.more1 = 7              //more pages operation
+   m.ta.update1 = 8             //update variable operation for when pointer
+                                // is in message bar area
+
+   //tag state
+   m.ta.free = #xFF
+
+   //v.or.c
+   m.ta.v = 0                  //variable
+   m.ta.c = 1                  //category
+
+   //labels
+   m.ta.l.width = 48           //tags + label string + abbreviation width
+   m.ta.str.l = 40             //maximum string length
+   m.ta.abbr = 43               //abbreviation length
+   m.ta.default = 'A'         //default abbreviation
+   m.ta.default1 = '**'         //default abbreviation 1 for insert
+
+   //local state
+   m.ta.INACTIVE = #xFF          //inactive
+   m.ta.I.or.D = 0             //insert or delete label ?
+   m.ta.r.l = 1                //read label
+   m.ta.edit = 2               //edit
+   m.ta.edit.lock = 3          //edit lock for data entry
+   m.ta.prompt = 4            //confirmation prompt for data delete
+   m.ta.prompt1 = 5           //confirmation prompt for var additive flag
+
+   //1st time
+   m.ta.true = 0                //yes 1st time
+   m.ta.false = #XFF            //no it is not the 1st time
+
+   //pages
+   m.ta.lines = 20
+   m.ta.dlines = 6
+
+   //read write
+   m.ta.read = 0
+   m.ta.write = #xFFFF
+
+   //drawing of variables and additive flags
+   m.ta.all = 0     //draw all variables and additive flags
+   m.ta.d.var = 1   //only draw variable
+   m.ta.d.add = 2   //only draw additive flag
+   m.ta.d.both = 3  //draw both variable and addivtive flag
+
+   //co-ordinates
+   m.ta.bx0 = 0                  //x start of box
+   m.ta.bxd0 = 960                  //x start of box
+   m.ta.by0 = 308                //y start of box
+   m.ta.bh = 532                //height of box
+   m.ta.bw = 316                //width of box
+   m.ta.byn = 0                 //y start of "new" box
+   m.ta.bhn = 56                //height of "new" box
+
+   m.ta.inc = 38                //increment to next label
+
+   m.ta.xstart = 0     //x start of list
+   m.ta.ystart = 860    //y start of list
+   m.ta.xdstart = m.ta.bxd0 + 4     //x start of list
+   m.ta.ydstart = m.ta.by0 + m.ta.bh - 8    //y start of list
+   m.ta.xend = 1280      //x end of label
+
+
+   m.ta.newx = 112     //start of "NEW" box
+   m.ta.newy = 40     //
+   m.ta.neww = 128                 //width of box
+   m.ta.newh = 32                  //height of box
+
+// header manifests
+
+   m.ta.buffsize  = 100                 // G.ta.buff length (words)
+
+   m.ta.titleY    = m.sd.linW*20        // Y-coord of title field
+   m.ta.axisY     = m.sd.linW*17        // Y-coord of Y-axis field
+   m.ta.dispY     = m.sd.linW*13        // Y-coord of display field
+   m.ta.nfacY     = m.sd.linW*12        // Y-coord of Normalising Factor field
+   m.ta.colY      = m.sd.linW*3         // Y-coord of colour field
+   m.ta.posX      = 16                  // O.5 chars in
+   m.ta.posX0     = 0                   // start of box at edge of screen for
+                                     // Title and Y-axis
+   m.ta.strlength = 39                  // Length of title/Y-axis field (chars)
+   m.ta.nflength  = 3                   // Length of Normalising Factor field
+   m.ta.strX      = (32*m.ta.strlength)+m.sd.disXtex // Last X for
+                                                           // entry box strings
+   m.ta.nfacX     = m.ta.posX+(32*m.ta.nflength)+m.sd.disXtex // Last X for nfac
+   m.ta.halfX     = 640
+   m.ta.nfacXstr  = 5* m.ta.posx          // first X for nfac
+   m.ta.Xcol1     = m.ta.posX            // first X for colour 1: pointer
+   m.ta.Xcol2     = 18*m.ta.posX         // first X for colour 2: background
+   m.ta.Xcol3     = 41*m.ta.posX         // first X for colour 3: foreground
+
+// **********  removal of data type options **************
+   m.ta.add           = 4       // byte expected as data type of file
+   m.ta.nonadd        = 1       // *** should soon be redundant ****
+
+// Values for variables
+
+   m.ta.unknown   = -1          // Initial value for variables
+
+   m.ta.entry     = 1
+   m.ta.colour    = 3
+   m.ta.selection = 4           // box type
+
+   m.ta.off       = 0
+   m.ta.on        = 1           // status
+
+   m.lsb = 0
+   m.msb = 1
+   m.lsw = 0
+   m.msw = 1
+
+// Word offsets into context data in g.ta.buff
+
+   m.ta.box           = 1            // Current box or unknown
+   m.ta.screenstate   = 2            // 1, 2, 3 ... (or unknown)
+   m.ta.last.box      = 3            // The last box entered
+   m.ta.boxtype       = 4            // cycle, selection or entry field
+   m.ta.datacyc       = 5            // index into data types
+
+   m.ta.nfac          = 6           // Buffer for Normalising Factor (3 bytes)
+   m.ta.cycol         = 8           // colour of cycle
+   m.ta.dispbox       = 9            // last highlighted diplay line
+//   m.ta. = 10
+   m.ta.status        = 25           // status of entry boxes
+   m.ta.oldstr        = 26           // string modified - yes/no
+   m.ta.xpos          = 27           // cursor position
+   m.ta.ypos          = 28           // cursor position
+
+// offsets refering to data positions in areal data videodisc structure
+    m.ta.norm       = 29              // normalising factor exponent
+    m.ta.title      = 30              // Buffer for title string (40 bytes)
+    m.ta.axis       = 51              // buffer for Y-axis string (40 bytes)
+
+   m.ta.palette       = 72          // current pallette - real physical colours
+   m.ta.display       = 75          // current display modes
+   m.ta.disp.default  = 82          // current default display chart (1 to 6)
+   m.ta.temp.cols     = 83          // current working palette
+   m.ta.old.cols      = 86          // flag to indicate palette edits in process
+   m.ta.h.written     = 89          // flag to indicate if a header has been
+                                 // written
+   m.ta.M.or.D        = 90          // multiplier or divisor flag
+   m.ta.no.data       = 91          // flag indcating if there is data
+
+/////////////////////////////////////////////////////////////////////////////
+
+// byte positions in a tabular file
+   m.ta.header.pos = 0               // byte position for header data block
+   m.ta.nvar.pos = 28               // byte position for number of variable
+   m.ta.ncats.pos = 30              // byte position for number of categories for
+                                 // each variable
+   m.ta.offset.pos = 54             // offset to data position
+   m.ta.dsize.pos = 58              // byte position of data size N.B. top bit
+                                 // is the sign bit
+   m.ta.add.pos = 59                // addivitive flag position
+   m.ta.norm.pos = 60               // normalising factor position
+   m.ta.scale.pos = 64              // scaling factor position N.B. 1 byte =
+                                 // M -> plus, D -> minus. 2 byte =
+                                 // E -> expoent, else multiplier
+   m.ta.display.pos = 70            // only 6 valid display methods
+   m.ta.default.pos = 80            // default display method position
+   m.ta.colour.pos = 81             // colour set position
+   m.ta.title.pos = 84              // start of labels and position of title
+   m.ta.yaxis.pos = 126             // y-axis position
+   m.ta.blank.pos = 148             // dummy blank label
+   m.ta.labels.pos = 210            // start of variable and category labels
+
+//header space needed to insert data into file
+   m.ta.header.space = 210         // bytes
+$)

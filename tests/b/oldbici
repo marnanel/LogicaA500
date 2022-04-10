@@ -1,0 +1,84 @@
+section "BICI.tst"
+
+get "libhdr"
+
+let start () be
+$(
+   let routine = ?
+
+   Writes("*nBCPL - Prolog test harness*n")
+
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())
+
+   Debug(0)
+
+/*   routine := CreateCo( install, #x8000 )
+   CallCo( routine )
+*/
+   BICIinstall()
+
+   Oscli("BICI hello*C")
+
+/*   routine := CreateCo( starter, #x8000 )
+   CallCo( routine )
+*/
+
+   starter()
+
+/*
+   Oscli("dir :4.prolog")
+   Oscli("key0 ['eg.hanoi'].|mhanoi(3).|m")
+   Oscli("key1 system('BICI hello').")
+
+   OsByte(138,0,128) // insert a key0 in buffer
+
+   Oscli("PrologX zap_out") // off into prolog
+   Oscli("back")
+*/
+   Writes("*nback in BCPL*n") 
+
+   BICIremove()
+
+   Writes("handler removed...terminating*n")
+
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())   
+$)
+
+and BICIhandler(str) be
+$(
+   LET i = 0
+
+   Writes("*n...in BICI handler*n command string is : ")
+
+   WHILE ' ' <= str%i <= 'z' $( Wrch( str%i ); i := i+1 $)
+
+   NEWLINE()
+
+//   Oscli("echo this is the handler|m") 
+
+   Debug(0)
+
+   IF CAPCH(str%1) = 'R' THEN BICIremove()
+
+   NEWLINE()
+$)
+
+AND install( type ) BE 
+$(
+   Writes("Installing handler*n")
+
+   BICIinstall()
+   CoWait()
+$)
+
+AND starter() BE
+$(
+   Oscli("dir :4.prolog")
+   Oscli("key0 ['eg.hanoi'].|mhanoi(3).|m")
+   Oscli("key1 system('BICI hello').")
+
+   OsByte(138,0,128) // insert a key0 in buffer
+
+   Oscli("PrologX zap_out") // off into prolog
+   Oscli("back")
+$)

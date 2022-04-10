@@ -1,0 +1,63 @@
+// fix execution address of a file to the desired value
+
+Section "fixfile"
+
+GET "LIBHDR"
+
+LET START() BE
+$(
+   LET name  = ?
+   LET block = VEC 8
+   LET argv  = VEC 10
+   LET addr  = #x8000
+
+   IF NOT RDARGS ("FILE/A,ADDR/A", argv, 10) THEN
+      $( WRITEF("Usage: fix -file <name> -addr <execution address>*n")
+         STOP(0)
+      $)
+
+   addr := hex.to.num( argv!1 )
+
+   name := argv!0
+
+   WRITEF("*nSet execution address of %s to &%x8*n",name, addr)
+
+   info.(name)
+
+   // stage 1 : read in the known attributes
+
+   Osfile( 5, name, block )
+
+   // stage 2 : set up execution address to load address
+
+   block!0 := addr
+   block!1 := addr
+
+   // stage 3 : write the catalogue information
+
+   Osfile( 1, name, block )
+
+   info.(name)
+$)
+
+AND hex.to.num( str ) = VALOF
+$(  
+   LET I,A,GOODN,RADIX = 1,0,FALSE,16
+   LET CH = str%I 
+
+   $( LET D = -1
+      IF '0'<=CH<='9' DO D := CH-'0'
+      IF 'A'<=CH<='F' DO D := 10+CH-'A'
+      UNLESS 0<=D<RADIX BREAK
+       GOODN := TRUE
+       A := A*RADIX + D
+       I := I+1; CH := str%I
+   $) REPEATUNTIL I > str%0
+
+
+   UNLESS GOODN DO WRITEF("*nBAD NUMBER*n")
+   RESULTIS A 
+$)
+
+AND info.(s) BE RUNPROG("**INFO %s",s)
+.

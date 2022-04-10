@@ -1,0 +1,88 @@
+SECTION "Grid0"
+
+/**
+         GRID - OVERLAY HEADER SCREEN
+         ----------------------------
+
+         This module contains only DY.INIT and DY.FREE
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.Gridh
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         17.6.87     1       SA        Initial version
+**/
+
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+GET ":4.UINED.gh.glDYhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.grhhd"
+
+/**
+         G.GD.DY.INIT - OVERLAY INITIALISATION
+         -------------------------------------
+
+         General overlay initialisation routine
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.gd.buff contents
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Get heap space for data buffer (g.gd.buff)
+         Ensure correct disc is loaded
+**/
+
+
+LET G.gd.dy.init() BE g.gd.buff := GETVEC(m.gd.buffsize)
+
+/**
+         G.GD.DY.FREE - FREE OVERLAY
+         ---------------------------
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         none (frees vector pointed to by g.gd.buff)
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         Free the data buffer vector
+**/
+
+
+AND G.gd.dy.free() BE
+$(
+   FREEVEC (g.gd.buff)
+$)
+.

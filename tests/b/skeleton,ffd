@@ -1,0 +1,446 @@
+ // > b.Skeleton
+ // Skeleton BCPL program to control Wimp
+ 
+ // adapted from BASIC skeleton program by PAC
+ // (Logica) 18.8.87
+ //
+
+Section "Skeleton"
+
+Get "Libhdr"
+Get ":4.DSH.h.wmhd"
+
+// program global variables (Ugh!)
+
+Static 
+$( fontcounts = 0
+   q          = 0
+   curbuf     = 0
+   endbuf     = 0
+   erroraddr  = 0
+   dialogue   = -1
+   iconbar    = 0
+   example1   = 0
+   example2   = 0
+   errorbox   = 0
+   more       = 0
+
+   x0  = 0
+   y0  = 0
+   x1  = 0
+   y1  = 0
+   scx = 0
+   scy = 0
+   bhandle = 0
+   bx = 0
+   bv = 0
+
+   inerror = 0
+   action  = 0
+   gx0     = 0
+   gy0     = 0
+   gx1     = 0
+   gy1     = 0
+   Err     = 0
+   Errstr  = 0
+   Erl     = 0
+
+$)
+
+LET start() BE
+$(
+   LET dragging = FALSE
+
+   fontcounts := GETVEC( 256/bytesperword )
+   Fillwords( fontcounts, 256/bytesperword, 0 )
+
+   VDU("22,12") // MODE 12
+
+   // -- set up palette
+   VDU("23,25,3,2,4,6,8,10,12,14")      // 3 bits per pixel anti-aliasing
+   VDU("23,25,128,1,240,240,240,0,0,0") // black on white text
+
+   // Debug(0)
+
+   Oscli("Print !NewPal")
+   Oscli("Print F.Wimp")
+
+   Oscli("SMerge Sprites.Default")
+//    Oscli("SMerge Sprites.Wombat")
+ 
+   // -- dimension arrays
+   q      := GETVEC (#x300/bytesperword)
+   curbuf := GETVEC (#x1000/bytesperword)
+   endbuf := curbuf + #x1000/bytesperword  // for workspace allocation
+
+   erroraddr := GETVEC(4)                  // for formatting error messages
+ 
+   // -- Start Wimp going
+   $( 
+      LET version, minv = ?, 12
+
+      version := OSWimpG( m.wm.Initialise,0,0 )
+      IF version < minv THEN 
+      ERROR( 1,"Needs at least Wimp %n",(minv/100) )
+   $)
+ 
+   // -- Create Windows
+
+   OSWimpG( m.wm.Open.Template, packBCPL("Templates.Skeleton")) 
+
+   iconbar  := template("iconbar")
+   example1 := template("example1")
+   example2 := template("example2")
+   errorbox := template("errorbox")
+
+   OSWimpG( m.wm.Close.Template )
+
+   front(iconbar)
+   front(example1)
+ 
+   // -- Draw screen and pointer
+   $( let pb = VEC 6
+      pb!0,pb!1,pb!2,pb!3,pb!4 := -1,0,0,1280,1024
+
+      OSWimpS( m.wm.Force.Redraw, pb )
+   $)
+
+   Oscli("**Pointer")
+ 
+   // -- Error handler - drops through to Wimp_Poll
+   inerror := FALSE
+   // ON ERROR errorbox(ERR,REPORT$,ERL)
+ 
+   // -- Main Polling loop
+   $(
+      action := OSWimpG( m.wm.Poll, q, #x00 )
+
+      SWITCHON action INTO
+      $(
+         CASE 0:  keys(0)      ; ENDCASE       // -- do user operations
+         CASE 1:  redraw(!q)                                ; ENDCASE
+         CASE 2:  open(!q,q!1,q!2,q!3,q!4,q!5,q!6,q!7)      ; ENDCASE
+         CASE 3:  close(!q)                                 ; ENDCASE 
+         CASE 6:  mouse(!q,q!1,q!2,q!3,q!4,q!5)             ; ENDCASE
+         CASE 7:  dragging := FALSE                         ; ENDCASE
+         CASE 8:  keys(q!6) ; ENDCASE        // decode keys
+         CASE 9:  ENDCASE                    // decode menu selection
+      $)
+   $) REPEATUNTIL FALSE
+$)
+ 
+AND keys( keyval ) BE
+$(
+   LET key = OSByte( #x81,0,0 )
+
+   IF Result2 ~= 0 key := 0
+
+   IF key = 25 | key = 26 THEN stop(0)
+
+   IF key ~= 0 THEN
+   errorbox.( "Hello" )
+$)
+
+AND redraw(handle) BE
+$(
+   // Debug(0)
+
+   !q := handle
+   more := OSWimpG( m.wm.Redraw.Window,q )
+   info(q+1)
+
+   TEST handle = example1
+   THEN draw_example1()
+   ELSE                // must be example2
+        draw_example2()
+$)
+ 
+AND draw_example1() BE
+$(
+   WHILE more DO
+   $(
+      FOR i = 500 TO 0 BY -8
+      $(
+         VDU("25,4,%;%;", bx+175,bv-250 )
+         VDU("25,%,%;%;", #x95,bx+i,bv-i )
+//         VDU("25,4,%;%;", bx+175,bv-175 )
+//         VDU("25,%,%;%;", #x9D,bx+20,bv-175 )
+      $)
+      more := OsWimpG( m.wm.Get.Rectangle,q )
+   $)
+$)
+ 
+AND draw_example2() BE
+$(
+   WHILE more DO
+   $(
+      gx0 := q!7
+      gy0 := q!8
+      gx1 := q!9
+      gy1 := q!10
+      gx0 := (gx0-bx)/ 32*32 + bx
+      gy1 := (gy1-bv)/ 32*32 + bv
+      FOR y = gy1 TO gy0-32 BY -32 DO
+         FOR x = gx0 TO gx1 BY 32 DO
+         $(
+            VDU("25,4,%;%;",x+16,y+16) 
+            VDU("25,%,%;%;", #x9d,x+2,y+16)
+         $)
+      more := OsWimpG( m.wm.Get.Rectangle,q ) 
+   $)
+$)
+   
+AND info(p) BE
+$(
+   x0  := !p
+   y0  := p!1
+   x1  := p!2
+   y1  := p!3
+   scx := p!4
+   scy := p!5
+   bhandle := p!6
+   bx := x0-scx
+   bv := y1-scy  // all drawing should be relative to bx,by
+$)
+   
+AND getw(h) BE
+$(
+   !q := h
+   OSWimpG( m.wm.Get.Window.State, q )
+   info(q+1)
+$)
+   
+AND front(h) BE
+$(
+   !q := h
+   OSWimpG( m.wm.Get.Window.State, q )  
+   q!7 := -1
+   OSWimpG( m.wm.Open.Window, q )
+$)
+   
+AND open(handle,x0,y0,x1,y1,scx,scy,bhandle) BE
+$(
+   !q   := handle
+   q!1  := x0
+   q!2  := y0
+   q!3  := x1
+   q!4  := y1
+   q!5  := scx
+   q!6  := scy
+   q!7  := bhandle
+
+   OSWimpG( m.wm.Open.Window, q )
+
+   IF handle = dialogue THEN
+   $( getw(handle)
+      Mouse.Rectangle( x0,y0,x1,y1+40 )
+   $)
+$)
+   
+AND close(handle) BE
+$(
+   IF handle = dialogue THEN Mouse.Rectangle( 0,0,1279,1023 )
+   dialogue := -1
+   !q := handle
+   OSWimpG( m.wm.Close.Window, q )
+$)
+   
+AND mouse(mousex,mousey,buttons,handle,icon,oldbuttons) BE
+$(
+   // Debug(0)
+
+   SWITCHON buttons INTO
+   $(
+      CASE #x02      : ENDCASE // -- MENU button
+      CASE #x01      :
+      CASE #x04      :         // -- select/adjust buttons
+      $(  TEST handle = iconbar THEN
+             TEST icon = 1 
+             THEN front(example1)
+             ELSE IF icon = 0 
+                  THEN front(example2)
+          ELSE //   CASE errorbox:
+             SWITCHON icon INTO
+             $(
+                CASE 5: $( OSWimpG( m.wm.Create.Menu,-1 )
+                           close(errorbox)
+                           ENDCASE
+                        $) 
+
+                CASE 6: errordisplay(Errstr) ; ENDCASE
+             $)
+          $)
+      CASE #x10:  CASE #x40:  // -- SELECT/ADJUST dragging
+      CASE #x100: CASE #x400: // -- selection if button type = 10
+      ENDCASE
+   $)
+$)
+   
+AND template(name) = VALOF
+$(
+   LET c,l = ?,?
+   LET pb  = VEC 6
+
+   packBCPL( name ); l := result2
+
+   pb!1,pb!2,pb!3,pb!4,pb!5,pb!6 := q,curbuf,endbuf,fontcounts,name,0 
+
+   FOR i = 1 TO 5 DO pb!i := pb!i * bytesperword
+
+   OSWimpS( m.wm.Load.Template, pb )
+
+   curbuf := pb!2; c := pb!6
+
+   unpackBCPL( name, l )
+
+   IF c=0 THEN ERROR( 1,"Template '%s' not found", name )
+
+   c := OSWimpG( m.wm.Create.Window, q ) 
+
+   RESULTIS c
+$)
+   
+AND iconaddr(h,i) = VALOF
+$(
+   !q  := h
+   q!1 := i
+   OSWimpG( m.wm.Get.Icon.State, q )
+
+   IF (q!6 & #x100)=0 THEN ERROR( 1,"Icon is not indirected" )
+
+   RESULTIS q!7
+$)
+   
+AND dialogue.(handle,mx,my) BE
+$(
+   let pb = VEC 6
+   pb!0,pb!1,pb!2,pb!3,pb!4,pb!5 := handle,-1,0,0,#x3000000,0
+
+   getw(handle)
+   open(handle,mx,my+y0-y1,mx+x1-x0,my,0,0,-1)
+   OSWimpS( m.wm.Set.Caret.Position, pb )  
+   getw(handle)
+   Mouse.Rectangle( x0,y0,x1,y1+40 )
+   dialogue := handle
+$)
+
+
+AND errorbox.(string) BE
+$(
+   IF inerror THEN errordisplay(string)
+
+   errstr := string
+
+   inerror := TRUE
+   OSWimpG( m.wm.Drag.Box, -1 )
+
+   IF dialogue ~= -1 THEN close(dialogue)
+
+   FOR I = 1 TO 4
+   $(
+      erroraddr!I  := iconaddr(errorbox,I)
+   $)
+
+   /******
+   menustr := string
+       I := 1
+       J := 0
+       i := 0
+   
+   $( 
+      w$ := par(" ")
+      IF J>0 IF J+1+LENw$ > 26 
+      THEN $( I := I+1 ; J := 0 $)
+      IF I>4 THEN ERROR 1,"Error too big"
+      IF J>0 THEN w$ := " "+w$
+     ????????????????
+     $(erroraddr(I)+J) := w$
+          J+= LENw$
+
+   $) REPEATUNTIL w$="" OR w$=" "
+
+   ******/
+
+   dialogue.(errorbox,300,650)
+   inerror := FALSE
+$)
+
+/******   
+AND par(sep$) = VALOF
+$(
+   i1 := i+1
+    i := INSTR(menu$+sep$,sep$,i1)
+
+   RESULTIS MID$(menu$,i1,i-i1)
+$)
+ ****** */   
+
+AND errordisplay(errstr) BE
+$(
+   VDU("4"); Writes( errstr ); NEWLINE()
+
+   OsByte(225,1)
+   OsByte(4)
+   OsByte(15,1)
+
+   STOP(0)
+$)
+
+AND ERROR( num, str, p1,p2,p3 ) BE
+$(
+   VDU("22,0")
+
+   Writef("ERROR %n :",num)
+   Writef( str, p1,p2,p3 )
+   NEWLINE()
+   Abort(10)
+$)
+
+AND packBCPL( string ) = VALOF
+$(
+   let l = string%0
+   for i = 1 to l string%(i-1) := string%i
+   string%l := #x0
+   RESULT2  := l
+   RESULTIS string
+$)
+
+AND unpackBCPL( string, len ) BE
+$(
+   for i = len to 1 by -1 string%i := string%(i-1)
+   string%0 := len
+$)
+
+AND Mouse.rectangle( x1,y1,x2,y2 ) BE
+$(
+   LET pb = VEC 6
+   LET tx,ty = x1,y1
+
+   if x1>x2 swap( @x1, @x2 )
+   if y1>y2 swap( @y1, @y2 ) 
+
+   pb%0 := 1 // opcode
+   pb%1 := x1
+   pb%2 := x1>>8
+   pb%3 := y1
+   pb%4 := y1>>8
+   pb%5 := x2
+   pb%6 := x2>>8
+   pb%7 := y2
+   pb%8 := y2>>8
+
+   Osword( #x15, pb )
+$)
+
+and swap( a,b ) be
+$( let t = !a
+   !a := !b
+   !b := t
+$)
+
+and calldb( p1, p2, p3, p4 ) be 
+$(
+   Debug(0)
+
+   Writef("parameters are %n %n %n %n", !p1,!p2,!p3,!p4)
+$)

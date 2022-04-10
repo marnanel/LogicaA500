@@ -1,0 +1,101 @@
+
+Section "Community.dummy"
+
+GET "LIBHDR"      
+GET ":0.aes.gh.glhd"
+GET ":0.aes.gh.gldyhd"
+GET ":0.aes.gh.glCMhd"
+GET ":0.aes.gh.glCPhd"     
+GET ":0.aes.gh.glCFhd"    
+GET ":0.aes.h.sdhd"
+
+LET G.CM.dy.init() BE 
+$(                 
+   G.sc.mess("Dummy Map : dy.init")
+   G.sc.clear(m.sd.display)
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   Backtrace()
+$) 
+
+AND G.CM.dy.free() BE 
+$(                 
+   G.sc.mess("Dummy Map : dy.free")    
+   G.sc.clear(m.sd.display)
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   Backtrace()
+$)   
+                                           
+
+AND G.CP.dy.init() BE 
+$(                 
+   G.sc.mess("Dummy Phtx : dy.init")    
+   G.sc.clear(m.sd.display)
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   Backtrace()
+$)   
+
+AND G.CP.dy.free() BE 
+$(                 
+   G.sc.mess("Dummy Phtx : dy.free")    
+   G.sc.clear(m.sd.display)
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   Backtrace()
+$)   
+
+AND G.CF.dy.init() BE 
+$(                 
+   G.sc.mess("Dummy Find : dy.init")    
+   G.sc.clear(m.sd.display)
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   Backtrace()
+$)   
+
+AND G.CF.dy.free() BE 
+$(                 
+   G.sc.mess("Dummy Find : dy.free")    
+   G.sc.clear(m.sd.display)
+   G.sc.movea( m.sd.display, m.sd.disXtex, m.sd.disYtex)
+   Backtrace()
+$)   
+
+AND G.cm.mapwal()   BE G.sc.mess("Dummy Map : action routine")  
+AND G.cm.Mapopt()   BE G.sc.mess("Dummy Mapopt : action routine")
+AND G.cm.Mapsca ()  BE G.sc.mess("Dummy Mapsca : action routine")
+AND G.cm.Mapkey ()  BE G.sc.mess("Dummy Mapkey : action routine")
+AND G.cp.Photo ()   BE G.sc.mess("Dummy Photo : action routine")
+AND G.cp.Picopt()   BE G.sc.mess("Dummy Picopt : action routine")
+AND G.ct.Text ()    BE G.sc.mess("Dummy Text : action routine")
+AND G.ct.Texopt ()  BE G.sc.mess("Dummy Textopt : action routine")
+AND G.cf.eAction () BE G.sc.mess("Dummy Find : Eaction routine")
+AND G.cf.mAction () BE G.sc.mess("Dummy Find : Maction routine")
+AND G.cf.rAction () BE G.sc.mess("Dummy Find : Raction routine")
+
+//  initialisation routines for transitions
+
+AND G.cm.Optini () BE long.mess("Dummy Map : optini routine")
+AND G.cp.Phoini () BE long.mess("Dummy Phtx : Phoini routine")
+AND G.ct.Texini () BE long.mess("Dummy Phtx : Texini routine")
+AND G.cf.einit ()  BE long.mess("Dummy Find : Einit routine")
+AND G.cm.Mapini2() BE long.mess("Dummy Map : Mapini2 routine")
+AND G.cm.Scaini () BE long.mess("Dummy Map : Scaini routine")
+AND G.cm.Keyini () BE long.mess("Dummy Map : Keyini routine")
+AND G.cm.Unitsini()BE long.mess("Dummy Map : Unitsini routine")
+AND G.cp.Otini ()  BE long.mess("Dummy Phtx : PhOtini routine")
+AND G.ct.Otini ()  BE long.mess("Dummy Phtx : TeOtini routine")    
+AND G.cm.Mapini () BE long.mess("Dummy Map : Mapini routine")
+AND G.cp.P3oini () BE long.mess("Dummy Phtx : P3oini routine")
+AND G.cp.P2oini () BE long.mess("Dummy Phtx : P2oini routine")
+AND G.ct.T3xini () BE long.mess("Dummy Phtx : T3xini routine")
+AND G.cf.rInit ()  BE long.mess("Dummy Find : Rinit  routine")
+AND G.cf.mInit ()  BE long.mess("Dummy Find : Minit  routine")
+
+
+AND long.mess( string ) BE
+$(
+   G.sc.mess(string)
+   G.ut.wait( 100 )
+$)
+.
+       
+
+

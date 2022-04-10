@@ -1,0 +1,1382 @@
+/**
+16.      NATIONAL FIND
+         -------------
+
+         NF.FIND0 - MAIN ACTION ROUTINE
+         ------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         23.5.86  2        PAC         Replace 'trap' with 'trap.'
+         28.5.86  3        PAC         Zero exit stack on entry
+                                       Comment out "Domesday" title
+         28.5.86  4        DRF         Select Chart for itemtype = 4
+         19.6.86  5        MFP         "gl4hd" & bug fixes marked below
+         23.6.86  6        MFP         g.context settings for -m.st.ntext
+         1.7.86   7        MFP         changes as marked
+         14.7.86  8        MFP         changes as marked
+         15.7.86  9        NRY         Enable selection from 2nd+ titles pages
+         18.7.86  10       MFP         $<debug removed
+                                       clear screen as marked
+         18.7.86  11       MFP         code for item name selection completed
+         20.7.86  12       MFP         'u' to '(g.nf.p+p.q)' as marked
+         11.9.86  13       MFP         fix as marked
+         30.9.86  14       NRY         Change 'Data' to 'Maps' (types 1 & 3).
+*******************************************************************************
+         All mods after this point are not on the system as launched
+*******************************************************************************
+        12.12.86  15       SRY         Unknown item name double beep fix
+        ***********************************************
+          9.6.87  16       MFP         CHANGES FOR UNI
+**/
+
+section "find0"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.GH.glDYhd"
+get ":4.DSH.H.vhhd"
+get ":4.DSH.H.kdhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.sthd"
+get ":4.DSH.H.iohd"
+get ":4.DSH.H.nfhd"
+
+/**
+         See Community Find for comments on this section, which
+         is essentially a stripped down version of CF.FIND0,
+         CF.FIND7 and CF.FIND8.
+
+         The code for selecting an item by using its title
+         (binary chopping on the NAMES file) is commented
+         elsewhere in NM.COMPARE1.
+**/
+
+manifest $(
+s.unset=0; s.inq=5; s.review=6
+
+thirdwidth = m.sd.disw/3
+$)
+
+static $( boxtables = 0 $)
+
+let trap.(n,val,low,high) be g.ut.trap("NF",n,true,3,val,low,high)
+
+let setboxtables.() be
+    boxtables := table
+                    0, m.sd.disYtex-8*m.sd.linw, 40, 3, m.sd.blue, m.sd.cyan,
+                    0,m.sd.disYtex-13*m.sd.linw, 40, 3, m.sd.cyan, m.sd.blue
+
+let ws.(line,s) be
+$(  g.sc.movea(m.sd.display, m.sd.disXtex,
+                             m.sd.disYtex-(line-1)*m.sd.linw)
+    g.sc.odrop(s)
+$)
+
+let g.nf.highlight() be
+    for z = g.nf.p+p.z to g.nf.p+p.z+(g.nf.p!c.termcount-1)*m.h by m.h do
+        g.nf.boxinput('h', z!c.hl1, z!c.hl2, m.sd.yellow, m.sd.blue)
+
+let writerest.(s) be
+$(  ws.(13, s)
+    setboxtables.()
+    $(  let b = boxtables+6
+        g.nf.boxinput('f',b,m.sd.blue)
+        g.nf.boxinput('i',b,g.nf.p+p.q)
+        g.nf.boxinput('s',g.nf.p+p.oldq); g.nf.boxinput('-')
+        g.nf.highlight()
+    $)
+    ws.(18,"Percentage through search:")
+    ws.(20,"'Perfect matches' found:")
+$)
+
+let g.nf.minit() be
+$(
+    g.context!m.stackptr := 0
+    g.sc.pointer(m.sd.off)
+    g.vh.video(m.vh.micro.only)   // change of 1.7.86
+    g.sc.clear(m.sd.message)
+    g.sc.clear(m.sd.display)
+    setboxtables.()
+
+//    ws.(2,"               Domesday National Disc")
+    ws.(3,"            BRITISH LIFE IN THE 1980s")  // reinstated 1.7.86
+                                              // style changes 14.7.86
+    ws.(8,"What do you want to know about?")
+    g.nf.boxinput('f', boxtables, m.sd.cyan)
+    writerest.("Previous Query:")
+    if g.nf.p!c.state = s.unset | (g.nf.p+p.oldq)%0 = 0 do
+       g.sc.menu(table m.sd.act, m.sd.act, m.sd.act,
+                       m.sd.act, m.sd.act, m.sd.wBlank)  // lose one !
+    g.nf.p!c.state := s.inq
+    g.nf.boxinput('i', boxtables, g.nf.p+p.q)
+    // next line (to pull pointer up from menu bar) added 1.7.86
+    if g.screen = m.sd.menu do g.sc.moveptr(g.xpoint,g.sc.dtob(m.sd.display,4))
+    g.sc.pointer(m.sd.on)
+$)
+
+let addch.() be g.nf.boxinput('c',g.key)
+
+let itemname.(s) = valof
+$(  let len = s%0
+    let j = 1
+    if s%len ~= '"' resultis false // doesn't end with "
+    while j < len & s%j = ' ' do j := j+1
+    if j = len | s%j ~= '"' resultis false // doesn't begin with "
+    resultis true
+$)
+
+let copyname.(s,u) be
+$(  let len = s%0-1  let i = 1
+    while s%i = ' ' do i := i+1
+    i := i+1
+    while s%i = ' ' do i := i+1
+    while len > i & s%len = ' ' do len := len-1
+    for j = 1 to len-i+1 do u%j := s%(i+j-1)
+    u%0 := len-i+1  // may have zero length
+$)
+
+and selectitem.(q) be
+$(  let type = q%31
+    g.ut.movebytes(q,0,g.context+m.itemrecord,0,m.tbsize-4)
+    g.ut.unpack32(q,32,g.context+m.itemaddress)
+    g.key := -(type!table 0, m.st.datmap, m.st.datmap, m.st.datmap,
+                             m.st.chart, 0, m.st.ntext, m.st.ntext,
+                             m.st.nphoto, m.st.walk, m.st.film)
+    if g.key = 0 do $(  g.sc.ermess("Operation not available"); return $)
+    g.context!m.itemselected := true // 19.6.86
+    if g.key = -m.st.nphoto do g.context!m.picture.no := 1
+    if g.key = -m.st.ntext do    // addition of 23.6.86
+    $(  g.ut.set32(-1,-1,g.context+m.itemadd2)
+        g.ut.set32(-1,-1,g.context+m.itemadd3)
+    $)
+$)
+
+and searchforname.(string, item.record.ptr) = valof
+$(
+   let match, result = false, ?
+   and length = vec 1
+   and rec.len = vec 1
+   and lwb = vec 1
+   and upb = vec 1
+   and middle = vec 1
+   and byte.offset = vec 1
+   and dummy = vec 1
+   and one = vec 1
+   and two = vec 1
+
+   // record length in bytes
+   g.ut.set32(m.tbsize,0,rec.len)
+
+   // determine file length in records to set up bounds for log chopping
+   g.dh.length(g.nf.p!c.names, length)   // in bytes
+   g.ut.div32(rec.len, length, dummy)   // in records
+
+   g.ut.set32(1,0,one); g.ut.set32(2,0,two)
+   g.ut.sub32(one,length)   // recs are from 0 to n-1
+   g.ut.set32(0,0,lwb); g.ut.mov32(length,upb)
+
+   while (NOT match) & g.ut.cmp32(lwb, upb) <= 0 do
+
+      $(
+         // find mid-point of current bounds
+         g.ut.mov32(lwb,middle)
+         g.ut.add32(upb, middle)
+         g.ut.div32(two, middle, dummy) // in records
+         g.ut.mov32(middle,byte.offset)
+         g.ut.mul32(rec.len, byte.offset)
+
+         g.dh.read (g.nf.p!c.names, byte.offset, item.record.ptr, m.tbsize)
+
+         result := COMPSTRING (string, item.record.ptr)
+
+         match := (result = 0)
+
+         unless match do
+
+            test result < 0
+            then $( g.ut.sub32(one, middle); g.ut.mov32(middle,upb) $)
+            else $( g.ut.add32(one, middle); g.ut.mov32(middle,lwb) $)
+      $)
+   resultis match
+$)
+
+let g.nf.maction() be
+$(
+    if g.context!m.justselected | g.context!m.itemselected do
+    $(  g.nf.minit()
+        g.context!m.justselected := false
+        g.context!m.itemselected := false
+    $)
+    if g.key = m.kd.fkey6 & g.nf.p!c.titlenumber = -1 do
+    $(  selectitem.(g.nf.p+p.t)
+        return
+    $)
+    test g.key = m.kd.copy then g.nf.boxinput('s',g.nf.p+p.oldq)
+                             or addch.()
+    unless g.key = m.kd.return return
+    if (g.nf.p+p.q)%0 = 0 do
+    $(  g.sc.ermess("Query is blank")
+        // next line added 11.9.86
+        if g.screen = m.sd.message do g.key := m.kd.noact
+        g.nf.boxinput('+')
+        return
+    $)
+    if itemname.(g.nf.p+p.q) do
+    $(  let u = g.nf.p!c.ws
+        let v = u+m.tsize
+        copyname.(g.nf.p+p.q, u)
+        test searchforname.(u, v) then
+        $(  selectitem.(v)
+            for i = 0 to m.tsize-1 do (g.nf.p+p.t)!i := v!i
+            for i = 0 to (g.nf.p+p.q)%0 do (g.nf.p+p.oldq)%i := (g.nf.p+p.q)%i
+            g.nf.p!c.termcount := 1
+            (g.nf.p+p.z)!c.hl1 := 1
+            (g.nf.p+p.z)!c.hl2 := (g.nf.p+p.q)%0
+            g.nf.p!c.titlenumber := -1
+            return
+        $) or
+        $(  g.sc.ermess("Item name not found")
+            // next line added 11.9.86. Changed 12.12.86
+            if g.screen = m.sd.message do g.key := m.kd.noact
+            g.nf.boxinput('+'); return
+        $)
+    $)
+    unless g.nf.makequery(g.nf.p) do $( g.nf.boxinput('+'); return $)
+    g.nf.runquery(g.nf.p)
+    g.nf.p!c.titlenumber := 0
+    g.nf.p!c.state := s.review
+    g.key := -m.st.nfindr
+$)
+
+let printtitles.() be
+$(  let w = g.nf.p!c.ws  // workspace area
+    g.sc.pointer(m.sd.off)
+    g.sc.clear(m.sd.display)
+    g.sc.high(0,0,false,100)
+    g.sc.selcol(m.sd.cyan)
+    g.sc.movea(m.sd.display, m.sd.disXtex, m.sd.disYtex-m.sd.linw)
+    for i = 1 to g.nf.p!c.titles do
+    $(  let s = g.nf.p+p.t+(i-1)*m.tsize
+        trap.(3,s%0,0,30)
+        for i = 1 to s%0 do w%(i+5) := s%i
+        $(  let code = s%31
+            let u = code <= 3 -> "Maps ", // changed 30.9.86 NRY
+                    code = 4 -> "Data ",  // added 30.9.86 NRY
+                    code = 5 -> "Plan ",
+                    code = 8 -> "Pic. ",
+                    code = 9 -> "Walk ",
+                    code = 10 -> "Film ", "Text "
+            trap.(4,code,0,10)
+            for i = 1 to 5 do w%i := u%i
+        $)
+        w%0 := s%0+5
+        g.sc.oplist(g.nf.p!c.titlenumber+i, w)
+    $)
+    g.sc.pointer(m.sd.on)
+$)
+
+let g.nf.rinit() be
+$(
+    g.context!m.stackptr := 0
+    g.vh.video(m.vh.micro.only)   // added 1.7.86
+//  g.sc.clear(m.sd.message)     commented out 19/6/86
+    printtitles.()
+$)
+
+let g.nf.raction() be
+$(
+    if g.context!m.justselected | g.context!m.itemselected do
+    $( g.context!m.justselected := false
+       g.context!m.itemselected := false   // addition of 19.6.86
+       unless g.context!m.laststate = m.st.nfindm do
+         g.sc.clear(m.sd.message)   // addition of 18.7.86
+       g.nf.rinit()
+    $)
+    if g.key = m.kd.tab & g.screen = m.sd.display
+        test g.xpoint <= thirdwidth then g.key := m.kd.fkey7 or
+        test g.xpoint >= 2*thirdwidth then g.key := m.kd.fkey8 or
+        g.sc.beep()
+    switchon g.key into
+    $(  case m.kd.noact:
+            g.sc.high(g.nf.p!c.titlenumber+1,
+                      g.nf.p!c.titlenumber+g.nf.p!c.titles, false, 1)
+            return
+        case m.kd.fkey7:
+            if g.nf.p!c.m = 0 do $( g.sc.beep(); endcase $)
+            g.nf.p!c.m := g.nf.p!c.m-m.titlespp*m.misize
+            g.nf.p!c.titlenumber := g.nf.p!c.titlenumber-m.titlespp
+            g.nf.extracttitles(g.nf.p)
+            printtitles.(); endcase
+        case m.kd.fkey8:
+            $(  let m = g.nf.p!c.m+m.titlespp*m.misize
+                test m+m.misize >= g.nf.p!c.mend then
+                $(  if g.nf.p!c.mend < m.msize do $( g.sc.beep(); endcase $)
+                    g.sc.clear(m.sd.display)
+                    writerest.("Query:")
+                    g.nf.runquery(g.nf.p)
+                $)
+                or $( g.nf.p!c.m := m; g.nf.extracttitles(g.nf.p) $)
+                g.nf.p!c.titlenumber := g.nf.p!c.titlenumber+m.titlespp
+            $)
+            printtitles.(); endcase
+        case m.kd.return:
+            $(  let n = g.sc.high(g.nf.p!c.titlenumber+1,
+                                  g.nf.p!c.titlenumber+g.nf.p!c.titles,
+                                  false, 1) - g.nf.p!c.titlenumber - 1
+//                              fix of 15.7.86 above
+                if n < 0 endcase
+                selectitem.(g.nf.p+p.t+n*m.tsize)     // fix of 15.7.86
+                return
+            $)
+    $)
+$)
+
+let g.nf.einit() be return
+
+let g.nf.eaction() be
+$(  test g.nf.p!c.state = s.review &
+         (g.nf.p+p.oldq)%0 > 0 &        // prev. query exists
+         g.nf.p!c.titlenumber ~= -1     // not a "data item" query
+    then g.key := -m.st.nfindr or g.key := -m.st.nfindm
+    g.redraw := false
+$)
+
+let g.nf.dy.init() be
+$(
+    g.nf.p := GETVEC(m.nf.datasize)
+    unless g.ut.restore(g.nf.p,m.nf.datasize,m.io.nfcache) do
+    $(  g.nf.p!c.state := s.unset
+        (g.nf.p+p.oldq)%0 := 0
+        g.nf.p!c.titlenumber := 0 // -1 means there is a previous item name
+        g.nf.p!c.termcount := 0
+    $)
+    g.nf.p!c.index := g.dh.open("INDEX")
+    g.nf.p!c.names := g.dh.open("NAMES")
+    $(  let wsize = MAXVEC()
+        if wsize > m.nf.max.wsize do wsize := m.nf.max.wsize
+        g.nf.p!c.ws := GETVEC(wsize) // establish workspace area
+        g.nf.p!c.wssize := wsize+1    // exact number of words in this area
+    $)
+$)
+
+let g.nf.dy.free() be
+$(
+    g.dh.close(g.nf.p!c.index)
+    g.dh.close(g.nf.p!c.names)
+    FREEVEC(g.nf.p!c.ws)
+    g.ut.cache(g.nf.p,m.nf.datasize,m.io.nfcache)
+    FREEVEC(g.nf.p)
+$)
+.
+
+/**
+         NF.FIND1 - TEXT INPUT ROUTINES
+         ------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         23.5.86  2        PAC         Fix TRAP bug
+         19.6.86  3        MFP         "gl4hd" - fgcol, bgcol
+         18.7.86  4        MFP         $<debug removed
+         ****************************************
+         9.6.87   5        MFP         RELEASED FOR UNI
+**/
+
+
+section "find1"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.H.kdhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.nfhd"
+
+/**
+         See CF.FIND1 for comments
+**/
+
+static $(  i = 0  // offset down string
+           imax = 0 // max val taken by i
+           len = 0 // length of string (in chars)
+           xlen = 0 // length of box in x-direction (in chars)
+           x0 = 0; y0 = 0; // top left corner of box
+           s = 0 // the string
+           fgcol = 0; bgcol = 0  // foreground & background colours
+       $)
+
+let trap.(n,val,low,high) be g.ut.trap("NF",10+n,true,3,val,low,high)
+
+/* move.() positions the graphics cursor at the i-th character in the display
+   area. wrline(colour) writes a line (which the user will interpret as a text
+   cursor) under the i-th character. If colour=bgcol the line disappears. c.on.()
+   and c.off.() call wrline.() to switch the cursor on and off. At the end of a
+   text line the cursor is temporarily invisible. */
+
+let move.() be g.sc.movea(m.sd.display,
+                          x0+i rem xlen*m.sd.charwidth, y0-i/xlen*m.sd.linw)
+
+and wrline.(colour) be
+$(  move.(); g.sc.mover(0,-m.sd.linw)
+    g.sc.selcol(colour); g.sc.liner(m.sd.plot,m.sd.charwidth,0)
+$)
+
+and c.on.() be unless i = len do wrline.(fgcol)
+and c.off.() be unless i = len do wrline.(bgcol)
+
+and wrchar.(ch) be
+$(  move.()
+    g.sc.selcol(bgcol); g.sc.rect(m.sd.plot,m.sd.charwidth,-m.sd.linw)
+    g.sc.mover(-m.sd.charwidth,m.sd.charheight); g.sc.selcol(fgcol); wrch(ch)
+$)
+
+and fillbox.(t,colour) be
+$(  g.sc.movea(m.sd.display,t!0,t!1)
+    g.sc.selcol(colour); g.sc.rect(m.sd.plot, m.sd.charwidth * t!2,
+                                             -m.sd.linw * t!3-4)
+$)
+
+and setupinput.(t,s.) be
+$(  x0, y0, fgcol, bgcol, xlen, s := t!0, t!1, t!4, t!5, t!2, s.
+            trap.(1,x0,0,m.sd.disw)
+            trap.(2,y0,0,m.sd.disYtex)
+            trap.(3,xlen,0,m.sd.charsperline)
+            trap.(4,t!3,0,m.sd.displines)
+    len := t!2 * t!3
+    i := 0; imax := 0; c.on.()
+    for i = 1 to len do s%i := ' '
+$)
+
+and addtoinput.(ch) be test g.ut.printingchar(ch) then
+    test i = len then g.sc.beep() or
+    $(  wrchar.(ch); i := i+1; s%i := ch
+        if i rem xlen = 0 & i < len & ch ~= ' ' do
+        $(  let j = i-1
+            $(  if j < i-xlen return
+                if s%(j+1) = ' ' break
+                j := j-1
+            $) repeat
+            j := j+1
+            for k = 1 to i-j do $( s%(i+k) := s%(j+k); s%(j+k) := ' ' $)
+            $(  let m = 2*(i-j)
+                i := j
+                for k = 1 to m do $( wrchar.(s%(i+1)); i := i+1 $)
+            $)
+        $)
+        if i > imax do imax := i
+    $)
+or
+$(  let inc = ?
+    switchon ch into
+    $(  case m.kd.delete:
+            if i = 0 | i < imax do $( g.sc.beep(); endcase $)
+            s%i := ' '; i := i-1; imax := imax-1; wrchar.(' ')
+            return
+        case m.kd.up: if i < xlen return; inc := -xlen; goto lab
+        case m.kd.down: if i >= len-xlen return; inc := xlen; goto lab
+        case m.kd.left: if i = 0 return; inc := -1; goto lab
+        case m.kd.right:
+            if i = len return; inc := 1
+        lab:
+            if i+inc > imax return
+            i := i+inc; return
+        case m.kd.noact: return
+        case m.kd.return:
+            $(  let i = imax
+                while i > 0 & s%i = ' ' do i := i-1
+                s%0 := i; return
+            $)
+    $)
+$)
+
+and addstringtoinput.(u) be
+$(  let ulen = u%0
+    if ulen > len-i do $( g.sc.beep(); return $)
+    for j = 1 to ulen do
+    $(  let ch = u%j
+        test ch = ' ' = s%(i+1) then
+        $(  i := i+1
+            if i > imax do imax := i
+        $) or addtoinput.(ch)
+    $)
+$)
+
+and highlightinput.(ibase,itop,newfgcol,newbgcol) be
+$(  let a,b,c = i,fgcol,bgcol
+            trap.(5,ibase,0,255)
+            trap.(6,itop,0,len)
+    i,fgcol,bgcol := ibase-1, newfgcol,newbgcol
+    until i >= itop do $( wrchar.(s%(i+1)); i := i+1 $)
+    i,fgcol,bgcol := a,b,c
+$)
+
+and g.nf.boxinput(mode,p1,p2,p3,p4) = valof
+$(  // pick up statics:
+    let h = g.nf.p+p.s
+    i,imax,len,xlen,x0,y0,s,fgcol,bgcol := h!0,h!1,h!2,h!3,h!4,h!5,h!6,h!7,h!8
+    test mode = 'c' then
+    $(  if p1 = m.kd.noact resultis imax
+        $(  let state = g.sc.pointer(m.sd.off)
+            c.off.(); addtoinput.(p1)
+            if p1 ~= m.kd.return do c.on.()
+            g.sc.pointer(state)
+        $)
+        trap.(7,i,0,len)
+    $)
+    or
+    $(  let state = g.sc.pointer(m.sd.off)
+        switchon mode into
+        $(  case 'f': fillbox.(p1,p2); endcase
+            case 'i': setupinput.(p1,p2); endcase
+            case 's': c.off.(); addstringtoinput.(p1); c.on.(); endcase
+            case 'h': highlightinput.(p1,p2,p3,p4); endcase
+            case '+': c.on.(); endcase
+            case '-': c.off.()
+        $)
+        g.sc.pointer(state)
+    $)
+    // restore statics:
+    h!0,h!1,h!2,h!3,h!4,h!5,h!6,h!7,h!8 := i,imax,len,xlen,x0,y0,s,fgcol,bgcol
+    resultis imax
+$)
+.
+/**
+         NF.FIND2 - CONSTRUCTS QUERY CONTOL VECTOR FROM TEXT QUERY
+         ---------------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         23.5.86  2        PAC         Fix TRAP bug
+         19.6.86  3        MFP         "gl4hd"
+         18.7.86  4        MFP         $<debug removed
+         ******************************************
+         9.6.87   5        MFP         CHANGES FOR UNI
+**/
+
+
+section "find2"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.sthd"
+get ":4.DSH.H.nfhd"
+
+/**
+         See CF.FIND2 for comments
+**/
+
+let trap.(n,val,low,high) be g.ut.trap("NF",20+n,true,3,val,low,high)
+
+let small.(ch) = 'A' <= ch <= 'Z' -> ch-'A'+'a', ch
+let wordsizeofstring(s) = (s%0+bytesperword)/bytesperword
+
+let changecolour.(p) be
+$(  g.nf.boxinput('f',(table 0,m.sd.disYtex-8*m.sd.linw,40,3),m.sd.blue)
+    g.nf.boxinput('h',1,(p+p.q)%0,m.sd.cyan,m.sd.blue)
+$)
+
+/* extracts the words in string s to area v (of size m.vsize words) for
+index lookup. The result is the number of words extracted */
+
+let extractwords.(p) = valof
+$(  let s = p+p.q  // the current text query
+    let v = p!c.ws  // the workspace area
+
+    let w = v+2  // pointer into v-area
+    let slen = s%0
+    let i = 1  // offset in s
+    let k = m.vsize  // v!k ... v!(m.vsize-1) address the words in v
+    let ch = ?
+    $(
+        $(  if i > slen resultis m.vsize-k  // term count
+            ch := small.(s%i); if 'a' <= ch <= 'z' break
+            i := i+1
+        $) repeat
+        /* now at a letter */
+        $(  let j = 0
+            w!-2 := i  // 1st limit for highlighting
+            $(  j := j+1; w%j := ch; i := i+1
+                if i > slen break
+                ch := small.(s%i)
+            $) repeatwhile 'a' <= ch <= 'z'
+            if j < 3 loop  // ignore 1 and 2 letter words
+            w%0 := j
+            w!-1 := i-1  // 2nd limit for highlighting
+            g.nf.stem(w)
+            if w%0 > 20 do w%0 := 20
+        $)
+        /* the new word is now a string at w */
+        $<trace WRITEF("/%S/*N",w) $>trace
+        $(  let l = k
+            $(  let compare = l = m.vsize -> 1, COMPSTRING(v!l, w)
+                if compare = 0 break // duplicate word
+                if compare > 0 do
+                $(  MOVE(v+k, v+k-1, l-k)  // leave a hole
+                     v!(l-1) := w   // slot in w
+                    k := k-1; w := w+2+wordsizeofstring(w)
+                    trap.(1,w-v,2,k)
+                    break
+                $)
+                l := l+1
+            $) repeat
+        $)
+    $) repeat
+$)
+
+$<trace
+let MONITOR.(s,p) be
+$(  WRITEF("/%S/:  ",s)
+    WRITEF("/%S/ ",p+1)
+    p := nextind.(p)-4
+    WRITEF("(%N) [%N:%N]*N",p!(-1),p!2,p!1)
+$) $>trace
+
+let compstring.(s,i,t,j) = valof
+$(  let m,n = s%i, t%j
+    for o = 1 to m < n -> m, n do
+    $(  let diff = CAPCH(s%(i+o))-CAPCH(t%(j+o))
+        if diff ~= 0 resultis diff
+    $)
+    resultis m-n
+$)
+
+let g.nf.lookup(s, p, r) be
+$(  manifest $( maxgroupsize = 1000 $) // bytes
+    let firstentry = true
+    let v = vec o.wsize-1
+    let d = 0
+    let dbase = 0  // for trapping
+    $(  $<trace MONITOR.(s,p) $>trace
+        if compstring.(s,0,p,d+2) < 0 do
+        $(  if firstentry do d := d+g.ut.unpack16(p,d) // a rare event
+            g.ut.unpack32(p,d-6,r)
+            // the next line should not be necessary (removed 23.7.86)
+        //  test p%(d+3) = #XFF then r!o.wsize := maxgroupsize or
+            $(  g.ut.unpack32(p,d+g.ut.unpack16(p,d)-6,v)
+                g.ut.sub32(r,v)
+                $(  let low, high = ?,?
+                    low := g.ut.get32(v, LV high)
+                    trap.(2,high,0,0)
+                    trap.(3,low,10,2000)
+                    r!o.wsize := low+g.ut.unpack16(p,d)
+                $)
+            $)
+            $<trace WRITEF("Next grouping size:%N*N",r!o.wsize) $>trace
+            return
+        $)
+        firstentry := false; d := d+g.ut.unpack16(p,d)
+              trap.(4,d-dbase,10,r!o.wsize)
+    $) repeat
+$)
+
+let find0.(s, p) = valof
+$(  let d = 0
+    $(  let compare = compstring.(s,0,p,d+2)
+        $<trace MONITOR.(s,p) $>trace
+        d := d + g.ut.unpack16(p,d)
+        if compare < 0 resultis 0
+        if compare = 0 resultis d-6
+    $) repeat
+$)
+
+let weight.(n) = valof
+$( let x = 10000 / n  /* see above */
+   let log2x = 25  // 10 log2 5
+   while x >= 8 do $( x := x/2; log2x := log2x+10 $)
+   resultis log2x + x!table 0, 0, 10, 16, 20, 23, 26, 28
+$)
+
+let read.(h,v,q,n,errornumber) be unless g.dh.read(h,v,q,n) = n do
+$(  trap.(errornumber,2,1,0)  // force fatal error
+    finish
+$)
+
+let lookupwords.(p, termcount, levels) = valof
+$(  let v = p!c.ws  // workspace area
+    let w = v+m.vsize //2nd workspace area - requires 30*(o.wsize+1) words max
+    let r = w+termcount*(o.wsize+1) // 3rd workspace area for index entries
+    let z = p+p.z  // query control vector
+    let notermasyet = true
+
+    let oldo = vec o.wsize-1
+    g.ut.set32(-1,-1,oldo) // anything different from 0
+
+    /* initialise the index offsets to the front of the index: */
+    for i = 0 to (o.wsize+1)*(termcount-1) by o.wsize+1 do
+    $(  g.ut.set32(0,0,w+i)
+        w!(i+o.wsize) := 200
+    $)
+
+    /* trace through the index levels up to the lowest: */
+    for j = 1 to levels-1 for i = termcount-1 to 0 by -1 do
+    $(  /* read a new index level if required: */
+        let k = i*(o.wsize+1)
+        $<trace WRITEF("Level %N*N",j) $>trace
+        unless g.ut.cmp32(oldo,w+k) = 0 do
+        $(  trap.(5,w!(k+o.wsize),0,(p!c.wssize-(r-v))*2)
+            read.(p!c.index, w+k, r, w!(k+o.wsize), 6)
+            g.ut.mov32(w+k,oldo)
+        $)
+        /* esablish the offset to the next index level: */
+        g.nf.lookup(v!(m.vsize-1-i), r, w+k)
+    $)
+    /* trace through the lowest index levels */
+    $<trace WRITEF("Level %N*N",levels) $>trace
+    $(  let bestmatch = 0
+        for i = termcount-1 to 0 by -1 do
+        $(  let k = i*(o.wsize+1)
+            read.(p!c.index, w+k, r, w!(k+o.wsize), 2)
+            $(  let t = v!(m.vsize-1-i)
+                let d = find0.(t, r)
+                test d = 0 then termcount := termcount-1 or
+                $(  let f = g.ut.unpack16(r,d-2) // pick up frequency
+                    trap.(7,f,1,32767)
+                    g.ut.unpack32(r,d,z+c.o) // copy offset
+                    z!c.f := f
+                    z!c.w := weight.(f); bestmatch := bestmatch+z!c.w
+                    z!c.hl1 := t!-2
+                    z!c.hl2 := t!-1
+                    $<trace
+                       WRITEF("term %N freq %N weight %N offset [%N:%N]*N",
+                              i,f,z!c.w,z!(c.o+1),z!c.o)
+                    $>trace
+                    if notermasyet do changecolour.(p)
+                    notermasyet := false
+                    g.nf.boxinput('h',z!c.hl1,z!c.hl2,m.sd.yellow,m.sd.blue)
+                                                 // highlight
+                    z := z+m.h
+                $)
+            $)
+        $)
+        if termcount > 0 do
+        $(  p!c.bestmatch := bestmatch
+            p!c.bestcount := 0
+            p!c.termcount := termcount
+        $)
+        resultis termcount
+    $)
+$)
+
+let g.nf.makequery(p) = valof
+$(  test COMPSTRING(p+p.oldq, p+p.q) = 0 &
+         (p+p.q)%0 > 0 then $( changecolour.(p); g.nf.highlight() $) or
+    $(
+        $(  let termcount = extractwords.(p)
+            if termcount = 0 do
+            $(  g.sc.ermess("No proper words in this query")
+                resultis false
+            $)
+            g.sc.mess("Searching for keywords")
+            termcount := lookupwords.(p,termcount,m.nf.indexlevels)
+            if termcount = 0 do
+            $(  g.sc.clear(m.sd.message)
+                g.sc.ermess("None of these words are in the index")
+                resultis false
+            $)
+        $)
+    $)
+    MOVE(p+p.q, p+p.oldq, wordsizeofstring(p+p.q))
+    p!c.h := 10000
+    resultis true
+$)
+.
+/**
+         NF.FIND3 - RUNS THE FREE TEXT QUERY
+         -----------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         23.5.86  2        PAC         Fix TRAP bug
+         19.6.86  3        MFP         "gl4hd", g.sc.pointer in
+                                          g.nf.runquery
+         22.6.86  4        MFP         'backmove.' for 'backmove'
+         1.7.86   5        MFP         "finding titles, please wait"
+         14.7.86  6        MFP         bug fix as marked
+         18.7.86  7        MFP         $<debug removed
+         26.9.86  8        MFP         "These items .. found:"
+         *******************************************
+         9.6.87   9        MFP         CHANGES FOR UNI
+         22.6.87  10       DNH         fix process.. bug
+**/
+
+
+section "find3"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.nfhd"
+
+/**
+         See CF.FIND3 for comments
+**/
+
+static $( p = 0; worstmatch = 0; bestmatch = 0; mask = 0 $)
+
+
+let trap.(n,val,low,high) be g.ut.trap("NF",30+n,true,3,val,low,high)
+
+let backmove.(p,q,n) be for i = n-1 to 0 by -1 do q!i := p!i
+
+let read.(v,q,n,errornumber) be unless g.dh.read(p!c.index,v,q,n) = n do
+$(  trap.(errornumber,2,1,0) // force fatal error
+    finish
+$)
+
+let makebuffers.(b, bsize) = valof
+$(  let z = p+p.z
+    let termcount = p!c.termcount
+    let zlim = z+(termcount-1)*m.h
+    for q = z to zlim by m.h do q!c.p := 0
+    until termcount = 0 do
+    $(  let r = 0
+        /* set r to the term slot of smallest frequency among the terms with
+           as yet unallocated buffers. */
+        for q = z to zlim by m.h if q!c.p = 0 & (r = 0 | r!c.f > q!c.f) do
+           r := q
+        $(  let sp1 = r!c.f // total slots for current term
+            let sp2 = bsize/(termcount*m.iisize)
+                              // equitable division of remaining space
+            let sp = sp1 < sp2 -> sp1, sp2 // smaller of these
+            sp := sp*m.iisize
+            r!c.p := b+bsize-sp
+            r!c.sp := sp
+            bsize := bsize-sp
+            $<trace g.sc.ermess("%N words for term %N buffer",sp,(r-z)/m.h)
+            $>trace
+        $)
+        if termcount = 1 do p!c.maxterm := r
+        termcount := termcount-1
+    $)
+    resultis b
+$)
+
+and readitem.(q) be
+$(  let c,i,sp = q!c.c, q!c.i, q!c.sp
+    if q = p!c.maxterm & (i & mask) = 0 do g.nf.writepc(MULDIV(i,100,q!c.f))
+    if i = q!c.f do
+    $(  q!c.c := p+c.max  // end of stream indication
+        return
+    $)
+    c := c+m.iisize
+    //  trap.(0,c-q!c.p,m.iisize,sp)  (comment out for speed)
+    if c = q!c.p+sp do
+    $(  let n = q!c.f-i       // items left to be read
+        sp := sp/m.iisize     // items readable in one gulp
+        if n > sp do n := sp  // items to read this time round
+        $(  let v = vec 1
+            let w = vec 1
+            g.ut.set32(i,0,v)
+            g.ut.set32(m.biisize,0,w)
+            g.ut.mul32(w,v)
+            g.ut.add32(q+c.o,v)
+            read.(v, q!c.p, n*m.biisize, 1)
+            c := q!c.p
+        $)
+    $)
+    q!c.c := c
+    q!c.i := i+1
+$)
+
+and setmaxval.(q) be g.ut.set32(0,true,q)  // fill with 1's
+
+and cmp.(p,q) = p%2 ~= q%2 -> p%2-q%2,
+                p%1 ~= q%1 -> p%1-q%1, p%0-q%0
+
+and addtobestmatches.(d,w) be
+$(
+    /* if the item in p!c.h is <= [w,d] return */
+    if p!c.h < w | p!c.h = w & cmp.(p+c.h+1,d) > 0 return
+    $(  let m, mend = p+p.m, p!c.mend
+        if mend = m.msize do mend := mend-m.misize
+        $(  let i = mend
+            let distance = 0
+            while i > 0 do
+            $(  let diff = m!(i-m.misize)-w
+                if diff < 0 do $( i := i-m!(i-1); loop $)
+                if diff = 0 do distance := m!(i-1)
+                break
+            $)
+            backmove.(m+i, m+i+m.misize, mend-i)
+            m!i := w; g.ut.mov32(d, m+i+1)
+            m!(i+m.misize-1) := distance+m.misize
+        $)
+        mend := mend+m.misize
+        if mend = m.msize do worstmatch := m!(m.msize-m.misize)
+        p!c.mend := mend
+        if w = bestmatch do
+        $(  p!c.bestcount := p!c.bestcount+1
+            g.nf.writepm(p!c.bestcount)
+        $)
+    $)
+$)
+
+and processquery.() be
+$(  let z = p+p.z
+    let termcount = p!c.termcount
+    let zlim = z+(termcount-1)*m.h
+    let w = 0
+    let prev.D = vec m.iisize-1
+    setmaxval.(prev.D)
+    worstmatch := 0
+    bestmatch := p!c.bestmatch
+    $(  let maxfreq = p!c.maxterm!c.f
+        mask := maxfreq / 100
+        $(  let n = 1
+            while n < mask do $( mask := mask | n; n := n << 1 $)
+        $)
+    $)
+    /* force initialisation: */
+    for q = z to zlim by m.h do
+    $(  q!c.i := 0
+        q!c.c := q!c.p+q!c.sp-m.iisize
+        readitem.(q)
+        if cmp.(q!c.c,prev.D) < 0 do MOVE(q!c.c,prev.D,m.iisize)
+    $)
+    g.nf.writepm(0)
+    setmaxval.(p+c.max)
+    p!c.bestcount := 0
+    $(  let q = z
+        let qc = ?
+        for p = q+m.h to zlim by m.h if cmp.(p!c.c,q!c.c) < 0 do q := p
+        /* q now gives the smallest D-value in z */
+        qc := q!c.c
+        $(  let qweight = q!c.w
+            test cmp.(qc,prev.D) = 0
+            then w := w+qweight or
+            $(  if w > worstmatch do
+                $(  addtobestmatches.(prev.D,w)
+                    if worstmatch = bestmatch return
+                $)
+                w := qweight
+            $)
+        $)
+        if qc = p+c.max RETURN
+        MOVE(qc, prev.D, m.iisize)
+        $<trace2 WRITEF("%N/%X4/%X4 ",(q-z)/m.h,prev.D!1,prev.D!0) $>trace2
+        readitem.(q)
+    $) repeat
+$)
+
+and g.nf.extracttitles(p) be
+$(  let mbase, t = p+p.m+p!c.m, p+p.t
+    let mtop = ?
+    let items = m.titlespp+1
+    let a = (p!c.mend-p!c.m)/m.misize
+    g.sc.mess("Finding titles, please wait")
+    if items > a do items := a
+    mtop := mbase+(items-1)*m.misize
+    for q = mbase to mtop by m.misize do !q := -!q
+                                  // mark as uncollected
+    for j = 1 to items do
+    $(  let q = mbase
+        while !q > 0 do q := q+m.misize
+        trap.(2,q,mbase,mtop)
+        for r = q+m.misize to mtop by m.misize
+                    if !r < 0 & cmp.(r+1,q+1) < 0 do q := r
+        $(  let v = vec 1
+            let w = vec 1
+            let o = (q-mbase)/m.misize*m.tsize
+            g.ut.movebytes(q+1,0,v,0,4); v%3 := 0; g.ut.unpack32(v,0,w)
+            g.ut.set32(m.tbsize,0,v); g.ut.mul32(v,w)
+            unless g.dh.read(p!c.names,w,t+o,m.tbsize) = m.tbsize do
+            $(  trap.(3,2,1,0)
+                finish  $)
+        $)
+        !q := -!q  // mark as collected
+    $)
+    p!c.titles := items
+    g.sc.clear(m.sd.message)
+$)
+
+let g.nf.runquery(p0) be
+$(  g.sc.mess("Processing the query, please wait")
+    p := p0
+    makebuffers.(p!c.ws, p!c.wssize)
+    p!c.mend := 0
+    g.sc.pointer(m.sd.off)  // added 19.6.86
+    if p!c.termcount > 0 do processquery.()
+    g.sc.pointer(m.sd.on)   // added 19.6.86
+    p!c.m := 0
+    $<trace g.sc.ermess("p!c.mend = %N",p!c.mend) $>trace
+    $<trace2 for q = p+p.m to p+p.m+p!c.mend-m.misize by m.misize do
+           WRITEF("[%N]%X4/%X4 ",q!0,q!2,q!1)
+    $>trace2
+    g.nf.extracttitles(p)
+    g.sc.mess(p!c.termcount = 0 -> "No relevant items found",
+                                   "These items have been found:")
+    MOVE(p+p.m+p!c.mend-m.misize, p+c.h, m.misize) // save worst item
+$)
+.
+/**
+         NF.FIND5 - SUFFIX STRIPPER
+         --------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         19.6.86  2        MFP         "gl4hd"
+         25.9.86  3        MFP         fixes as in CF.FIND5
+         ******************************************
+         9.6.87   4        MFP         RELEASED FOR UNI
+**/
+
+section "find5"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+
+static $( p = 0; k = 0; k0 = 0; j = 0 $)
+
+/**
+          See CF.FIND5 for comments
+**/
+
+/* c.(i) is true <=> p%i is a consonant. */
+
+let c.(i) = valof
+$(  let ch = p%i
+    if ch = 'a' | ch = 'e' | ch = 'i' | ch = 'o' | ch = 'u' resultis false
+    if ch = 'y' resultis i = 0 -> true, ~c.(i-1)
+    resultis true
+$)
+
+/* m.() measures the number of consonant sequences between k0 and j. if c is
+   a consonant sequence and v a vowel sequence, and <..> indicates arbitrary
+   presence,
+
+      <c><v>       gives 0
+      <c>vc<v>     gives 1
+      <c>vcvc<v>   gives 2
+      <c>vcvcvc<v> gives 3
+      ....
+*/
+
+and m.() = valof
+$(  let n = 0
+    let i = k0
+    $(  if i > j resultis n
+        unless c.(i) break
+        i := i+1
+    $) repeat
+    i := i+1
+    $(
+        $(  if i > j resultis n
+            if c.(i) break
+            i := i+1
+        $) repeat
+        i := i+1
+        n := n+1
+        $(  if i > j resultis n
+            unless c.(i) break
+            i := i+1
+        $) repeat
+        i := i+1
+    $) repeat
+$)
+
+/* vowelinstem.() is true <=> k0,...j contains a vowel */
+
+and vowelinstem.() = valof
+$(  for i = k0 to j do unless c.(i) resultis true
+    resultis false
+$)
+
+/* doublec.(j) is true <=> j,(j-1) contain a double consonant. */
+
+and doublec.(j) = j < k0+1 -> false, valof
+$(  let ch, ch1 = p%j, p%(j-1)
+    if ch ~= ch1 resultis false
+    resultis c.(j)
+$)
+
+/* cvc.(i) is true <=> i-2,i-1,i has the form consonant - vowel - consonant
+   and also if the second c is not w,x or y. this is used when trying to resore
+   an e at the end of a short word. e.g.
+
+      cav(e), lov(e), hop(e), crim(e), but
+      snow, box, tray.
+
+*/
+
+and cvc.(i) = valof
+$(  if i < k0+2 | ~c.(i) | c.(i-1) | ~c.(i-2) resultis false
+    $(  let ch = p%i
+        if ch = 'w' | ch = 'x' | ch = 'y' resultis false
+    $)
+    resultis true
+$)
+
+/* ends.(s) is true <=> k0,...k ends with the string s. */
+
+and ends.(s) = valof
+$(  let length = s%0
+    j := k
+    if length > k resultis false
+    for i = 1 to length if p%(k-length+i) ~= s%i resultis false
+    j := k-length
+    resultis true
+$)
+
+/* setto.(s) sets (j+1),...k to the characters in the string s, readjusting
+   k. */
+
+and setto.(s) be
+$(  let length = s%0
+    for i = 1 to length do p%(j+i) := s%i
+    k := j+length
+$)
+
+/* r.(s) is used below. */
+
+and r.(s) be if m.() > 0 do setto.(s)
+
+/* step1.() gets rid of plurals and -ed or -ing. e.g.
+
+       caresses  ->  caress
+       ponies    ->  poni
+       ties      ->  ti
+       caress    ->  caress
+       cats      ->  cat
+
+       feed      ->  feed
+       agreed    ->  agree
+       disabled  ->  disable
+
+       matting   ->  mat
+       mating    ->  mate
+       meeting   ->  meet
+       milling   ->  mill
+       messing   ->  mess
+
+       meetings  ->  meet
+
+*/
+
+and step1.() be
+$(  if p%k = 's' do
+    test ends.("sses") then k := k-2 or
+    test ends.("ies") then setto.("i") or
+    unless p%(k-1) = 's' do k := k-1
+
+    test ends.("eed") then if m.() > 0 do k := k-1 or
+    if (ends.("ed") | ends.("ing")) & vowelinstem.() do
+    $(  k := j
+        test ends.("at") then setto.("ate") or
+        test ends.("bl") then setto.("ble") or
+        test ends.("iz") then setto.("ize") or
+        test doublec.(k) then
+        $(  k := k-1
+            $(  let ch = p%k
+                if ch = 'l' | ch = 's' | ch = 'z' do k := k+1
+            $)
+        $)
+        or if m.() = 1 & cvc.(k) do setto.("e")
+    $)
+$)
+
+/* step2.() turns terminal y to i when there is another vowel in the stem. */
+
+and step2.() be if ends.("y") & vowelinstem.() do p%k := 'i'
+
+/* step3.() maps double suffices to single ones. so -ization ( =  -ize plus -ation)
+   maps to -ize etc. note that the string before the suffix must give
+   m.() > 0. */
+
+and step3.() be switchon p%(k-1) into
+$(
+    case 'a': if ends.("ational") do $( r.("ate"); endcase $)
+              if ends.("tional") do $( r.("tion"); endcase $)
+              endcase
+    case 'c': if ends.("enci") do $( r.("ence"); endcase $)
+              if ends.("anci") do $( r.("ance"); endcase $)
+              endcase
+    case 'e': if ends.("izer") do $( r.("ize"); endcase $)
+              endcase
+    case 'l': if ends.("bli") do $( r.("ble"); endcase $)
+              if ends.("alli") do $( r.("al"); endcase $)
+              if ends.("entli") do $( r.("ent"); endcase $)
+              if ends.("eli") do $( r.("e"); endcase $)
+              if ends.("ousli") do $( r.("ous"); endcase $)
+              endcase
+    case 'o': if ends.("ization") do $( r.("ize"); endcase $)
+              if ends.("ation") do $( r.("ate"); endcase $)
+              if ends.("ator") do $( r.("ate"); endcase $)
+              endcase
+    case 's': if ends.("alism") do $( r.("al"); endcase $)
+              if ends.("iveness") do $( r.("ive"); endcase $)
+              if ends.("fulness") do $( r.("ful"); endcase $)
+              if ends.("ousness") do $( r.("ous"); endcase $)
+              endcase
+    case 't': if ends.("aliti") do $( r.("al"); endcase $)
+              if ends.("iviti") do $( r.("ive"); endcase $)
+              if ends.("biliti") do $( r.("ble"); endcase $)
+              endcase
+//  case 'g': if ends.("logi") do $( r.("log"); endcase $)
+$)
+
+/* step4.() deals with -ic-, -full, -ness etc. similar strategy to step3. */
+
+and step4.() be switchon p%k into
+$(
+    case 'e': if ends.("icate") do $( r.("ic"); endcase $)
+              if ends.("ative") do $( r.(""); endcase $)
+              if ends.("alize") do $( r.("al"); endcase $)
+              endcase
+    case 'i': if ends.("iciti") do $( r.("ic"); endcase $)
+              endcase
+    case 'l': if ends.("ical") do $( r.("ic"); endcase $)
+              if ends.("ful") do $( r.(""); endcase $)
+              endcase
+    case 's': if ends.("ness") do $( r.(""); endcase $)
+              endcase
+$)
+
+/* step5.() takes off -ant, -ence etc., in context <c>vcvc<v>. */
+
+and step5.() be
+$(  switchon p%(k-1) into
+    $(  case 'a':  if ends.("al") endcase; return
+        case 'c':  if ends.("ance") endcase
+                   if ends.("ence") endcase; return
+        case 'e':  if ends.("er") endcase; return
+        case 'i':  if ends.("ic") endcase; return
+        case 'l':  if ends.("able") endcase
+                   if ends.("ible") endcase; return
+        case 'n':  if ends.("ant") endcase
+                   if ends.("ement") & m.() > 1 endcase
+                   if ends.("ment") & m.() > 1 endcase
+                        // element etc. not stripped before the m
+                   if ends.("ent") endcase; return
+        case 'o':  if ends.("ion") & (p%j = 's' | p%j = 't') endcase
+                   if ends.("ou") endcase; return      // takes care of -ous
+        case 's':  if ends.("ism") endcase; return
+        case 't':  if ends.("ate") endcase
+                   if ends.("iti") endcase; return
+        case 'u':  if ends.("ous") endcase; return
+        case 'v':  if ends.("ive") endcase; return
+        case 'z':  if ends.("ize") endcase; return
+        default: return
+    $)
+    if m.() > 1 do k := j
+$)
+
+/* step6.() removes a final -e if m.() > 1. */
+
+and step6.() be
+$(  j := k
+    if p%k = 'e' do
+    $(  let a = m.()
+        if a > 1 | a = 1 & ~cvc.(k-1) do k := k-1
+    $)
+    if p%k = 'l' & doublec.(k) & m.() > 1 do k := k-1
+$)
+
+and g.nf.stem(s) be
+$(  k := s%0
+    if k <= 2 return  // no stemming on strings of length 1 or 2
+    p := s; k0 := 1   // the string goes from p%k0 to p%k
+    step1.(); step2.(); step3.(); step4.(); step5.(); step6.()
+    s%0 := k  // reset the length
+$)
+.
+/**
+         NF.FIND7 - OUTPUTS FIND'S RUNNING COUNTS ON THE SCREEN
+         ------------------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         19.6.86  2        MFP         "gl4hd" & remove g.sc.pointer
+        20.10.86  3        PAC         adjust wrn. display position
+         ***********************************************
+         9.6.87   4        MFP         RELEASED FOR UNI
+**/
+
+
+section "find7"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.H.sdhd"
+
+/**
+          See CF.FIND7 for comments
+**/
+
+manifest $( c = m.sd.charwidth; h = m.sd.linw
+            c2 = c*2; c3 = c*3; c4 = c*4
+            x1 = m.sd.disXtex+24*c
+            y1 = m.sd.disYtex-17*h
+            x2 = m.sd.disXtex+24*c
+            y2 = m.sd.disYtex-19*h
+         $)
+
+let wrn.(n, x, y, xi, eta, s) be
+$(  // g.sc.pointer(m.sd.off)  - removed 19.6.86
+    g.sc.movea(m.sd.display, x, y+4)
+    g.sc.selcol(m.sd.cyan); g.sc.rect(m.sd.plot, xi, -eta)
+    g.sc.movea(m.sd.display, x, y-4) // changed 20.10.86 PAC
+    g.sc.selcol(m.sd.blue); g.sc.ofstr(s, n)
+    // g.sc.pointer(m.sd.on)
+$)
+
+let g.nf.writepc(n) be
+$(
+    static $( oldn = 0 $)
+    test n > 0 & n/10 = oldn/10 then wrn.(n rem 10, x1+c2, y1, c, h, "%N")
+                                  or wrn.(n, x1, y1, c4, h, "%I3%%")
+    oldn := n
+$)
+
+let g.nf.writepm(n) be
+$(
+    static $( oldn = 0 $)
+    if n = 101 do n := 100
+    test n > 0 & n/10 = oldn/10 then wrn.(n rem 10, x2+c2, y2, c, h, "%N")
+                                  or wrn.(n, x2, y2, c4, h, "%I3")
+    oldn := n
+$)
+
+.

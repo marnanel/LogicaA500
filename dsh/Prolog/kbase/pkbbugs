@@ -1,0 +1,62 @@
+/*started 16.12.87 by SA */
+
+/* uses files:  pkbs, bmethods, utilities */
+
+/*
+ *  the command run_check causes all the pkbs to be checked to ensure they are
+ *  defined down to either [] or a basic_method.
+ *
+ *  Any errors are output to a file called mistakes 
+*/
+
+test_num(0).
+print_num(X):-
+   test_num(X),
+   tell(user),
+   write(X),nl,
+   tell(mistakes),
+   Y is X+1,
+   retract(test_num(X)),
+   assert(test_num(Y)).
+
+run_check:- telling(Old),
+            tell(mistakes),
+            forall(pkb(Proc,Generic,Steps),
+                  (print_num(X),check_steps(Proc,Generic,Steps))),
+            told,
+            tell(Old).                                      
+
+check_steps(_,_,[]):- !.
+check_steps(Proc,Generic,[Step|Steps]):-
+   check_step(Proc,Generic,Step,Steps,NewSteps),
+   check_steps(Proc,Generic,NewSteps).
+
+check_step(Procedure,root,generic(Step),Steps,Steps):-
+   pkb(Procedure,Step,_).
+
+check_step(_,Generic,generic(Step),Steps,Steps):-
+   pkb(Generic,Step,_).
+
+check_step(_,_,library(Step),Steps,Steps):-
+   pkb(library,Step,_).
+
+check_step(_,_,library(Step),Steps,Steps):-
+   basic_method_library(Step).
+
+check_step(_,_,some_of(List),Steps,NewSteps):-
+   append(List,Steps,NewSteps).
+
+check_step(_,_,one_of(List),Steps,NewSteps):-
+   append(List,Steps,NewSteps).
+
+check_step(_,_,If,Steps,NewSteps):-
+   functor(If,if,5),
+   arg(3,If,ThenSteps),
+   arg(5,If,ElseSteps),
+   append(ElseSteps,Steps,L1),
+   append(ThenSteps,L1,NewSteps).
+
+check_step(Procedure,Generic,Step,Steps,Steps):-
+   write('CANNOT FIND '),write(Step),nl,
+   write(' FOR PROCEDURE '),writeq(Procedure),nl,
+   write(' GENERIC '),writeq(Generic),nl,nl.

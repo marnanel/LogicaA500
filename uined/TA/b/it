@@ -1,0 +1,8 @@
+   let data.area = a + (m.ta.data.area >> 1) + ((a%(m.ta.cat.table +
+              a%m.ta.cur.var - 1) - 1) * 4)
+
+
+
+
+
+

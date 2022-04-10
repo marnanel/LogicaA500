@@ -1,0 +1,52 @@
+/* > H.Arthur */
+
+/*
+** Things in the Arthur C library.
+*/
+
+int adval(int);
+void clg(void);
+void cls(void);
+void circle(int,int,int);
+void circlefill(int,int,int);
+void colour(int);
+void draw(int,int);
+void drawby(int,int);
+void envelope(int,int,int,int,int,int,int,int,int,int,int,int,int,int);
+void fill(int,int);
+int get(void);
+void gcol(int,int);
+void gwindow(int,int,int,int);
+short inkey(int);
+void mode(int);
+void move(int,int);
+void moveby(int,int);
+int mouseX(void);
+int mouseY(void);
+int mouseB(void);
+void cursor(int);
+void origin(int,int);
+void palette(int,int,int,int,int);
+void plot(int,int,int);
+int point(int,int); 
+int pos(void);
+void rectangle(int,int,int,int);
+void rectanglefill(int,int,int,int);
+unsigned rnd(unsigned);
+void sound(int,int,int,int);
+void stringprint(char *);
+void tab(int,int);
+void vdu(int);
+void vduw(int);
+void vduq(int,...); 
+int vpos(void);
+short osbyte(int,int,int);
+void osword(int,void *);
+void osgbpb(int,void *);
+void osfile(int,void *);
+/*
+gstrans/init/read ?           Wot ? getenv(string) (ANSI C library) will be
+                              defined to look for var. named and return it.
+                              (expanded if macro).
+                              Need a set or use oscli ?
+*/

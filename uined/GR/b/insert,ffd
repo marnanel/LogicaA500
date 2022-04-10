@@ -1,0 +1,98 @@
+section "insert"
+
+/**
+         GR.B.insert - Insert bytes in middle of file
+         --------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         l.insert
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       15.05.87   1        SRY         Initial version
+
+         GLOBALS DEFINED:
+
+         G.gr.insert.bytes
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.gh.glGRhd"
+get ":4.UINED.h.uthd"
+get ":4.UINED.h.dhphd"
+get ":4.UINED.h.iophd"
+get ":4.UINED.h.cmhd"
+
+/*
+   Insert number of bytes pointed to by 32-bit b at offset second
+   on handle h. Assume in right filing system. Returns true for success
+*/
+
+let G.gr.insert.bytes(byte.ptr, insert.pos) = valof
+$( let last = false
+   let res = ?
+   let buffer.bytes = vec 1
+   let length = vec 1
+   let input.offset = vec 1
+   let old = vec 1
+   let output.offset = vec 1
+   let t = vec 1
+   let t.buff = ?
+   manifest $( m.64k.buff.bytes = 31*1024 $)
+
+   G.ut.set32(0, 0, t)
+   if G.ut.cmp32(byte.ptr, t) = m.eq resultis true // insert zero bytes
+
+   // Check room to insert
+   unless G.dh.space(byte.ptr) resultis false
+
+   G.ut.set32(m.64k.buff.bytes, 0, buffer.bytes)
+   G.dh.length(G.context!m.data.handle, input.offset)
+   res := G.ut.cmp32(input.offset, insert.pos)
+   if res = m.eq resultis true  // insert at end of file!
+   t.buff := GETVEC(m.64k.buff.bytes/bytesperword)
+
+   if res = m.lt goto error     // trying to insert outside file
+
+   G.ut.mov32(input.offset, old)
+
+   // Loop reading and writing buffer fulls of data from end of file
+   $(  G.ut.sub32(buffer.bytes, input.offset)
+       switchon G.ut.cmp32(input.offset, insert.pos) into
+      $( case m.lt:
+            G.ut.mov32(old, buffer.bytes)
+            G.ut.sub32(insert.pos, buffer.bytes)
+            G.ut.mov32(insert.pos, input.offset)
+         case m.eq:
+            last := true
+         // endcase
+         // case m.gt:
+         // endcase
+      $)
+
+      // Read buffer's worth of bytes bytes
+      if g.dh.read(g.context!m.data.handle, input.offset, t.buff, 
+                                         !buffer.bytes) = 0 goto error
+      G.ut.mov32(input.offset, output.offset)
+      G.ut.add32(byte.ptr, output.offset)
+
+      // Write buffer bytes
+      if g.dh.write(g.context!m.data.handle, output.offset, t.buff, 
+                                   !buffer.bytes) = 0 goto error
+      G.ut.mov32(input.offset, old)
+   $) repeatuntil last
+
+   res := true
+
+exit:
+   freevec(t.buff)
+   resultis res
+
+error:
+   res := false
+   goto exit
+$)
+.

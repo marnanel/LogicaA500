@@ -1,0 +1,224 @@
+/**
+         TABULAR INPUT EDITOR PRIMITIVES
+         -------------------------------
+
+         This section contains :
+
+
+            G.ta.edit
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+         21.10.87 3        MH          updated for UNI version
+**/
+
+SECTION "TAprim3"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.TAhd"
+GET ":4.UINED.h.kdhd"
+
+
+
+/**
+         G.TA.EDIT
+         ---------
+
+         This routine reads in a new category or abbreviation.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.edit[]
+         ----------------
+
+         IF local.state=inactive THEN
+            IF pointer in a box THEN
+               local.state=edit
+               set up temp string as input string
+               set input string to zero length
+               G.sc.input()
+            END IF
+         ELSE
+            G.sc.input()
+            IF G.key=action and input string length > 0 THEN
+               IF v.or.c=variable THEN
+                  copy input string to currently selected variable
+               ELSE IF v.or.c=category THEN
+                  IF abbreviation selected THEN
+                     copy input string to currently selected abbreviation
+                  ELSE
+                     copy input string to currently selected category
+                  END IF
+               END IF
+               local.state=inactive
+               redraw screen
+            END IF
+         END IF
+         IF input string length=0 THEN
+            local.state=inactive
+**/
+let G.ta.edit() be
+$(
+   let in.str=g.ta.area+(m.ta.temp.label / bytesperword)
+   let l=?
+   let xy=g.ta.area+(m.ta.xco / bytesperword)
+   let sel = g.ta.area%m.ta.sel.cat = m.ta.INACTIVE ->
+              g.ta.area%m.ta.c.l,g.ta.area%m.ta.sel.cat
+   let l.pos=g.ta.area%m.ta.pg=2 -> sel-m.ta.lines, sel
+   let y=m.ta.ystart+m.sd.linw-(l.pos * m.sd.linw)
+
+   if in.str%0 > (m.ta.str.l - 2) in.str%0:=(m.ta.str.l - 2)
+   test g.ta.area%m.ta.1st.time=m.ta.true then
+   $(
+      g.ta.area%m.ta.1st.time:=m.ta.false
+      g.ta.area%m.ta.l.st:=m.ta.edit
+      G.key:=m.kd.noact
+      test g.ta.area%m.ta.sel.cat=m.ta.INACTIVE then
+         G.sc.input(in.str,m.sd.blue,m.sd.cyan,1)
+      else
+         G.sc.input(in.str,m.sd.blue,m.sd.cyan,(m.ta.str.l - 2))
+   $)
+   else
+      test in.str%0 = 0 & G.key = m.kd.noact then
+      $(
+         test g.ta.area%m.ta.sel.cat = m.ta.INACTIVE then
+            unless (m.sd.disx0 <= G.xpoint <= m.sd.charwidth) &
+                  (y >= G.ypoint >= y-m.sd.linw) then
+               $( g.ta.area%m.ta.do:=m.ta.true
+                  G.ta.hic(m.sd.blue,false) //highlight box in blue
+                  !xy:=G.xpoint;xy!1:=G.ypoint
+                  g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+                  g.ta.area%m.ta.lock:=m.ta.false
+                  G.ta.box(m.sd.on)
+               $)
+         else
+             unless (m.sd.disx0+(2*m.sd.charwidth) <= G.xpoint <=
+                         (40*m.sd.charwidth)) &
+                     (y >= G.ypoint >= y-m.sd.linw) then
+               $( g.ta.area%m.ta.do:=m.ta.true
+                  G.ta.hic(m.sd.blue,true) //highlight box in blue
+                  !xy:=G.xpoint;xy!1:=G.ypoint
+                  g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+                  g.ta.area%m.ta.lock:=m.ta.false
+                  G.ta.box(m.sd.on)
+               $)
+         return
+      $)
+      else test g.ta.area%m.ta.sel.cat=m.ta.INACTIVE then
+      $( if G.ut.printingchar(G.key) then
+         $( let l.pos=g.ta.area%m.ta.pg=2 -> g.ta.area%m.ta.c.l-m.ta.lines,g.ta.area%m.ta.c.l
+            in.str%0:=1
+            in.str%1:=G.key
+            if g.ta.area%m.ta.lock=m.ta.false g.ta.area%m.ta.lock:=m.ta.true
+            G.ta.box(m.sd.off)
+            G.sc.movea(m.sd.display,m.sd.disx0,m.ta.ystart+m.sd.linw-(m.sd.linw*l.pos))
+            G.sc.selcol(m.sd.cyan)
+            G.sc.rect(m.sd.plot,m.sd.charwidth,-(m.sd.linw-4))
+            G.sc.movea(m.sd.display,m.sd.disx0,m.ta.ystart+m.sd.linw-4-(m.sd.linw*l.pos))
+            G.sc.selcol(m.sd.blue)
+            G.sc.ofstr("%s",in.str)
+            g.ta.area%m.ta.sel.cat:=g.ta.area%m.ta.c.l
+            l:=getlabel() //get category label
+            g.ta.area%m.ta.sel.cat:=m.ta.INACTIVE
+            l%41:=in.str%1 //copy label
+         $)
+         if ((G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6)) &
+            in.str%0 > 0 then
+         $( test (m.sd.disx0 <= G.xpoint <= m.sd.charwidth) &
+               (y >= G.ypoint >= y-m.sd.linw) then
+            $( g.ta.area%m.ta.do:=m.ta.true
+               G.ta.hic(m.sd.blue,false) //highlight box in blue
+            $)
+            else
+               g.ta.area%m.ta.do:=m.ta.true
+            !xy:=G.xpoint;xy!1:=G.ypoint
+            g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+            g.ta.area%m.ta.lock:=m.ta.false
+            G.ta.box(m.sd.on)
+         $)
+      $)
+      else
+      $( if G.ut.printingchar(G.key) | G.key=m.kd.action |
+            G.key=m.kd.delete | (m.kd.fkey1 <= G.key <= m.kd.fkey6) |
+            G.key=m.kd.left | G.key=m.kd.right then
+         $(
+            test in.str%0=0  & (G.key=m.kd.action |
+                  (m.kd.fkey1 <= G.key <= m.kd.fkey6)) then
+            $(
+               G.sc.ermess("Blank label not allowed")
+               G.key:=m.kd.noact
+            $)
+            else
+            $(
+               G.sc.input(in.str,m.sd.blue,m.sd.cyan,(m.ta.str.l-2))
+               if g.ta.area%m.ta.lock=m.ta.false g.ta.area%m.ta.lock:=m.ta.true
+               G.ta.box(m.sd.off)
+               if (G.key=m.kd.action)|(m.kd.fkey1 <= G.key <= m.kd.fkey6) then
+               $(
+                  l:=getlabel() //get category label
+                  for i=0 to 40 do
+                     l%i:=in.str%i //copy label
+                  test (m.sd.disx0+(2*m.sd.charwidth) <= G.xpoint <= (40*m.sd.charwidth)) &
+                     (y >= G.ypoint >= y-m.sd.linw) then
+                  $(
+                     g.ta.area%m.ta.do:=m.ta.true
+                     G.ta.hic(m.sd.blue, true) //high light box in blue
+                     g.ta.area%m.ta.do:=m.ta.false
+                  $)
+                  else
+                    g.ta.area%m.ta.do:=m.ta.true
+                  !xy:=G.xpoint;xy!1:=G.ypoint
+                  g.ta.area%m.ta.l.st:=m.ta.INACTIVE
+                  g.ta.area%m.ta.lock:=m.ta.false
+                  G.ta.box(m.sd.on)
+               $)
+            $)
+         $)
+      $)
+      if G.key = m.kd.action G.key := m.kd.noact
+   $)
+
+and getlabel()=VALOF
+$(
+   let l=G.ta.area+(m.ta.labels / bytesperword)
+
+   for i=1 to 52 do
+   $( if l%0 = g.ta.area%m.ta.sel.var
+         test g.ta.area%m.ta.v.or.c=m.ta.v then
+            if l%1 = m.ta.free BREAK
+         else
+            if l%1 = g.ta.area%m.ta.sel.cat BREAK
+      l:=l+(m.ta.l.width / bytesperword)
+   $)
+   resultis l+1
+$)
+
+.
+

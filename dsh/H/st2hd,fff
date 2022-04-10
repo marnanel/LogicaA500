@@ -1,0 +1,23 @@
+//  UNI SOURCE  23.4
+
+// /**
+//       ST2HDR - STATE TABLE HEADER FILE
+//       --------------------------------
+//
+//       Contains the constant definitions for the various states
+//       that the system can be in.
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+//       23.4.87     1     DNH      Created from PAS version
+//                                  manifests for offsets
+//       18.5.87     2     DNH      Fix m.st.totalsize: + 2
+
+MANIFEST
+$(
+   nothing.much.at.all = -1
+// state table offsets used to initialise table globals g.stover etc.
+
+$)
+

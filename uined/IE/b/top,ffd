@@ -1,0 +1,384 @@
+SECTION "TOP - action"
+
+/**
+         TOP LEVEL ACTION ROUTINE
+         ------------------------
+
+         This section contains :
+
+            G.ie.main and its utility routines
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.top
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         18.6.87     1       SA        Initial version
+         29.6.87     2       SA        New handling for backup
+          3.7.87     3       SA        Explicit handling of input to F/B query
+         23.7.87     4       SA        Handling for Profile UK disc
+         28.8.87     5       SRY       Profile UK removed
+          3.9.87     6       SRY       Back again!
+         15.10.87    7       MH        updated for uni version
+         04.11.87    8       MH        updated for archimedes
+**/
+
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.dhhd"
+GET ":4.UINED.h.vhhd"
+GET ":4.UINED.h.iehd"
+
+/**
+         G.IE.MAIN - TOP LEVEL
+         ---------------------
+
+         Action routine for top level
+
+         INPUTS:
+
+         none
+
+         OUTPUTS:
+
+         none
+
+         GLOBALS MODIFIED:
+
+         g.context!m.oldfile set true or false
+
+         SPECIAL NOTES FOR CALLERS:
+
+         none
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ie.main []
+         ------------
+
+         IF just selected
+         THEN initialise
+
+         allow input to current box
+
+         IF key = return
+         THEN de-highlight box
+              CASE OF box
+               main   : open file with filename
+                        TEST open successful
+                        THEN IF file type correct
+                             THEN g.context!m.oldfile := true
+                                  message "Edit this file or backup (F/B)?"
+                                  box = backup reply
+                                  highlight box
+                             ELSE error message
+                                  re-highlight box
+                        ELSE TEST open new file
+                             THEN re-draw menu bar
+                                  message "New file - select data type"
+                                  box = no box
+                             ELSE error message
+                                  re-highlight box
+                        ENDCASE
+               reply  : TEST answer = B
+                        THEN write "File:"
+                             box = backup file
+                             highlight box
+                        ELSE set key = -(file type overlay state)
+                        ENDCASE
+               backup : TEST file already exists
+                        THEN message "File already exists: overwrite (Y/N)?"
+                             box = backup reply2
+                             highlight box
+                        ELSE make backup of file
+                             TEST backup successful
+                             THEN set key = -(file type overlay state)
+                             ELSE error message
+                                  re-highlight box
+                        ENDCASE
+               reply2 : TEST answer = Y
+                        THEN delete file
+                             make backup of file
+                             TEST backup successful
+                             THEN set key = -(file type overlay state)
+                             ELSE error message
+                                  box = backup
+                                  re-highlight box
+                        ELSE box = backup
+                             re-highlight box
+              ENDCASE
+**/
+
+LET G.ie.main() BE
+$( LET mbar = TABLE m.sd.act,    m.sd.act,    m.sd.wBlank,
+                    m.sd.wBlank, m.sd.wBlank, m.sd.act
+   LET box = g.ie.buff!m.ie.box
+
+   IF g.menubar!m.box1 = m.wExit
+   THEN RETURN
+
+   IF G.context!m.justselected
+   THEN G.ie.init()
+
+   IF (g.context!m.data.handle ~= 0) &
+      (g.ie.buff!m.ie.open = false)
+   THEN $( g.dh.close (g.context!m.data.handle)
+           g.context!m.data.handle := 0
+        $)
+
+   SWITCHON g.key INTO
+   $( CASE m.kd.Fkey1 :
+      CASE m.kd.Fkey2 :
+      CASE m.kd.noact : ENDCASE
+      CASE m.kd.Fkey3 : select (m.ie.chart)
+                        ENDCASE
+      CASE m.kd.Fkey4 : select (m.ie.grid)
+                        ENDCASE
+      CASE m.kd.Fkey5 : select (m.ie.areal)
+                        ENDCASE
+      CASE m.kd.Fkey6 : g.ie.end ()
+                        ENDCASE
+      DEFAULT         : UNLESS box = m.ie.unknown
+                             THEN g.ie.char.input (box)
+   $)
+
+   IF g.key = m.kd.return THEN
+   $( g.sc.pointer (m.sd.off)
+
+      SWITCHON box INTO
+      $( CASE m.ie.main :
+
+              TEST g.ie.buff%m.ie.main.byte = 0
+              THEN $( g.sc.ermess ("File name is blank")
+                      re.highlight (box)
+                   $)
+               ELSE TEST open.file (m.ie.main.byte, m.ie.main.size)
+                    THEN TEST g.ie.file.type ()
+                         THEN $( g.context!m.oldfile := true
+                                 g.ie.buff!m.ie.open := true
+                                 g.ie.highlight (box, m.sd.blue, m.sd.yellow)
+                                 g.ie.buff!m.ie.box := m.ie.reply1
+                                 reply.box (m.ie.reply1)
+                              $)
+                         ELSE re.highlight (box)
+                    ELSE TEST open.new.file ()
+                         THEN $( g.context!m.oldfile := false
+                                 g.ie.buff!m.ie.open := true
+                                 mbar!2 := m.sd.act
+                                 mbar!3 := m.sd.act
+                                 mbar!4 := m.sd.act
+                                 g.sc.menu (mbar)
+                                 g.ie.highlight (box, m.sd.blue, m.sd.yellow)
+                                 g.sc.mess (
+                                   "New file - select data type from menu bar")
+                                 g.ie.buff!m.ie.box := m.ie.unknown
+                              $)
+                         ELSE $( LET string = vec 39/bytesperword
+                                 g.ut.get.ermess(string, 39)
+                                 g.sc.ermess (string)
+                                 re.highlight (box)
+                              $)
+         ENDCASE
+
+         CASE m.ie.reply1 :
+
+              g.sc.clear (m.sd.message)
+              IF g.ie.buff%m.ie.reply1.byte = 0
+              THEN g.ie.buff!m.ie.reply1 := 0
+              SWITCHON CAPCH(g.ie.buff%(m.ie.reply1.byte+1)) INTO
+              $( CASE 'B' : g.ie.buff!m.ie.open := true
+                            G.sc.movea (m.sd.display, 0,
+                            m.ie.backupY+m.sd.linW)
+                            G.sc.odrop ("Name of output file for this edit:")
+                            g.ie.highlight (m.ie.backup, m.sd.cyan, m.sd.blue)
+                            g.ie.buff!m.ie.box := m.ie.backup
+                            ENDCASE
+                 CASE 'F' : g.key := next.state()
+                            ENDCASE
+                 DEFAULT  : g.sc.beep ()
+                            g.ie.buff!m.ie.reply1 := 0
+                            reply.box (m.ie.reply1)
+                            ENDCASE
+              $)
+         ENDCASE
+
+         CASE m.ie.backup :
+                  g.dh.close (g.context!m.data.handle)
+                  g.context!m.data.handle := 0
+                  g.ie.highlight (m.ie.backup, m.sd.blue, m.sd.yellow)
+                  $( let main, back.up = ?, ?
+                     let main.buff = VEC m.ie.main.size / bytesperword
+                     let backup.buff = VEC m.ie.backup.size / bytesperword
+                     main := G.ut.align(G.ie.buff, m.ie.main.byte, main.buff,
+                                         m.ie.main.size)
+                     back.up := G.ut.align(G.ie.buff, m.ie.backup.byte, backup.buff,
+                                         m.ie.backup.size)
+                     TEST COMPSTRING (main, back.up) ~= 0
+                     THEN
+                          TEST open.file (m.ie.backup.byte, m.ie.backup.size)
+                          THEN $(
+                                  g.ie.buff!m.ie.box := m.ie.reply2
+                                  g.dh.close (g.context!m.data.handle)
+                                  g.context!m.data.handle := 0
+                                  reply.box (m.ie.reply2)
+                               $)
+                          ELSE TEST backup() THEN
+                                  g.key := next.state()
+                               ELSE
+                                  reset.backup()
+                     ELSE $( g.sc.ermess (
+                                    "Input and output filenames are the same")
+                             reset.backup()
+                          $)
+                  $)
+         ENDCASE
+
+         CASE m.ie.reply2 :
+
+              g.sc.clear (m.sd.message)
+              TEST CAPCH(g.ie.buff%(m.ie.reply2.byte+1)) = 'Y'
+              THEN $( let back.up = ?
+                      let backup.buff = VEC m.ie.backup.size / bytesperword
+                      back.up := G.ut.align(G.ie.buff, m.ie.backup.byte, 
+                                  backup.buff, m.ie.backup.size)
+                      TEST g.dh.delete.file (back.up)
+                      THEN TEST backup() THEN
+                              g.key := next.state()
+                           ELSE
+                              reset.backup()
+                      ELSE reset.backup()
+                   $)
+              ELSE reset.backup()
+         ENDCASE
+
+         CASE m.ie.unknown: ENDCASE
+      $)
+
+      g.sc.pointer (m.sd.on)
+   $)
+
+   IF g.redraw
+   THEN g.sc.menu (mbar)
+$)
+
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+//                  Utility routines used by TOP only                        //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
+// opens a file for update returning true if successful
+AND open.file (box.byte, box.size) = VALOF
+$( let box.buff, box = ?, ?
+   box.buff := GETVEC(box.size)
+   box := G.ut.align(G.ie.buff, box.byte, box.buff, box.size)
+   g.context!m.data.handle := g.dh.open.if.can (box)
+   FREEVEC(box.buff)
+   RESULTIS g.context!m.data.handle ~= 0
+$)
+
+// opens a new file with name from m.ie.main for update
+// returning true if successful
+AND open.new.file () = VALOF
+$( g.sc.clear (m.sd.message)
+   g.sc.mess ("Creating new file")
+   g.ie.create.file ()
+   g.sc.clear (m.sd.message)
+   RESULTIS open.file (m.ie.main.byte, m.ie.main.size)
+$)
+
+AND reply.box (tag) BE
+$( LET g = G.key
+   LET string = (tag = m.ie.reply1) -> "Edit this file or backup (F/B)? ",
+                                       "File already exists: overwrite (Y/N)? "
+   g.ie.buff!tag := 0
+   g.sc.mess ("")
+   g.sc.movea (m.sd.message, m.sd.mesXtex, m.sd.mesYtex)
+   g.sc.selcol (m.sd.blue)
+   g.sc.oprop (string)
+   G.key := m.kd.noact
+   g.ie.char.input (tag)
+   G.key := g
+$)
+
+AND next.state () = VALOF
+$( LET type = ?
+   type := g.ie.buff!m.ie.type
+   select (type)
+   SWITCHON type INTO
+   $( CASE m.ie.grid  : RESULTIS -m.st.gridh
+      CASE m.ie.chart : RESULTIS -m.st.charth
+      CASE m.ie.areal : RESULTIS -m.st.arealh
+   $)
+$)
+
+AND re.highlight (box) BE
+$( LET g = g.key
+   g.key := m.kd.noact
+   g.ie.highlight (box, m.sd.cyan, m.sd.blue)
+   g.ie.char.input (box)
+   g.key := g
+$)
+
+
+// creates a backup of the main file
+// fails if file already exists or other ADFS error occurs
+AND backup() = VALOF
+$( LET main, backup = ?, ?
+   LET main.buff = VEC m.ie.main.size / bytesperword
+   LET backup.buff = VEC m.ie.backup.size / bytesperword
+   g.sc.mess ("Creating output file")
+   main := G.ut.align(g.ie.buff, m.ie.main.byte, main.buff, m.ie.main.size)
+   backup := G.ut.align(g.ie.buff, m.ie.backup.byte, backup.buff,
+                         m.ie.backup.size)
+
+   UNLESS RUNPROG ("**copy %s %s ~c~vf", main, backup) &
+            open.file (m.ie.backup.byte, m.ie.backup.size)
+   THEN $( LET string = VEC 12
+           g.sc.clear (m.sd.message)
+           g.ut.get.ermess (string, 24)
+           g.sc.ermess ("Backup failed: %s", string)
+           RESULTIS false
+        $)
+
+   g.sc.clear (m.sd.message)
+   RESULTIS true
+$)
+
+AND select (file) BE
+$( LET discid = ?
+   g.sc.clear (m.sd.message)
+   UNLESS (file = m.ie.grid) | (file = m.ie.areal) RETURN
+
+   g.vh.call.oscli ("vfs*c")
+   discid := G.dh.discid()
+
+   TEST file = m.ie.grid
+   THEN $( SWITCHON discid INTO
+           $( CASE m.dh.south :
+              CASE m.dh.north : ENDCASE
+              DEFAULT         : G.sc.ermess ("Community disc needed")
+                                G.dh.select.disc (m.dh.comm)
+                                ENDCASE
+           $)
+        $)
+   ELSE unless (discid = m.dh.natA) | (discid = m.dh.profUK)
+        $( G.sc.ermess ("National A disc needed")
+           G.dh.select.disc (m.dh.natUK)
+        $)
+   g.vh.call.oscli ("adfs*c")
+$)
+
+AND reset.backup () BE
+$( open.file (m.ie.main.byte, m.ie.main.size)
+   g.ie.buff!m.ie.box := m.ie.backup
+   re.highlight (m.ie.backup)
+$)
+.

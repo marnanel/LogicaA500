@@ -1,0 +1,10 @@
+*| link and run the state table init - does not need packing
+*|
+*dir c
+*|
+*remove $.UINED.r.stinit
+join $.Alib.Lib stinit rinput sinput -to $.UINED.r.stinit
+*|
+*| run it !!
+*run $.UINED.r.stinit
+*back

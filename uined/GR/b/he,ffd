@@ -1,0 +1,94 @@
+section "he"
+
+/**
+         CM.B.HE - Help text for Grid User data
+         --------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.grid
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       11.06.87   1        SRY         Initial version
+       17.08.87   2        SA          Text added
+        9.09.87   3        SRY         Kick pointer up on exit
+
+         GLOBALS DEFINED:
+
+         G.help
+**/
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.h.sdhd"
+get ":4.UINED.h.vhhd"
+get ":4.UINED.h.sihd"
+
+static $( save.cur=? $)
+
+/*
+   This routine either draws the help page or restores the previous state
+   of the screen according to the setting of the first menu bar entry.
+*/
+
+let G.help() be
+$( let t = G.sc.pointer(m.sd.off)
+   test G.menubar!m.box1 = m.wExit
+   then $( G.sc.mode(1)  // exit from help
+           G.vh.video(m.vh.video.on)
+           G.menubar!m.box1 := m.sd.act
+           G.redraw := true
+           G.sc.rescur(save.cur)
+           if G.screen = m.sd.menu
+              G.sc.moveptr( G.xpoint, G.sc.dtob(m.sd.display,4) )
+           freevec(save.cur)
+        $)
+   else $( save.cur := getvec(3)
+           G.sc.savcur(save.cur)
+           G.vh.video(m.vh.video.off)
+           G.sc.mode(129)
+           G.sc.selcol(m.sd.blue)
+           G.sc.movea(m.sd.message, 0, 0)
+           G.sc.rect(m.sd.plot, m.sd.mesW-1, m.sd.mesH-1)
+           G.sc.movea(m.sd.message, m.sd.propXtex, m.sd.mesYtex)
+           G.sc.selcol(m.sd.yellow)
+           G.sc.oprop("Help with Grid Mappable Data Entry")
+           G.sc.clear(m.sd.display)
+           G.sc.selcol(m.sd.cyan)
+
+           oline( 2, "All the levels of maps may be viewed as on the")
+           oline( 3, "Domesday discs and data can be entered over the")
+           oline( 4, "40x30 km and 4x3 km maps.  The six UK country")
+           oline( 5, "maps have blue dots to show where data has")
+           oline( 6, "already been entered.")
+
+           oline( 8, "To enter data move the pointer over the maps to")
+           oline( 9, "select an area (indicated by the yellow square)")
+           oline(10, "and then type in a number.  Do not press ACTION")
+           oline(11, "(this causes zoom); the numbers are entered")
+           oline(12, "immediately. The message area contains the value")
+           oline(13, "for the current square and its grid reference.")
+
+           oline(15, "One of three grids (Great Britain, Northern")
+           oline(16, "Ireland and Channel Islands) is chosen when")
+           oline(17, "the first data value is entered.")
+
+           oline(19, "Occasionally data will be saved or loaded from")
+           oline(20, "the disc and a message will indicate what is")
+           oline(21, "happening.  You can save data to the file at")
+           oline(22, "any time by selecting Save from the menu bar.")
+
+           G.menubar!m.box1 := m.wExit
+           for i = m.box2 to m.box6 G.menubar!i := m.wBlank
+           G.sc.menu(G.menubar)
+        $)
+   G.sc.pointer(t)
+$)
+
+and oline(line.no, text) be
+$( G.sc.movea(m.sd.display, 0, m.sd.disH-(line.no-1)*m.sd.linW)
+   G.sc.oprop(text)
+$)
+.

@@ -1,0 +1,467 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.data
+            G.ta.initd
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.05.87 1        MH          initial version
+         11.08.87 2        SA          mods to remove unnecessary messages
+         13.08.87 3        SRY         Removed let a =
+         21.10.87 4        MH          updated for UNI version
+**/
+
+SECTION "TAdata"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.tahd"
+
+static $( flag = true $)
+
+/**
+         G.TA.DATA
+         ---------
+
+         This routine allows the user to edit the data
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.data[]
+         ----------------
+**/
+
+let G.ta.data() be
+$(
+   let boxes = table m.sd.act, m.sd.act, m.sd.act, m.sd.act,
+                     m.sd.act, m.sd.act
+
+   if G.menubar!m.box1 = m.wEXIT return
+   unless flag then
+   $( G.key := -m.st.inputed
+      flag := true
+      return
+   $)
+   if G.redraw G.sc.menu(boxes)
+   unless G.ta.area%m.ta.l.st = m.ta.edit.lock G.ta.highd()
+   if G.ta.area%m.ta.cur.var ~= m.ta.INACTIVE & G.ta.area%m.ta.l.st ~= m.ta.edit.lock then
+      highc()
+   if G.ta.area%m.ta.l.st = m.ta.edit | G.ta.area%m.ta.l.st = m.ta.edit.lock then
+      G.ta.d.edit()
+   switchon G.key into
+   $(
+   case m.kd.action: test G.ta.area%m.ta.sel.var ~= m.ta.INACTIVE then
+                          $( G.sc.mess("%s",G.ta.getlabel (G.ta.area%m.ta.sel.var,
+                                                                m.ta.INACTIVE))
+                             G.ta.area%m.ta.del.mess := m.ta.true
+                          $)
+                     else test G.ta.area%m.ta.sel.cat ~= m.ta.INACTIVE then
+                          $( G.sc.mess("%s",G.ta.getlabel(G.ta.area%m.ta.sel.cat,
+                                      G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.sel.cat - 1)))
+                             G.ta.area%m.ta.del.mess := m.ta.true
+                          $)
+                     else test G.ta.area%m.ta.op = m.ta.more then
+                        page()
+                     else if G.ta.area%m.ta.op = m.ta.more1 then
+                        page.c()
+                     endcase
+   case m.kd.change: if G.ta.area%m.ta.l.st = m.ta.INACTIVE then
+                        unless G.ta.change() then
+                        $(
+                           G.key := -m.st.inputed
+                           return
+                        $)
+                     endcase
+   case m.kd.fkey2: case m.kd.fkey3: case m.kd.fkey4:
+   case m.kd.fkey5: case m.kd.fkey6:
+                    unless G.ta.area%m.ta.cur.var = m.ta.INACTIVE then
+                    $(
+                       if G.key =m.kd.fkey5 G.sc.mess("Saving data")
+                       G.ta.area%m.ta.change := m.ta.true
+                       unless G.ta.get.data(m.ta.write) then
+                       $(
+                          G.key := -m.st.inputed
+                          return
+                       $)
+                       if G.key = m.kd.fkey5 G.sc.clear (m.sd.message)
+                     $)
+                                     endcase
+   $)
+$)
+
+and page() be
+$(
+   test G.ta.area%m.ta.pg = G.ta.area%m.ta.mp then
+   $(
+      G.ta.area%m.ta.pg := 1
+      G.ta.area%m.ta.base.l := 1
+      G.ta.area%m.ta.no.l := m.ta.dlines
+   $)
+   else
+   $(
+      G.ta.area%m.ta.pg := G.ta.area%m.ta.pg + 1
+      G.ta.area%m.ta.base.l := G.ta.area%m.ta.base.l + m.ta.dlines
+      G.ta.area%m.ta.no.l := G.ta.area%m.ta.pg = G.ta.area%m.ta.mp ->  G.ta.area%m.ta.no.vars rem m.ta.dlines,
+                     m.ta.dlines
+      if G.ta.area%m.ta.no.l = 0 G.ta.area%m.ta.no.l := m.ta.dlines
+    $)
+   G.ta.redrawdv()
+$)
+
+and page.c() be
+$(
+   test g.ta.area%m.ta.pgc = 1 then
+   $(
+      g.ta.area%m.ta.pgc := 2
+      g.ta.area%m.ta.base.lc := m.ta.lines + 1
+      g.ta.area%m.ta.no.lc := g.ta.area%(m.ta.var.table +
+                              g.ta.area%m.ta.cur.var - 1) - m.ta.lines
+   $)
+   else
+   $(
+      g.ta.area%m.ta.pgc := 1
+      g.ta.area%m.ta.base.lc := 1
+      g.ta.area%m.ta.no.lc := m.ta.lines
+   $)
+   g.ta.area%m.ta.op := m.ta.INACTIVE
+   G.ta.d.cats()
+$)
+
+/**
+         G.TA.INITD
+         ----------
+
+         This routine performs initialisation for editing data.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.initd[]
+         ----------------
+         set category lists to start of list
+         set sel.var inactive
+         draw screen
+**/
+
+and G.ta.initd() be
+$(
+   let vt = G.ta.area + (m.ta.var.table / bytesperword)
+   let ct = G.ta.area + (m.ta.cat.table / bytesperword)
+   let length = vec 1
+   let r.length = vec 1
+   let no.elements = vec 1
+   let st.data = vec 1
+
+   flag := true
+   // calculate number of data elements
+   G.ut.set32(1, 0, no.elements)
+   for i = 0 to G.ta.area%m.ta.no.vars - 1 do
+   $( let no.cats = vec 1
+      G.ut.set32(G.ta.area%(m.ta.var.table + i), 0, no.cats)
+      G.ut.mul32(no.cats, no.elements)
+   $)
+   G.ut.set32(G.ta.area%m.ta.data.size, 0, length)
+   G.ut.mul32(no.elements, length) //get data length in bytes
+   G.ut.set32(G.ut.unpack16(g.ta.area, m.ta.st.data, 2), 0, st.data)
+   G.ut.add32(st.data, length) //add header + etc...
+   G.dh.length(G.context!m.data.handle, r.length)
+   if G.ut.cmp32(length, r.length) = m.gt then
+   $(
+      G.sc.ermess("File is too short")
+      G.key := -m.st.inputed
+      flag := false
+      return
+   $)
+
+   for i = 0 to G.ta.area%m.ta.no.vars - 1 do
+         ct%i := 1  //default category is 1st category in variable list
+   G.ta.area%m.ta.sel.var := m.ta.INACTIVE
+   G.ta.area%m.ta.1st.time := m.ta.false
+   G.ta.area%m.ta.l.st := m.ta.INACTIVE
+   G.ta.area%m.ta.op := m.ta.INACTIVE
+   G.ta.area%m.ta.cur.var := m.ta.INACTIVE
+   G.ta.area%m.ta.sel.var := m.ta.INACTIVE
+   G.ta.area%m.ta.sel.cat := m.ta.INACTIVE
+   G.ta.area%m.ta.hv := m.ta.false
+   G.ta.area%m.ta.del.mess := m.ta.false
+   G.ta.area%m.ta.base.l := 1
+   G.ta.area%m.ta.mp := ((G.ta.area%m.ta.no.vars - 1) / m.ta.dlines) + 1
+   test G.ta.area%m.ta.mp = 1 then
+      G.ta.area%m.ta.no.l := G.ta.area%m.ta.no.vars
+   else
+      G.ta.area%m.ta.no.l := m.ta.dlines
+   G.ta.area%m.ta.pg := 1
+   G.ta.area%m.ta.data.size := 4
+   G.ta.area%m.ta.data.sign := m.ta.true //signed data
+   if G.context!m.oldfile then
+      unless data.size() then //read in data size and sign
+      $(
+         G.key := -m.st.inputed
+         return
+      $)
+   G.ta.area%m.ta.1st.time := m.ta.true
+   G.sc.mess("Press CHANGE to select variable for data entry")
+   G.ta.redrawdv()
+   data.offsets()
+$)
+
+
+and data.size() = VALOF
+$(
+   let f.ptr = vec 1
+   let h = G.context!m.data.handle
+   let data.type = vec 1
+
+   G.ut.set32(m.ta.dsize.pos, 0, f.ptr)
+   if G.dh.read(h, f.ptr, data.type, 1) = 0 resultis false
+   test (data.type%0 & #x80) = 0  then
+      G.ta.area%m.ta.data.sign := m.ta.false // data is signed
+   else
+      G.ta.area%m.ta.data.sign := m.ta.true // data is unsigned
+   G.ta.area%m.ta.data.size := data.type%0 & #x0F //get data size without sign bit
+   resultis true
+$)
+
+
+and data.offsets() be
+$(
+   let offset = g.ta.area + (m.ta.offset / bytesperword)
+   let offset.order = ?
+   let no.elements = vec 1
+   let rem. = vec 1
+   let buff = vec 1
+
+   G.ut.set32(1, 0, no.elements)
+   for i = 1 to G.ta.area%m.ta.no.vars do
+   $(
+      G.ut.set32(G.ta.area%(m.ta.var.table + i - 1), 0, buff)
+      G.ut.mul32(buff, no.elements)
+   $)
+   for i = G.ta.area%m.ta.no.vars to 1 by -1 do
+   $(
+      G.ut.set32(G.ta.area%(m.ta.var.table + i - 1), 0, buff)
+      G.ut.div32(buff, no.elements, rem.)
+      offset.order := offset + ((i - 1) * 2) //mult by 2 words
+      G.ut.mov32(no.elements, offset.order)
+   $)
+$)
+
+and highc() be
+$(
+   let y = m.ta.ystart
+   let l = 0
+   let xy = G.ta.area + (m.ta.xco / bytesperword)
+
+   if 17*m.sd.charwidth <= G.xpoint <= 28*m.sd.charwidth &
+        G.screen = m.sd.display then
+   $(
+      for i = 1 to G.ta.area%m.ta.no.lc do
+      $(
+         if y >= G.ypoint >= y - m.sd.linw then
+         $(
+            l := i
+            BREAK
+         $)
+         y := y - m.sd.linw
+      $)
+   $)
+   test l > 0 then
+      l := G.ta.area%m.ta.base.lc + l -1
+   else
+      l := m.ta.INACTIVE
+   test l = G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1) then
+      unless l = m.ta.INACTIVE then
+         unless !xy = G.xpoint & xy!1 = G.ypoint then
+          unless G.ta.area%m.ta.l.st = m.ta.edit then
+            G.ta.hidc(m.sd.cyan)
+   else
+   $(
+//      G.sc.pointer(m.sd.off)
+      G.ta.hidc(m.sd.blue)
+      G.ta.area%(m.ta.cat.table + G.ta.area%m.ta.cur.var - 1) := l
+      G.ta.hidc(m.sd.cyan)
+//      G.sc.pointer(m.sd.on)
+   $)
+   !xy := G.xpoint
+   xy!1 := G.ypoint
+$)
+
+
+/**
+         G.TA.HIDC
+         ---------
+
+         This routine draws the data cell entry box and the data value.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.hidc[c]
+         ----------------
+
+         IF pointer in valid data area THEN
+            IF c = m.sd.blue THEN
+               draw blue entry box
+               write data cell value in entry box
+            ELSE
+               draw cyan entry box
+               write data cell value in entry box
+               G.ta.d.edit()
+            END IF
+         END IF
+**/
+
+and G.ta.hidc(c) be
+$(
+   let y = m.ta.ystart + m.sd.linw
+   let t = g.ta.area%(m.ta.cat.table + g.ta.area%m.ta.cur.var - 1)
+   let l.pos = G.ta.area%m.ta.pgc = 1 -> t, t - m.ta.lines
+   let p = t ~= m.ta.INACTIVE
+   let data.area = g.ta.area + (m.ta.data.area /
+                    bytesperword) + (t - 1) * 2 // mult bytesperword
+   let value = vec 5
+
+   if p then
+   $(
+      y := y - (m.sd.linw * l.pos)
+      G.sc.movea(m.sd.display,17*m.sd.charwidth,y)
+      test c = m.sd.cyan then
+      $(
+         G.sc.selcol(c)
+         G.sc.rect(m.sd.plot,11*m.sd.charwidth,-(m.sd.linw-4))
+         G.sc.movea(m.sd.display,17*m.sd.charwidth,y-4)
+         G.ta.area%m.ta.do := m.ta.true
+         G.ta.area%m.ta.1st.time := m.ta.true
+         G.ta.d.edit()
+      $)
+      else
+      $(
+         if G.ta.area%m.ta.do = m.ta.true then
+         $(
+            G.sc.selcol(m.sd.black)
+            G.sc.rect(m.sd.plot,11*m.sd.charwidth,-(m.sd.linw-4))
+            G.sc.selcol(c)
+            G.sc.movea(m.sd.display,17*m.sd.charwidth,y)
+            G.sc.rect(m.sd.plot,11*m.sd.charwidth,-(m.sd.linw-8))
+            G.sc.movea(m.sd.display,17*m.sd.charwidth,y-4)
+            G.sc.selcol(m.sd.cyan)
+            convert.num(data.area,value)
+            G.sc.ofstr(value)
+            G.ta.area%m.ta.op := m.ta.INACTIVE
+            G.ta.area%m.ta.l.st := m.ta.INACTIVE
+         $)
+      $)
+   $)
+$)
+
+and convert.num(n, string) be
+$(
+   let neg = false
+   let bottom = 1
+   let zero = vec 1
+   let r = vec 1
+   let c = 11
+   let t1 = vec 1
+   let t = vec 11/bytesperword
+   let num = vec 1
+   let max.neg = "-2147483648"
+
+   G.ut.set32(0, #x8000, t1)
+   test G.ut.cmp32(n, t1) = m.eq then
+      for i = 0 to max.neg%0 string%i := max.neg%i
+   else
+   $(
+      G.ut.set32(0, 0, zero)
+      G.ut.mov32(n, num)
+      if G.ut.cmp32(num, zero) = m.lt
+      $(
+         neg := true
+         rev32(num)
+         string%1 := '-'
+         bottom := 2
+      $)
+      $( G.ut.set32(10, 0, t1)
+         G.ut.div32(t1, num, r)
+         t%c := G.ut.unpack16(r, 0) + '0'
+      unless G.ut.cmp32(num,zero) = m.gt break
+      c := c - 1
+      $) repeat
+      for i = 11 to c by -1 do
+         string%(bottom + i - c) := t%i
+      string%0 := bottom + 11 - c
+   $)
+$)
+
+
+and rev32(num) be
+$( let t = VEC 1
+   G.ut.set32((G.ut.unpack16(num, 0) neqv #xFFFF),
+                   (G.ut.unpack16(num, 2) neqv #xFFFF), num)
+   G.ut.set32(1, 0, t)
+   G.ut.add32(t, num)
+$)
+.
+

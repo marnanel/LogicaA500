@@ -1,0 +1,9 @@
+|*  join the Utilities
+join c.utils1 c.utils2 c.utils3 c.calc32b c.errtext -to c.k1
+|*
+|* do the linkable bits
+|*
+|* *copy c.write :4.UINED.l
+|*
+join c.k1 c.grid1 c.grid2 -to c.kernel
+*delete c.k1

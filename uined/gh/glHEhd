@@ -1,0 +1,50 @@
+// /**
+//       GLHEHDR - HELP GLOBALS HEADER
+//       -----------------------------
+//
+//       This is the Global definition file for HELP.
+//       Reserved for ALL help globals
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       6.10.87     1       MH        ADOPTED FOR UNI
+// **/
+GLOBAL $(
+G.he.Help   :FGHE+0  // main help routine
+G.he.helpini:FGHE+1  // init help routine
+G.he.work           :FGHE+2 // help's work vector
+G.he.save           :FGHE+3 // help's save vector
+G.he.Essini         :FGHE+4 // help text routines
+G.he.displaypage    :FGHE+5
+G.he.displaycontents:FGHE+6
+G.he.set.first.essay:FGHE+7
+G.he.trytopage      :FGHE+8
+G.he.displayphoto   :FGHE+9
+
+G.he.demo    :FGHE+10
+G.he.config  :FGHE+11
+G.he.areal   :FGHE+12
+G.he.book    :FGHE+13
+G.he.to.main   :FGHE+14
+G.he.demoini   :FGHE+15
+G.he.configini :FGHE+16
+G.he.arealini  :FGHE+17
+G.he.bookini   :FGHE+18
+G.he.set.text.window:FGHE+19
+G.he.Setmark   :FGHE+20
+G.he.Savemark  :FGHE+21
+G.he.loadmark  :FGHE+22
+G.he.text      :FGHE+23   // help text action routine
+
+G.he.textini   :FGHE+24  // help text init routine
+G.he.exit      :FGHE+25  // help exit - called from General in ROOT1
+G.he.send.to.OS:FGHE+26  // used by help SYSTEM
+$)
+
+
+
+
+
+
+

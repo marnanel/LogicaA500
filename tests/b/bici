@@ -1,0 +1,685 @@
+// > b.bici
+//  DISH SOURCE  12.87
+
+/**
+         B.BICI - PROLOG/BCPL INTERFACE
+         ------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.BICI
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         10.12.87 1        PAC         Made for DISH SYSTEM
+                                       bigger buffers, etc.
+         18.3.88  2        PAC         More upgrades
+         21.3.88  3        PAC         'Indirect' handling
+         22.3.88  4        PAC         'Exit' handling
+                                       Option bars, etc.
+**/
+
+Section "BICI.tst"
+
+get "libhdr"
+
+global 
+$( next.section: 1000; find.command: 1001; interpret: 1002 c.: 1003 
+   do.command  : 1004; do.exit : 1005; do.time : 1006; do.open : 1007;
+   do.close : 1008  do.send : 1009; do.clear : 1010;
+$)
+
+static $( s.buffer = 0; s.options = 0 $) 
+
+// $$diag  // comment this line out to remove diagnostics
+$$dirs  // comment this line out to remove DIR commands
+
+manifest 
+$(
+
+BICI.Revision.Date  = 220388  // this is date (DDMMYY)
+BICI.Version.Number = 140     // this is version no * 100
+
+// command constants - must be non-zero
+c.command = 1; c.time = 2; c.open    = 3; c.close   = 4; 
+c.send = 5; c.endsend = 6; c.indirect= 7; c.clear   = 8; c.exit = 9;
+
+// names of dialogue boxes - can be opened, cleared or closed
+n.idusr = 10; n.stats = 11; n.mplan = 12; n.splan = 13; n.eplan = 14; 
+n.iplan = 15; n.dlist = 16; n.topic = 17; n.objct = 18; n.gloss = 19;
+
+// names used in communication sessions - the 'send' command
+m.pro = 20; m.com = 21; m.opt = 22; m.pep = 23; m.oname = 24;
+m.entry = 25; m.meang = 26; m.impcn = 27; m.dlist = 28; m.none = 29;
+
+// names of the option buttons
+o.how = 30; o.quit = 31; o.why = 32; o.exit = 33; o.summary = 34;
+o.yes = 35; o.no = 36; o.next = 37; o.help = 38; o.remediation = 39;
+
+m.file.type = #xFFF       // plain ascii text file for bicibuff
+m.osfile.save.file = #x0A // save file with current time stamp
+
+m.osword.read.clock = #x0E
+m.osword.BCD.value  = 1
+
+m.fkey.base = 140
+
+// buffer sizes in bytes
+m.normal.buffer.size = 300 // the normal BICI commands cannot be > 256 bytes
+m.static.buffer.size = 5*1024
+
+$)
+
+//
+
+let start () be
+$(
+   VDU("22,0")              // mode 0
+   cls()                    // clear screen
+   set.window.for( m.none ) // sets up text windows
+
+   Writes("*nBCPL - Prolog test harness*n")
+   Writef("Vn. %i1.%i2 %i2.%i1.%i2 PAC*n*n",
+               (BICI.Version.Number / 100),
+               (BICI.Version.Number REM 100),
+               (BICI.Revision.Date  / 10000), 
+               (BICI.Revision.Date  / 100) REM 100,
+               (BICI.Revision.Date  REM 100) )
+
+$<diag
+   Writef("MAXVEC is %n (&%x8)*n",MAXVEC(),MAXVEC())
+$>diag
+
+// allocate our command vector now, so that it will always be available
+   s.buffer := GETVEC( m.static.buffer.size/bytesperword )
+
+$<diag   
+   Debug(0)
+   Writes("installing handler*n")
+$>diag
+   BICIinstall()
+
+   Writes("starting Prolog*n")
+   
+   start.new.language()
+
+   Writes("*nback in BCPL*n*n") 
+
+   BICIremove()
+
+   Writes("handler removed...terminating*n")
+$<diag
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())   
+$>diag
+$)
+
+AND start.new.language() BE
+$(
+$<dirs
+   Oscli("dir :4.prolog")
+$>dirs
+   Oscli("key0 system('exec BICIstart').|m")
+
+   OsByte(138,0,128) // insert a key0 in buffer - will start up Prolog
+
+   Oscli("PrologX zap_out -g 200000") // off into prolog
+
+// this command is executed when the Prolog terminates
+$<dirs
+   Oscli("back")
+$>dirs
+$)
+
+AND BICIhandler(str) be
+$(
+   LET i = 1 // using i as 1 will strip off the first dot
+   LET comm = s.buffer // VEC (m.normal.buffer.size/bytesperword) 
+
+   WHILE (str%i ~= #x0) & (i < m.normal.buffer.size) // shd never be > 256
+   $( comm%i := str%i; i := i+1 $)
+
+   comm%0 := i - 1  // set up limit 
+
+$<diag
+   Writef("*nBICI handler*n command string is : %s*n", comm )
+//   Debug(0)
+$>diag
+
+   interpret( comm )
+$)
+
+AND interpret( command ) BE
+$(
+   Let ptr    = 1 // pointer into command string
+   Let buff   = VEC (50/bytesperword)
+   Let next.action = ?
+   Let limit  = command%0
+
+   next.action := find.command( next.section(command, buff, @ptr, limit) )
+
+   IF next.action = c.indirect THEN
+   $( 
+      ptr   := 1                                // reset command buffer pointer
+      limit := load.indirect.command( command ) // read 'BICIbuff'
+      next.action := find.command( next.section(command, buff, @ptr, limit) )      $)
+
+   SWITCHON next.action INTO
+   $(
+      CASE c.command : do.command()                    ; ENDCASE
+      CASE c.exit    : do.exit()                       ; ENDCASE
+      CASE c.time    : do.time()                       ; ENDCASE
+      CASE c.open    : do.open(command,  @ptr, limit)  ; ENDCASE
+      CASE c.close   : do.close(command, @ptr, limit)  ; ENDCASE
+      CASE c.send    : do.send(command,  @ptr, limit)  ; ENDCASE
+      CASE c.clear   : do.clear(command, @ptr, limit)  ; ENDCASE 
+
+      DEFAULT : no.action.for( command )
+   $)
+
+   RETURN
+$)
+
+
+// *****************************
+//   BICI command interpreters
+// *****************************
+
+// no.action.for()
+// this one does nothing, but does wait for a reply
+// uses OSreadline to get the user's response
+
+and no.action.for( command ) be
+$(
+   Let clibuff = VEC (m.normal.buffer.size/bytesperword)
+
+   Writef("No action for %s*n", command )
+   Writes("Enter response : ")
+
+   read.line( clibuff )
+   make.output( clibuff )
+$)
+
+// do.command()
+// gets a function key response from the user, which
+// will eventually correspond to an 'option' button.
+
+and do.command( str, rest.of.string.offset ) be
+$(
+   Let reply.head = "'BUTTON'. "
+   Let reply.tail = ?
+   Let buff = VEC 40/bytesperword // reply is 'BUTTON'. '<something>'. 
+                                  // which goes in here
+
+   reply.tail := valof switchon get.fkey()-1 into
+   $(
+      case m.fkey.base+0: resultis "'HOW'. "
+      case m.fkey.base+1: resultis "'QUIT'. "
+      case m.fkey.base+2: resultis "'WHY'. "
+      // case m.fkey.base+3: resultis "'OBJECT'. "
+      case m.fkey.base+3: resultis "'EXIT'. "
+      case m.fkey.base+4: resultis "'SUMMARY'. "
+      case m.fkey.base+5: resultis "'YES'. "
+      case m.fkey.base+6: resultis "'NO'. "
+      case m.fkey.base+7: resultis "'NEXT'. "
+      case m.fkey.base+8: resultis "'HELP'. "
+      case m.fkey.base-1: resultis "'REMEDIATION'. "
+      default           : resultis ""
+   $)
+
+   Writef("%s*n", reply.tail )
+
+   make.output( concat.( reply.head, reply.tail, buff ))
+$)
+
+and do.exit() be
+$(
+   Let clibuff = VEC (m.normal.buffer.size/bytesperword)
+
+   Writes("Exit to Domesday system*n")
+
+   Writes("Enter reply : ")
+
+   read.line( clibuff )
+   make.output( clibuff )
+$)
+
+and do.time() be 
+$( 
+   Let pb   = VEC 6
+   Let buff = VEC 30/bytesperword
+   Let off  = 1
+   Let plant( v, b, o ) be
+   $(
+      v%o     := (b >> 4 ) + '0'
+      v%(o+1) := (b & #xF) + '0'
+      v%(o+2) := '.'
+      v%(o+3) := '*s'
+   $)
+
+   pb%0 := m.osword.BCD.value
+
+   OsWord( m.osword.read.clock, pb )
+
+   For i = 0 to 6
+   $( plant( buff, pb%i, off ); off := off+4 $)
+
+   buff%0 := 28
+
+$<diag
+   writef("Doing Time : '%s'*n",buff)
+$>diag
+
+   make.output( buff )
+$)
+
+AND do.open(command, ptr, limit) BE 
+$(
+   let buff = VEC 30/bytesperword
+   let box  = boxname( next.section( command, buff, ptr, limit ) )
+
+$<diag
+   Writef("%s*n",command )
+$>diag
+
+   Writef("Opening the '%s' box*n",find.bname(box))
+
+   IF box = n.idusr THEN
+   $(
+      Let clibuff = VEC (m.normal.buffer.size/bytesperword)
+      Writes("Enter user name : ")
+      read.line( clibuff )
+      make.output( clibuff )
+   $)
+$)
+
+AND do.close(command, ptr, limit) BE 
+$(
+   let buff = VEC 30/bytesperword
+   let box  = boxname( next.section( command, buff, ptr, limit ) )
+
+   Writef("Closing the '%s' box*n",find.bname(box))
+
+$<diag
+   Writef("%s*n",command )
+$>diag
+$)
+
+AND do.clear( command, ptr, limit ) BE
+$(
+   let buff = VEC 30/bytesperword
+   let box  = com.name( next.section( command, buff, ptr, limit ) )
+
+   Writef("Clearing the '%s' window*n",find.cname(box))
+
+   set.window.for( box ); cls(); set.window.for( m.none )
+
+$<diag
+   Writef("%s*n",command )
+$>diag
+$)
+
+AND do.send( command, ptr, limit ) BE
+$(
+   let buff = VEC (m.normal.buffer.size/bytesperword)
+   let com  = com.name( next.section( command, buff, ptr, limit ) )
+   let n    = 1
+
+$<diag
+   Writef( "%s*n",command )
+$>diag
+
+   set.window.for( com )   
+
+   Writef(">>>%s*n",find.cname(com))
+
+   $( next.section( command, buff, ptr, limit )
+      if (find.command( buff ) = c.endsend) |
+         (!ptr > limit) break  // check limit
+
+      test cb("nl", buff, 1) then newline()     // next 2 only for dlist!!!
+      else test cb("on", buff, 1) then $( writef("%i1->",n); n:=n+1 $)
+      else test cb("off", buff, 1) then writes("  >")
+      else test ( (com = m.opt) & ((buff%1 = '+')|(buff%1 = '-')) )
+           then mod.options( buff )
+      else writes(buff)
+   $) repeat
+
+   IF com = m.dlist THEN
+   $(
+      Let outbuff = VEC (m.normal.buffer.size/bytesperword) 
+      Let clibuff = VEC (m.normal.buffer.size/bytesperword)
+      Let header  = "'SELECTION'. "
+      Let len     = ?
+
+      Writef("Enter choice (1..%i1) : ", n-1)
+      read.line( clibuff )
+      len := clibuff%0
+
+      unless clibuff%len = '.' do
+      $( clibuff%(len+1) := '.'; clibuff%0 := len+1 $)
+
+      make.output( concat.(header, clibuff, outbuff ) )
+   
+      set.window.for( com ); cls() // clear screen 
+   $)
+
+   IF com = m.opt THEN display.options()
+
+   set.window.for( m.none ) // reset to default
+$)
+
+// given an option string of form "+/-<option>", sort
+// out what it means.
+and mod.options( option.string ) be
+$(
+   let s  = option.string        // the string
+   let l  = option.string%0      // limit of decoding
+   let p  = 1                    // pointer into option string
+   let sw = TRUE                 // option is on/off
+   let option = ?                // the option chosen
+
+   let current = TABLE TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,
+                       TRUE,TRUE,TRUE,TRUE,TRUE,TRUE
+
+   s.options := current
+
+   sw := (s%1 = '+') // assume either a '+' or '-'      
+
+   for i = 1 to l-1 do s%i := s%(i+1) // shuffle string down
+   s%0 := l-1                         // reset length
+
+   option := opt.name( s )
+
+   current!(option-o.how) := sw       // update option (how is first)
+
+$)
+
+and display.options() be
+$(
+   let s = ?
+   let opt.table = s.options
+
+   set.window.for( m.opt )
+   cls()
+   set.window.for( m.opt )  
+
+   Writes("Fn>")
+
+   FOR i = 0 to 9
+   $( s := option.string( i+o.how )
+      Writef("%i1:",i+1)
+      TEST opt.table!i THEN Writes( s ) ELSE for i = 1 to s%0 Wrch('*S')
+   $)
+
+   set.window.for( m.none )
+$)
+
+// ******************
+//  command decoders
+// ******************
+
+AND find.command( str ) = valof
+$(
+   $<diag Writef("In command decoder: string is : %s*n",str ) $>diag
+
+  resultis c.( str, "command,time,open,close,*
+                     *send,endsend,indirect,clear,exit:",
+                     table c.command,c.time,c.open,c.close,
+                           c.send,c.endsend,c.indirect,c.clear,c.exit )
+$)
+
+AND boxname( str ) = valof
+$(
+   $<diag Writef("In boxname: string is : %s*n",str ) $>diag
+
+   resultis c.( str, "idusr,stats,mplan,splan,eplan,iplan,*
+                     *dlist,topic,objct,gloss:",
+                      table n.idusr,n.stats,n.mplan,n.splan,n.eplan, 
+                            n.iplan,n.dlist,n.topic,n.objct,n.gloss )
+$)
+
+AND com.name( str ) =
+c.( str, "pro,com,opt,pep,oname,entry,meang,impcn,dlist:",
+    table m.pro,m.com,m.opt,m.pep,m.oname,m.entry,m.meang,m.impcn,m.dlist )
+
+
+AND opt.name( str ) =
+c.( str, "how,quit,why,exit,summary,yes,no,next,help,remediation:",
+    table o.how,o.quit,o.why,o.exit,o.summary,
+          o.yes,o.no,o.next,o.help,o.remediation )
+
+// gets next string before a dot, or null if it's the end of string
+
+AND next.section( cstr, buff, ptr, lim ) = valof
+$(
+   let i   = 1
+   let p   = !ptr
+   let ch  = cstr%p
+   let terminator = '.'
+
+   if (ch = '|') then $( terminator := ch; ch := '*s'; i := 0 $)
+
+   while (ch ~= terminator) & (p <= lim) do  // check limit
+   $(
+      buff%i := ch           // save character
+      p      := p + 1        // increment source ptr
+      i      := i + 1        // increment dest. ptr
+      ch     := cstr%p       // get next char
+   $)
+   buff%0 := i - 1    // set length
+   !ptr   := p+1      // update pointer
+
+$<diag Writef("Next Section is <%s>*n",buff ) $>diag
+
+   resultis buff
+$)
+
+// this will return a manifest from t which matches 
+// the command string in c, by comparing strings in s
+// or FALSE if no match found
+
+and c.( c,s,t ) = valof
+$(
+   let j,n = 1,0
+
+   $( if cb( c, s, j ) resultis t!n
+      until s%j = ',' | s%j = ':' do j := j + 1
+      if s%j = ':' break
+      n := n + 1; j := j + 1
+   $) repeat
+$<diag
+   writef("Unknown command '%s'*n", c ) 
+$>diag
+   resultis false
+$)
+
+// compare bytes in string s with those in 
+// array a at offset o. String should be BCPL.
+
+and cb( s, a, o ) = valof
+$(
+   for k = 0 to s%0-1 unless COMPCH( s%(k+1), a%(o+k) ) = 0 resultis false
+   resultis true
+$)
+
+// *****************************
+// manifest to string converters
+// *****************************
+
+AND find.bname( box ) = VALOF SWITCHON box INTO
+$(
+   CASE n.idusr : RESULTIS "Identify User"  
+   CASE n.stats : RESULTIS "Statistics"  
+   CASE n.mplan : RESULTIS "Monitor Plan"  
+   CASE n.splan : RESULTIS "See Plan"  
+   CASE n.eplan : RESULTIS "Enter a Plan"  
+   CASE n.iplan : RESULTIS "Plan Interrupted"  
+   CASE n.dlist : RESULTIS "Display List"  
+   CASE n.topic : RESULTIS "Topic"  
+   CASE n.objct : RESULTIS "Object"  
+   CASE n.gloss : RESULTIS "Glossary" 
+   DEFAULT      : RESULTIS "Illegal"
+$)
+
+AND find.cname( com ) = VALOF SWITCHON com INTO
+$(
+   CASE m.pro   : RESULTIS "Procedure"
+   CASE m.com   : RESULTIS "Commentary"
+   CASE m.opt   : RESULTIS "Options"
+   CASE m.pep   : RESULTIS "Peephole"
+   CASE m.dlist : RESULTIS "DisplayList"  
+   CASE m.oname : RESULTIS "Object Name"
+   CASE m.entry : RESULTIS "Glossary Entry"
+   CASE m.meang : RESULTIS "Meaning"
+   CASE m.impcn : RESULTIS "Implication"
+   DEFAULT      : RESULTIS "Illegal"
+$)
+
+AND option.string( option.number ) = VALOF SWITCHON option.number INTO
+$(
+   case o.how         : resultis "How "
+   case o.quit        : resultis "Quit "
+   case o.why         : resultis "Why "
+   case o.exit        : resultis "Exit "
+   case o.summary     : resultis "Summary "
+   case o.yes         : resultis "Yes "
+   case o.no          : resultis "No "
+   case o.next        : resultis "Next "
+   case o.help        : resultis "Help "
+   case o.remediation : resultis "Remediation "
+   default            : resultis ""
+$)
+
+// ****************
+// utility routines
+// ****************
+
+// routine to make the file 'BICIbuff', which 
+// Prolog can read to get resultis back from BCPL
+
+and make.output( string ) be
+$(
+   Let pb   = VEC 5
+   Let name = "BICIbuff"
+   Let len  = string%0
+
+   pb!0 := m.file.type             // R2 = file type
+   pb!2 := string*bytesperword + 1 // start address - (no length byte)
+   pb!3 := pb!2 + len              // end address
+
+   Osfile( m.osfile.save.file, name, pb ) // save it
+$)
+
+//
+// reads an indirected command from the file 'BICIbuff'
+// returns the length of BICIbuff. The buffer passed is
+// of size m.static.buffer.size.
+//
+and load.indirect.command( buff ) = VALOF
+$(
+   let filename = "BICIbuff"
+   let length = ?
+   let pb = VEC 5
+
+   buff%0 := 0 // N.B. length only important for diagnostics 
+
+   If Osfile( 5, filename, pb ) = 0 RESULTIS 0   // not found
+   
+   length := pb!2                                // in bytes
+   
+   IF length > m.static.buffer.size 
+     THEN length := m.static.buffer.size 
+
+   pb!1 := 0; pb!0 := (buff*bytesperword+1)      // set up vector
+   OsFile( #xFF, filename, pb )                  // load it     
+           
+   Unless Result2 = 0 RESULTIS 0
+
+   buff%0 := (length>255) -> 255, length 
+
+   RESULTIS length
+$)
+             
+// joins s2 to end of s1 in buffer s3
+// e.g. concat( "Dog", "Cat" , b ) --> b = "DogCat" 
+
+and concat.( s1, s2, s3 ) = valof
+$(
+   for i = 1 to s1%0 s3%i := s1%i
+   for i = 1 to s2%0 s3%(s1%0+i) := s2%i
+
+   s3%0 := s1%0 + s2%0                     
+
+   resultis s3
+$)
+
+and read.line( linebuff ) be
+$(
+   let pb = VEC 1
+
+   pb!0 := (linebuff * bytesperword)+1  // address of byte 1
+   pb%4 := 254                          // max length of line
+   pb%5 := 32                           // min char
+   pb%6 := 126                          // max char
+   linebuff%0 := OSWord(0, pb)+1        // Read a line
+
+   if result2 then linebuff%0 := 0
+$)
+
+and get.fkey() = valof
+$(
+   LET key = ? 
+
+   Writes("Choose option : ")
+
+   OsByte(225,m.fkey.base,0) // set function keys to give codes
+
+   key := OSByte( #x81,0,0 ) repeatuntil m.fkey.base <= key < m.fkey.base + 10
+
+   OsByte(225,1,0)  //  set function keys to give strings
+
+   resultis key
+$)
+
+// special frig for temporary windows - write to TEXT windows
+// only in the case of procedure, commentary, peephole, options
+//
+//  SCREEN LAYOUT
+//   0                       39                       79
+//  0--------------------------------------------------
+//   | PRO                   | COM                    |
+//   |                       |                        |
+//   |                       |                        |
+//   |                       |                        |
+// 12|-----------------------|------------------------|
+//   | DLIST                 | PEP                    |
+//   |                       |                        |
+//   |                       |                        |
+//   |                       |                        |
+// 24|------------------------------------------------|
+//   | Anything else                                  |
+//   |                                                |
+//   |                                                |
+// 30--------------------------------------------------
+// 31|  options display                               |
+//   --------------------------------------------------
+
+and set.window.for( box ) be switchon box into
+$( default     : set.text.window(  0,30,79,24 ) ; endcase
+   case m.none : set.text.window(  0,30,79,24 ) ; endcase      
+   case m.pro  : set.text.window(  0,11,39, 0 ) ; endcase
+   case m.opt  : set.text.window(  0,31,79,30 ) ; endcase 
+   case m.com  : set.text.window( 41,11,79, 0 ) ; endcase
+   case m.pep  : set.text.window( 41,22,79,13 ) ; endcase
+   case m.dlist: set.text.window(  0,22,39,13 ) ; endcase
+$)
+
+//
+// set text window and place cursor at bottom left
+//
+and set.text.window( blx, bly, trx, try ) be 
+VDU("28,%,%,%,%,31,0,%",blx,bly,trx,try,bly-try)
+
+and cls() BE VDU("12")
+.

@@ -1,0 +1,36 @@
+// /**
+//       GLBIHDR - GLOBALS HEADER for BICI
+//       ---------------------------------
+//
+//       This is a master system Global definition file
+//       Reserved for state, routine and data globals
+//
+//       REVISION HISTORY
+//
+//       DATE     VERSION  AUTHOR   DETAILS OF CHANGE
+//       31.3.88  1        PAC      Initial version         
+// **/
+
+GLOBAL
+$(
+// size is 16 entries - FGBI+0 to FGBI+15
+
+
+   G.bi.buffer : FGBI+0 // buffer for basic commands and indirect commands
+                        // size is m.bi.static.buffer.size
+   G.bi.s      : FGBI+1 // statics - size is m.bi.statics.size
+
+   G.bi.switch.screens : FGBI+2
+
+   G.bi.top.level : FGBI+3
+
+   G.bi.redraw.window : FGBI+4
+
+   G.bi.open : FGBI+5
+
+   G.bi.close : FGBI+6
+
+   G.bi.send.to : FGBI+7
+
+   G.bi.handle.keypress : FGBI+8
+$)

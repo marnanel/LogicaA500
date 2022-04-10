@@ -1,0 +1,1186 @@
+// > b.bici1
+//  DISH SOURCE  12.87
+
+/**
+         B.BICI1 - PROLOG/BCPL INTERFACE
+         -------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.BICI
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR  DETAILS OF CHANGE
+         10.12.87  1        PAC     Made for DISH SYSTEM
+                                    bigger buffers, etc.
+         18.3.88   2        PAC     More upgrades
+         21.3.88   3        PAC     'Indirect' handling
+         22.3.88   4        PAC     'Exit' handling
+                                    Option bars, etc.
+         30.3.88   5        PAC     Split out manifests, etc.
+         22.04.88  6        SA      changes for idusr
+         03.05.88  7        SA      installing WIMP
+         09.05.88  8        SA      installing WIMP option icons
+         10.05.88  9        SA      installing display list window
+**/
+
+Section "BICI.toplevel"
+
+GET "libhdr"
+GET "$.DSH.GH.glhd"
+GET "$.DSH.GH.glBIhd"
+GET "$.DSH.H.bihd"
+GET "$.DSH.H.wmhd"
+
+manifest
+$(
+   BICI.Revision.Date  = 300388  // this is date (DDMMYY)
+   BICI.Version.Number = 140     // this is version no * 100
+$)
+
+// $$diag  // comment this line out to remove diagnostics
+// $$dirs  // comment this line out to remove DIR commands
+
+/*  these globals are used for debugging only !!!
+global
+$( next.section: 1000; find.command: 1001; interpret: 1002 c.: 1003
+   do.command  : 1004; do.exit : 1005; do.time : 1006; do.open : 1007;
+   do.close : 1008  do.send : 1009; do.clear : 1010;
+$)
+*/
+
+//GLOBAL$( scroll.to.bottom : 1000 $)
+
+static $( s.options = 0; s.first.time = TRUE $)
+
+/**
+         START() - start of code
+         -----------------------
+
+         This procedure starts the whole system off. It
+         first calls g.bi.BICI.init, which does the
+         initialisation required subsequently by the
+         code to handle the Help windows.
+
+         It installs the BICI handler in the OSCLI vector,
+         THEN starts off prolog.
+
+         This doesn't return here until the prolog
+         interpreter terminates. It THEN tidies up the OSCLI
+         vector and terminates.
+**/
+
+LET start () BE
+$(
+   BICI.init() // do initialisation specific to Help system
+
+$<diag
+   Debug(0)
+   Writes("installing handler*n")
+$>diag
+
+   BICIinstall()
+
+   Writes("starting Prolog*n")
+
+   start.new.language()
+
+   Writes("*nback in BCPL*n*n")
+
+   BICIremove()
+
+   Writes("handler removed...terminating*n")
+$<diag
+   Writef("MAXVEC is %n (&%x8)*n*n",MAXVEC(),MAXVEC())
+$>diag
+$)
+
+AND BICI.init() BE
+$(
+   VDU("22,0")              // mode 0
+   cls()                    // clear screen
+   set.window.for( m.none ) // sets up text windows
+
+   Writes("*nLogica BCPL - Prolog interface*n")
+   Writef("Vn. %i1.%i2 %i2.%i1.%i2 PAC*n*n",
+               (BICI.Version.Number / 100),
+               (BICI.Version.Number REM 100),
+               (BICI.Revision.Date  / 10000),
+               (BICI.Revision.Date  / 100) REM 100,
+               (BICI.Revision.Date  REM 100) )
+$<diag
+   Writef("MAXVEC is %n (&%x8)*n",MAXVEC(),MAXVEC())
+$>diag
+
+   // allocate our command vector now, so that it will always be available
+   G.bi.buffer := GETVEC( m.bi.static.buffer.size/bytesperword )
+
+   // allocate buffer for bici statics
+   G.bi.s := GETVEC( m.bi.statics.size )
+
+   // allocate buffers for the window text
+   G.bi.s!m.bi.proc.buff := GETVEC( m.bi.text.buffer.size/bytesperword )
+   G.bi.s!m.bi.comm.buff := GETVEC( m.bi.text.buffer.size/bytesperword )
+   G.bi.s!m.bi.peep.buff := GETVEC( m.bi.text.buffer.size/bytesperword )
+   G.bi.s!m.bi.dlist.buff := GETVEC( m.bi.text.buffer.size/bytesperword )
+
+   // initialise text insertion pointers for the text buffers
+   G.bi.s!m.bi.proc.tip := 0
+   G.bi.s!m.bi.comm.tip := 0
+   G.bi.s!m.bi.peep.tip := 0
+   G.bi.s!m.bi.dlist.tip := 0
+
+   // clear the text buffers
+   clear.text.buff( G.bi.s!m.bi.proc.buff, m.bi.text.buffer.size )
+   clear.text.buff( G.bi.s!m.bi.comm.buff, m.bi.text.buffer.size )
+   clear.text.buff( G.bi.s!m.bi.peep.buff, m.bi.text.buffer.size )
+   clear.text.buff( G.bi.s!m.bi.dlist.buff, m.bi.text.buffer.size )
+
+   // initialise the windows stack pointer
+   G.bi.s!m.bi.windows.stack.ptr := 0
+
+$<diag
+   assemble.test.buff( G.bi.s!m.bi.comm.buff, m.bi.text.buffer.size )
+   assemble.test.buff( G.bi.s!m.bi.proc.buff, m.bi.text.buffer.size )
+$>diag
+
+$)
+
+$<diag
+AND assemble.test.buff( buffer, size ) BE
+$(
+   LET dig1 = 0
+   LET dig2 = 0
+   LET dig3 = 0
+   LET line = 0
+
+   FOR offset = 0 TO size BY 64
+   $(
+      line := offset/64
+      dig1 := line/100
+      dig2 := (line REM 100)/10
+      dig3 := line REM 10
+
+      buffer%( offset+0 ) := 3
+      buffer%( offset+1 ) := (dig1=0) -> ' ', dig1 + '0'
+      buffer%( offset+2 ) := (dig1=0 & dig2=0) -> ' ', dig2 + '0'
+      buffer%( offset+3 ) := (dig1=0 & dig2=0 & dig3=0) -> ' ',dig3 + '0'
+   $)
+$)
+$>diag
+
+/**
+         start.new.language() - run up the prolog system
+         -----------------------------------------------
+
+         This is responsible for starting prolog. Note
+         that it MUST use the BCPL Oscli library call
+         to start it, because prolog is installed as
+         a sub-program, running underneath BCPL.
+
+                    --------------
+                    |   BCPL     |   ^
+                    --------------   |  higher
+                    |   prolog   |   |  memory
+                    --------------
+                    |    o/s     |
+                    --------------
+
+         The success of this operation depends upon:
+
+         - there being a suiTABLE "alias$prolog" set up,
+
+         e.g. set alias$prolog /%.prologX %.zap-out -g 300000
+
+         - the base of the BCPL code is raised sufficiently
+           for prolog to obtain enough workspace.
+
+         - there being a file in the current directory called
+           'BICIstart', which is exec'ed by prolog when it
+           starts. This file is expected to contain enough
+           commands to start up the prolog application.
+**/
+
+// AND start.new.language() BE BICIhandler("exit")
+
+AND start.new.language() BE
+$(
+$<dirs
+   Oscli("dir $.DSH.r")
+$>dirs
+   Oscli("key0 system('exec BICIstart').|m")
+
+   OsByte(138,0,128) // insert a key0 in buffer - will start up Prolog
+
+   Oscli("Prolog")   // off into prolog
+
+   // this command is executed when the Prolog terminates
+$<dirs
+   Oscli("back")
+$>dirs
+$)
+
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+//// This comment marks the end of the startup code and the beginning //////
+//// of the interpreter.                                              //////
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+
+AND BICIhandler(str) BE
+$(
+   LET command = G.bi.buffer
+   LET buff    = VEC (50/bytesperword)
+   LET i       = 1  // using i as 1 will strip off the first dot
+   LET ptr     = 1  // pointer into command string
+   LET limit   = ?
+   LET next.action = ?
+
+   // transfer command string into our own buffer,
+   // where it can be modified as much as we like.
+
+   WHILE (str%i ~= #x0) & (i < m.bi.normal.buffer.size) // shd never be > 256
+   $( command%i := str%i; i := i+1 $)
+
+   command%0 := i - 1  // set up limit
+   limit     := i - 1
+
+$<diag
+   Writef("*nBICI handler command string is : %s", command )
+   Debug(0)
+$>diag
+
+   next.action := find.command( next.section(command, buff, @ptr, limit) )
+
+   IF next.action = c.indirect THEN
+   $(
+      ptr   := 1                                // reset command buffer pointer
+      limit := load.indirect.command( command ) // read 'BICIbuff'
+      next.action := find.command( next.section(command, buff, @ptr, limit) )      $)
+
+   SWITCHON next.action INTO
+   $(
+      CASE c.command : do.command()                    ; ENDCASE
+      CASE c.exit    : do.exit()                       ; ENDCASE
+      CASE c.time    : do.time()                       ; ENDCASE
+      CASE c.open    : do.open(command,  @ptr, limit)  ; ENDCASE
+      CASE c.close   : do.close(command, @ptr, limit)  ; ENDCASE
+      CASE c.send    : do.send(command,  @ptr, limit)  ; ENDCASE
+      CASE c.clear   : do.clear(command, @ptr, limit)  ; ENDCASE
+
+      DEFAULT : no.action.for( command )
+   $)
+
+   RETURN
+$)
+
+
+// *****************************
+//   BICI command interpreters
+// *****************************
+
+//
+// Do.exit() handles the exit to the Domesday system top
+// level. There are two conditions for calling:
+//
+// a) At startup, the first thing done by prolog is
+//    an exit. This THEN allows the normal initialisation
+//    of the Domesday system to take place. The Domesday
+//    top level loop commences, and only returns when the
+//    user requests Help.
+//
+// b) When the user selects the EXIT button from within the
+//    help system, prolog again calls exit. This restores
+//    the user to the previous Domesday operation.
+//
+
+AND do.exit() BE
+$(
+   LET clibuff = VEC (m.bi.normal.buffer.size/bytesperword)
+
+   TEST s.first.time THEN
+   $(
+      // initialise Domesday
+
+      Writes("First exit to Domesday system*n")
+
+      G.ov.initialise.system()
+
+      save.dlist.icon.info()
+
+      s.first.time := FALSE
+   $)
+   ELSE
+   $(
+      // save Help screen display and restore Domesday screen display
+
+      G.bi.switch.screens( m.bi.entry.to.Domesday )
+   $)
+
+   G.ov.top.level.loop() // call top level loop of Domesday
+
+   G.wm.message("Normal entry to Domesday system*n")
+   // Writes("Enter reply : ")
+
+   // read.line( clibuff )
+   make.output( "crap. " )  // pac 22.4.88
+
+   g.bi.switch.screens( m.bi.entry.to.help )
+$)
+
+// SA 10.05.88
+AND save.dlist.icon.info() BE
+$(
+   G.wm.Get.Icon.Info( G.sys.windows!m.wm.dlist.window, m.bi.dlist.yes.icon )
+   g.ut.movebytes( G.wm.q, 0, G.bi.s + m.bi.dlist.yes.icon.info, 0,
+                   m.wm.icon.info.size )
+
+   G.bi.s!m.bi.dlist.no.icons := 1
+$)
+
+// no.action.for()
+// this one does nothing, but does wait for a reply
+// uses OSreadline to GET the user's response
+
+AND no.action.for( command ) BE
+$(
+   LET clibuff = VEC (m.bi.normal.buffer.size/bytesperword)
+
+   Writef("No action for %s*n", command )
+   Writes("Enter response : ")
+
+   read.line( clibuff )
+   make.output( clibuff )
+$)
+
+// do.command()
+// gets a function key response from the user, which
+// will eventually correspond to an 'option' button.
+
+AND do.command( str, rest.of.string.offset ) BE
+$(
+   LET reply.head = "'BUTTON'. "
+   LET reply.tail = ?
+   LET buff = VEC 40/bytesperword // reply is 'BUTTON'. '<something>'.
+                                  // which goes in here
+   LET key = ?
+
+   Writes("Choose option : ")
+
+   // SA 09.05.88
+   $(
+      G.bi.top.level()
+
+$<debug
+      IF G.bi.s!m.bi.key = 4 debug(0)  // on ctrl-D
+$>debug
+
+      IF (G.bi.s!m.bi.icon = i.peephole) THEN toggle.peephole.window()
+
+   $) REPEATUNTIL G.bi.s!m.bi.icon ~= m.wm.invalid.handle
+
+   reply.tail := VALOF SWITCHON G.bi.s!m.bi.icon INTO
+   $(
+      CASE i.how         : RESULTIS "'HOW'. "
+      CASE i.quit        : RESULTIS "'QUIT'. "
+      CASE i.why         : RESULTIS "'WHY'. "
+      CASE i.exit        : RESULTIS "'EXIT'. "
+      CASE i.summary     : RESULTIS "'SUMMARY'. "
+      CASE i.yes         : RESULTIS "'YES'. "
+      CASE i.no          : RESULTIS "'NO'. "
+      CASE i.next        : RESULTIS "'NEXT'. "
+      CASE i.help        : RESULTIS "'HELP'. "
+      CASE i.remediation : RESULTIS "'REMEDIATION'. "
+      DEFAULT            : RESULTIS ""
+   $)
+
+   // $(
+   //    G.bi.top.level()
+   //    key := G.bi.s!m.bi.key
+   // $) REPEATuntil m.fkey.base <= !key < m.fkey.base + 10
+
+   // reply.tail := valof switchon key()-1 into
+   // $(
+   //    CASE m.fkey.base+0: RESULTIS "'HOW'. "
+   //    CASE m.fkey.base+1: RESULTIS "'QUIT'. "
+   //    CASE m.fkey.base+2: RESULTIS "'WHY'. "
+   //    CASE m.fkey.base+3: RESULTIS "'EXIT'. "
+   //    CASE m.fkey.base+4: RESULTIS "'SUMMARY'. "
+   //    CASE m.fkey.base+5: RESULTIS "'YES'. "
+   //    CASE m.fkey.base+6: RESULTIS "'NO'. "
+   //    CASE m.fkey.base+7: RESULTIS "'NEXT'. "
+   //    CASE m.fkey.base+8: RESULTIS "'HELP'. "
+   //    CASE m.fkey.base-1: RESULTIS "'REMEDIATION'. "
+   //    DEFAULT           : RESULTIS ""
+   // $)
+   // Writef("%s*n", reply.tail )
+
+   make.output( concat.( reply.head, reply.tail, buff ))
+$)
+
+AND toggle.peephole.window() BE
+$(
+   LET handle = G.sys.windows!m.wm.peephole.window
+
+   G.wm.Get.Window.State( handle )
+   TEST (G.wm.q!m.wm.flags & m.wm.window.open) = 0
+   THEN G.wm.Set.to.Front( handle )
+   ELSE G.wm.Close( handle )
+
+   G.bi.s!m.bi.icon := m.wm.invalid.handle
+$)
+
+AND do.time() BE
+$(
+   LET pb   = VEC 6
+   LET buff = VEC 30/bytesperword
+   LET off  = 1
+   LET plant( v, b, o ) BE
+   $(
+      v%o     := (b >> 4 ) + '0'
+      v%(o+1) := (b & #xF) + '0'
+      v%(o+2) := '.'
+      v%(o+3) := '*s'
+   $)
+
+   pb%0 := m.osword.BCD.value
+
+   OsWord( m.osword.read.clock, pb )
+
+   For i = 0 to 6
+   $( plant( buff, pb%i, off ); off := off+4 $)
+
+   buff%0 := 28
+
+$<diag
+   writef("Doing Time : '%s'*n",buff)
+$>diag
+
+   make.output( buff )
+$)
+
+AND do.open(command, ptr, limit) BE
+$(
+   LET buff = VEC 30/bytesperword
+   LET box  = boxname( next.section( command, buff, ptr, limit ) )
+
+$<diag
+   Writef("%s*n",command )
+   Writef("Opening the '%s' box*n",find.bname(box))
+$>diag
+
+   // SA 03.05.88
+   SWITCHON box INTO
+   $(
+      CASE n.idusr: open.identify.user(); ENDCASE
+      CASE n.splan: open.see.plan(); ENDCASE
+      CASE n.dlist: open.display.list(); ENDCASE
+   $)
+$)
+
+// SA 16.05.88
+AND open.identify.user() BE
+$(
+   G.wm.Set.to.Front( G.sys.windows!m.wm.idusr.window )
+
+   $(
+      G.bi.top.level()
+
+$<debug
+      IF G.bi.s!m.bi.key = 4 debug(0)  // on ctrl-D
+$>debug
+
+   $) REPEATUNTIL G.bi.s!m.bi.icon ~= m.wm.invalid.handle
+
+   TEST (G.bi.s!m.bi.icon = 2)
+   THEN make.output( "fred. clever_um. ")
+   ELSE make.output( "fred. new_um. ")
+$)
+
+// SA 03.05.88
+AND open.see.plan() BE
+$(
+   LET window.stack = G.bi.s + m.bi.windows.stack
+   LET stack.ptr    = G.bi.s + m.bi.windows.stack.ptr
+
+   G.wm.set.to.front( G.sys.windows!m.wm.options.window )
+   G.bi.top.level()
+   window.stack!(!stack.ptr + 0) := G.sys.windows!m.wm.options.window
+
+   G.wm.set.to.front( G.sys.windows!m.wm.procedure.window )
+   G.bi.top.level()
+   window.stack!(!stack.ptr + 1) := G.sys.windows!m.wm.procedure.window
+
+   G.wm.set.to.front( G.sys.windows!m.wm.commentary.window )
+   G.bi.top.level()
+   window.stack!(!stack.ptr + 2) := G.sys.windows!m.wm.commentary.window
+
+   !stack.ptr := !stack.ptr + 3
+$)
+
+// SA 10.05.88
+AND open.display.list() BE
+$(
+   LET window.stack = G.bi.s + m.bi.windows.stack
+   LET stack.ptr    = G.bi.s + m.bi.windows.stack.ptr
+
+   G.wm.set.to.front( G.sys.windows!m.wm.dlist.window )
+   G.bi.top.level()
+   window.stack!( !stack.ptr ) := G.sys.windows!m.wm.dlist.window
+
+   !stack.ptr := !stack.ptr + 1
+$)
+
+AND do.close(command, ptr, limit) BE
+$(
+   LET buff = VEC 30/bytesperword
+   LET box  = boxname( next.section( command, buff, ptr, limit ) )
+
+   // SA 03.05.88
+   SWITCHON box INTO
+   $(
+      CASE n.idusr: close.identify.user(); ENDCASE
+      CASE n.splan: close.see.plan(); ENDCASE
+      CASE n.dlist: close.display.list(); ENDCASE
+   $)
+
+$<diag
+   Writef("Closing the '%s' box*n",find.bname(box))
+   Writef("%s*n",command )
+$>diag
+$)
+
+// SA 16.05.88
+AND close.identify.user() BE
+$(
+   G.wm.Close( G.sys.windows!m.wm.idusr.window )
+   G.bi.top.level()
+$)
+
+// SA 03.05.88
+AND close.see.plan() BE
+$(
+   G.wm.close( G.sys.windows!m.wm.options.window )
+   G.wm.close( G.sys.windows!m.wm.procedure.window )
+   G.wm.close( G.sys.windows!m.wm.commentary.window )
+
+   G.bi.s!m.bi.windows.stack.ptr := G.bi.s!m.bi.windows.stack.ptr - 3
+$)
+
+// SA 10.05.88
+AND close.display.list() BE
+$(
+   G.wm.close( G.sys.windows!m.wm.dlist.window )
+
+   G.bi.s!m.bi.windows.stack.ptr := G.bi.s!m.bi.windows.stack.ptr - 1
+$)
+
+AND do.clear( command, ptr, limit ) BE
+$(
+   LET buff = VEC 30/bytesperword
+   LET box  = com.name( next.section( command, buff, ptr, limit ) )
+
+   SWITCHON box INTO
+   $(
+      CASE m.pro   : $( clear.text.buff( G.bi.s!m.bi.proc.buff,
+                                         m.bi.text.buffer.size )
+                        update.window( G.sys.windows!m.wm.procedure.window )
+                        G.bi.s!m.bi.proc.tip := 0
+                     $); ENDCASE
+
+      CASE m.com   : $( clear.text.buff( G.bi.s!m.bi.comm.buff,
+                                       m.bi.text.buffer.size )
+                        update.window( G.sys.windows!m.wm.commentary.window )
+                        G.bi.s!m.bi.comm.tip := 0
+                     $); ENDCASE
+
+      CASE m.dlist : $( clear.text.buff( G.bi.s!m.bi.dlist.buff,
+                                         m.bi.text.buffer.size )
+                        G.bi.s!m.bi.dlist.tip := 0
+
+                        FOR icon.handle = 0 TO (G.bi.s!m.bi.dlist.no.icons - 1)
+                        DO G.wm.Delete.Icon( G.sys.windows!m.wm.dlist.window,
+                                             icon.handle )
+
+                        update.window( G.sys.windows!m.wm.dlist.window )
+                     $); ENDCASE
+   $)
+
+$<diag
+   Writef("Clearing the '%s' window*n",find.cname(box))
+   set.window.for( box ); cls(); set.window.for( m.none )
+   Writef("%s*n",command )
+$>diag
+
+$)
+
+AND clear.text.buff( buffer, size ) BE
+$(
+   FOR offset = 0 TO size BY 64
+   $(
+      buffer%( offset+0 ) := 1
+      buffer%( offset+1 ) := ' '
+   $)
+$)
+
+AND update.window( handle ) BE
+$(
+   LET flags = 0
+   LET q     = G.wm.q
+
+   G.wm.Get.Window.State( handle )
+   flags := q!8
+
+   IF (flags & m.wm.window.open)~=0 THEN
+   $(
+      LET width  = q!m.wm.X1-q!m.wm.X0
+      LET height = q!m.wm.Y1-q!m.wm.Y0
+
+      G.wm.Force.Redraw( handle,
+                         0,
+                         q!m.wm.Yscroll-height,
+                         width,
+                         q!m.wm.Yscroll )
+      G.bi.top.level()
+   $)
+$)
+
+AND do.send( command, ptr, limit ) BE
+$(
+   LET buff      = VEC ( m.bi.normal.buffer.size/bytesperword )
+   LET com       = com.name( next.section( command, buff, ptr, limit ) )
+   LET text.buff = find.text.buff( com )
+   LET text.buff.size = find.text.buff.size( com )
+   LET tip       = find.text.insertion.ptr( com )
+   LET handle    = find.window.handle( com )
+   LET add.to.line = FALSE
+   LET active.icon = FALSE
+   LET n         = 1
+
+   // SA 11.05.88
+   // Writef( "%s*n",command )
+   // set.window.for( com )
+   // Writef(">>>%s*n",find.cname(com))
+
+   // close dlist window to prevent user seeing text being assembled
+   IF com = m.dlist THEN G.wm.Close( G.sys.windows!m.wm.dlist.window )
+
+   IF (com = m.com | m.pro | m.pep) THEN scroll.to.bottom( handle )
+
+   $(
+      next.section( command, buff, ptr, limit )
+
+      // check limit
+      IF (find.command( buff ) = c.endsend) | (!ptr > limit)
+      THEN
+      $(
+         send.new.line( handle, tip, text.buff, text.buff.size, add.to.line )
+         BREAK
+      $)
+
+      TEST cb("nl", buff, 1)
+      THEN
+      $(
+         send.new.line( handle, tip, text.buff, text.buff.size, add.to.line )
+         add.to.line := FALSE
+      $)
+      ELSE
+         TEST cb("on", buff, 1)
+         THEN $( create.yes.icon( -(!tip/64+1)*32, text.buff%(!tip)*16+4 )
+                 send.new.line( handle,
+                                tip, text.buff, text.buff.size, add.to.line )
+                 add.to.line := FALSE
+              $)
+         ELSE
+            UNLESS cb("off", buff, 1) 
+               TEST ( (com = m.opt) & ((buff%1 = '+')|(buff%1 = '-')) )
+               THEN mod.options( buff )
+               ELSE
+                  TEST add.to.line
+                  THEN
+                  $( G.ut.movebytes( buff, 1, text.buff, 
+                                     !tip+text.buff%(!tip)+1, buff%0 )
+                     text.buff%(!tip) := text.buff%(!tip) + buff%0
+                  $)
+                  ELSE
+                  $( g.ut.movebytes( buff, 1, text.buff,
+                                    (!tip)+1, buff%0 )
+                     text.buff%(!tip) := buff%0
+                     add.to.line := TRUE
+                  $)
+   $) REPEAT
+
+   IF com = m.dlist THEN
+   $(
+      LET outbuff = VEC (m.bi.normal.buffer.size/bytesperword)
+      LET clibuff = VEC (m.bi.normal.buffer.size/bytesperword)
+      LET header  = "'SELECTION'. "
+      LET len     = ?
+
+      // now open the window after all has been set up
+      G.bi.s!m.bi.dlist.tip := 0
+      G.wm.Set.to.Front( g.sys.windows!m.wm.dlist.window )
+
+      $(
+         G.bi.top.level()
+
+$<debug
+         IF G.bi.s!m.bi.key = 4 debug(0)  // on ctrl-D
+$>debug
+
+      $) REPEATUNTIL G.bi.s!m.bi.icon ~= m.wm.invalid.handle
+
+      // SA 11.05.88
+      clibuff%0 := 3
+      clibuff%1 := (G.bi.s!m.bi.icon + 1) + '0'
+      clibuff%2 := '.'
+      clibuff%3 := ' '
+
+      // Writef("Enter choice (1..%i1) : ", n-1)
+      // read.line( clibuff )
+      // len := clibuff%0
+      // UNLESS clibuff%len = '.' do
+      // $( clibuff%(len+1) := '.'; clibuff%0 := len+1 $)
+
+      make.output( concat.(header, clibuff, outbuff ) )
+
+      // set.window.for( com ); cls() // clear screen
+   $)
+
+   // IF com = m.opt THEN display.options()
+
+   // set.window.for( m.none ) // reset to DEFAULT
+$)
+
+AND create.yes.icon( min.y, min.x ) BE
+$(
+   LET i = g.bi.s + m.bi.dlist.yes.icon.info
+   LET width = i!4 - i!2
+   LET height = i!5 - i!3
+   LET icon.handle = 0
+
+   // adjust position
+   i!2 := min.x
+   i!3 := min.y
+   i!4 := min.x + width
+   i!5 := min.y + height
+
+   icon.handle := G.wm.Create.Icon( G.sys.windows!m.wm.dlist.window,
+                                    i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9 )
+
+   G.bi.s!m.bi.dlist.no.icons := icon.handle + 1
+$)
+
+AND find.text.buff( c ) = VALOF
+$(
+   SWITCHON c INTO                                                             
+   $(
+      CASE m.pro   : RESULTIS G.bi.s!m.bi.proc.buff
+      CASE m.com   : RESULTIS G.bi.s!m.bi.comm.buff
+      CASE m.pep   : RESULTIS G.bi.s!m.bi.peep.buff
+      CASE m.dlist : RESULTIS G.bi.s!m.bi.dlist.buff
+      DEFAULT      : RESULTIS m.none
+   $)
+$)
+
+AND find.text.buff.size( c ) = VALOF
+$(
+   SWITCHON c INTO
+   $(
+      CASE m.pro   : RESULTIS m.bi.text.buffer.size
+      CASE m.com   : RESULTIS m.bi.text.buffer.size
+      CASE m.pep   : RESULTIS m.bi.text.buffer.size
+      CASE m.dlist : RESULTIS m.bi.text.buffer.size
+      DEFAULT      : RESULTIS m.none
+   $)
+$)
+
+AND find.text.insertion.ptr( c ) = VALOF
+$(
+   SWITCHON c INTO
+   $(
+      CASE m.pro   : RESULTIS G.bi.s + m.bi.proc.tip
+      CASE m.com   : RESULTIS G.bi.s + m.bi.comm.tip
+      CASE m.pep   : RESULTIS G.bi.s + m.bi.peep.tip
+      CASE m.dlist : RESULTIS G.bi.s + m.bi.dlist.tip
+      DEFAULT      : RESULTIS m.none
+   $)
+$)
+
+AND find.window.handle( c ) = VALOF
+$(
+   SWITCHON c INTO
+   $(
+      CASE m.pro   : RESULTIS G.sys.windows!m.wm.procedure.window
+      CASE m.com   : RESULTIS G.sys.windows!m.wm.commentary.window
+      CASE m.pep   : RESULTIS G.sys.windows!m.wm.peephole.window
+      CASE m.dlist : RESULTIS G.sys.windows!m.wm.dlist.window
+      CASE m.opt   : RESULTIS G.sys.windows!m.wm.options.window
+      DEFAULT      : RESULTIS m.none
+   $)
+$)
+
+AND scroll.to.bottom( window.handle ) BE
+$(
+   LET q = G.wm.q
+
+   G.wm.Get.Window.Info( window.handle )
+
+   IF (q!m.wm.flags & m.wm.window.open) ~= 0 THEN  //make sure window is open
+   $(
+      // set scroll.y to lowest possible value
+      LET height = q!m.wm.Y1 - q!m.wm.Y0
+      LET work.extent.miny = q!12
+      LET scry = work.extent.miny + height
+
+      // update and redraw window
+      G.wm.Update( window.handle, q!m.wm.X0, q!m.wm.Y0, q!m.wm.X1, q!m.wm.Y1,
+                   q!m.wm.Xscroll, scry, q!m.wm.TopHandle )
+      G.bi.top.level()
+   $)
+$)
+
+AND send.new.line( window.handle, tip, text.buff, buff.size, add.to.line ) BE
+$(
+   IF add.to.line = FALSE 
+   THEN
+   $( 
+      text.buff%(!tip)   := 1
+      text.buff%(!tip+1) := ' '
+   $)
+
+   !tip := !tip + 64
+   IF !tip >= buff.size THEN !tip := 0
+
+   update.window( window.handle )
+$)
+
+// given an option string of form "+/-<option>", sort
+// out what it means.
+AND mod.options( option.string ) BE
+$(
+   LET s  = option.string        // the string
+   LET l  = option.string%0      // limit of decoding
+   LET p  = 1                    // pointer into option string
+   LET sw = TRUE                 // option is on/off
+   LET option = ?                // the option chosen
+   LET icon.handle = ?           // option icon handle
+
+   LET current = TABLE TRUE,TRUE,TRUE,TRUE,TRUE,TRUE,
+                       TRUE,TRUE,TRUE,TRUE,TRUE,TRUE
+
+   s.options := current
+
+   sw := (s%1 = '+') // assume either a '+' or '-'
+
+   for i = 1 to l-1 do s%i := s%(i+1) // shuffle string down
+   s%0 := l-1                         // reset length
+
+   // SA 09.05.88
+   icon.handle := opt.icon.handle( s )
+   UNLESS icon.handle = 0   // icon does not exist
+      TEST sw
+      THEN G.wm.Set.Icon.State( G.sys.windows!m.wm.options.window,
+                                icon.handle,
+                                0, m.wm.icon.shaded )                 //active
+      ELSE G.wm.Set.Icon.State( G.sys.windows!m.wm.options.window,
+                                icon.handle,
+                                m.wm.icon.shaded, m.wm.icon.shaded )  //dimmed
+
+   option := opt.name( s )
+   current!(option-o.how) := sw       // update option (how is first)
+$)
+
+
+//AND display.options() BE
+//$(
+//   LET s = ?
+//   LET opt.TABLE = s.options
+//
+//   set.window.for( m.opt )
+//   cls()
+//   set.window.for( m.opt )
+//
+//   Writes("Fn>")
+//
+//   FOR i = 0 to 9
+//   $( s := option.string( i+o.how )
+//      Writef("%i1:",i+1)
+//      TEST opt.TABLE!i THEN Writes( s ) ELSE for i = 1 to s%0 Wrch('*S')
+//   $)
+//
+//   set.window.for( m.none )
+//$)
+
+// ******************
+//  command decoders
+// ******************
+
+AND find.command( str ) = valof
+$(
+   $<diag Writef("In command decoder: string is : %s*n",str ) $>diag
+
+  RESULTIS c.( str, "command,time,open,close,*
+                     *send,endsend,indirect,clear,exit:",
+                     TABLE c.command,c.time,c.open,c.close,
+                           c.send,c.endsend,c.indirect,c.clear,c.exit )
+$)
+
+AND boxname( str ) = valof
+$(
+   $<diag Writef("In boxname: string is : %s*n",str ) $>diag
+
+   RESULTIS c.( str, "idusr,stats,mplan,splan,eplan,iplan,*
+                     *dlist,topic,objct,gloss:",
+                      TABLE n.idusr,n.stats,n.mplan,n.splan,n.eplan,
+                            n.iplan,n.dlist,n.topic,n.objct,n.gloss )
+$)
+
+AND com.name( str ) =
+c.( str, "pro,com,opt,pep,oname,entry,meang,impcn,dlist:",
+    TABLE m.pro,m.com,m.opt,m.pep,m.oname,m.entry,m.meang,m.impcn,m.dlist )
+
+
+AND opt.name( str ) =
+c.( str, "how,quit,why,exit,summary,yes,no,next,help,remediation:",
+    TABLE o.how,o.quit,o.why,o.exit,o.summary,
+          o.yes,o.no,o.next,o.help,o.remediation )
+
+AND opt.icon.handle( str ) =
+c.( str, "how,quit,why,exit,summary,yes,no,next,help,remediation:",
+    TABLE i.how, i.quit, i.why , i.exit, i.summary,
+          i.yes, i.no  , i.next, i.help, i.remediation )
+
+// gets next string before a dot, or null IF it's the end of string
+
+AND next.section( cstr, buff, ptr, lim ) = valof
+$(
+   LET i   = 1
+   LET p   = !ptr
+   LET ch  = cstr%p
+   LET terminator = '.'
+
+   IF (ch = '|') THEN $( terminator := ch; ch := '*s'; i := 0 $)
+
+   while (ch ~= terminator) & (p <= lim) do  // check limit
+   $(
+      buff%i := ch           // save character
+      p      := p + 1        // increment source ptr
+      i      := i + 1        // increment dest. ptr
+      ch     := cstr%p       // GET next char
+   $)
+   buff%0 := i - 1    // set length
+   !ptr   := p+1      // update pointer
+
+$<diag Writef("Next Section is <%s>*n",buff ) $>diag
+
+   RESULTIS buff
+$)
+
+// this will return a manifest from t which matches
+// the command string in c, by comparing strings in s
+// or FALSE IF no match found
+
+AND c.( c,s,t ) = valof
+$(
+   LET j,n = 1,0
+
+   $( IF cb( c, s, j ) RESULTIS t!n
+      until s%j = ',' | s%j = ':' do j := j + 1
+      IF s%j = ':' BREAK
+      n := n + 1; j := j + 1
+   $) REPEAT
+$<diag
+   writef("Unknown command '%s'*n", c )
+$>diag
+   RESULTIS false
+$)
+
+// compare bytes in string s with those in
+// array a at offset o. String should be BCPL.
+
+AND cb( s, a, o ) = valof
+$(
+   for k = 0 to s%0-1 UNLESS COMPCH( s%(k+1), a%(o+k) ) = 0 RESULTIS false
+   RESULTIS true
+$)
+
+// *****************************
+// manifest to string converters
+// *****************************
+
+AND find.bname( box ) = VALOF SWITCHON box INTO
+$(
+   CASE n.idusr : RESULTIS "Identify User"
+   CASE n.stats : RESULTIS "Statistics"
+   CASE n.mplan : RESULTIS "Monitor Plan"
+   CASE n.splan : RESULTIS "See Plan"
+   CASE n.eplan : RESULTIS "Enter a Plan"
+   CASE n.iplan : RESULTIS "Plan Interrupted"
+   CASE n.dlist : RESULTIS "Display List"
+   CASE n.topic : RESULTIS "Topic"
+   CASE n.objct : RESULTIS "Object"
+   CASE n.gloss : RESULTIS "Glossary"
+   DEFAULT      : RESULTIS "Illegal"
+$)
+
+AND find.cname( com ) = VALOF SWITCHON com INTO
+$(
+   CASE m.pro   : RESULTIS "Procedure"
+   CASE m.com   : RESULTIS "Commentary"
+   CASE m.opt   : RESULTIS "Options"
+   CASE m.pep   : RESULTIS "Peephole"
+   CASE m.dlist : RESULTIS "DisplayList"
+   CASE m.oname : RESULTIS "Object Name"
+   CASE m.entry : RESULTIS "Glossary Entry"
+   CASE m.meang : RESULTIS "Meaning"
+   CASE m.impcn : RESULTIS "Implication"
+   DEFAULT      : RESULTIS "Illegal"
+$)
+
+AND option.string( option.number ) = VALOF SWITCHON option.number INTO
+$(
+   CASE o.how         : RESULTIS "How "
+   CASE o.quit        : RESULTIS "Quit "
+   CASE o.why         : RESULTIS "Why "
+   CASE o.exit        : RESULTIS "Exit "
+   CASE o.summary     : RESULTIS "Summary "
+   CASE o.yes         : RESULTIS "Yes "
+   CASE o.no          : RESULTIS "No "
+   CASE o.help        : RESULTIS "Help "
+   CASE o.remediation : RESULTIS "Remediation "
+   DEFAULT            : RESULTIS ""
+$)
+
+// ****************
+// utility routines
+// ****************
+
+// routine to make the file 'BICIbuff', which
+// Prolog can read to GET RESULTIS back from BCPL
+
+AND make.output( string ) BE
+$(
+   LET pb   = VEC 5
+   LET name = "BICIbuff"
+   LET len  = string%0
+
+   pb!0 := m.file.type             // R2 = file type
+   pb!2 := string*bytesperword + 1 // start address - (no length byte)
+   pb!3 := pb!2 + len              // end address
+
+   Osfile( m.osfile.save.file, name, pb ) // save it
+$)
+
+//
+// reads an indirected command from the file 'BICIbuff'
+// returns the length of BICIbuff. The buffer passed is
+// of size m.bi.static.buffer.size.
+//
+AND load.indirect.command( buff ) = VALOF
+$(
+   LET filename = "BICIbuff"
+   LET length = ?
+   LET pb = VEC 5
+
+   buff%0 := 0 // N.B. length only important for diagnostics
+
+   IF Osfile( 5, filename, pb ) = 0 RESULTIS 0   // not found
+
+   length := pb!2                                // in bytes
+
+   IF length > m.bi.static.buffer.size
+     THEN length := m.bi.static.buffer.size
+
+   pb!1 := 0; pb!0 := (buff*bytesperword+1)      // set up vector
+   OsFile( #xFF, filename, pb )                  // load it
+
+   UNLESS Result2 = 0 RESULTIS 0
+
+   buff%0 := (length>255) -> 255, length
+
+   RESULTIS length
+$)
+
+// joins s2 to end of s1 in buffer s3
+// e.g. concat( "Dog", "Cat" , b ) --> b = "DogCat"
+
+AND concat.( s1, s2, s3 ) = valof
+$(
+   for i = 1 to s1%0 s3%i := s1%i
+   for i = 1 to s2%0 s3%(s1%0+i) := s2%i
+
+   s3%0 := s1%0 + s2%0
+
+   RESULTIS s3
+$)
+
+AND read.line( linebuff ) BE
+$(
+   LET pb = VEC 1
+
+   pb!0 := (linebuff * bytesperword)+1  // address of byte 1
+   pb%4 := 254                          // max length of line
+   pb%5 := 32                           // min char
+   pb%6 := 126                          // max char
+   linebuff%0 := OSWord(0, pb)+1        // Read a line
+
+   IF result2 THEN linebuff%0 := 0
+$)
+
+AND get.fkey() = valof
+$(
+   LET key = ?
+
+   OsByte(225,m.fkey.base,0) // set function keys to give codes
+
+   key := OSByte( #x81,0,0 )
+       // REPEATuntil m.fkey.base <= key < m.fkey.base + 10
+
+   OsByte(225,1,0)  //  set function keys to give strings
+
+   RESULTIS key
+$)
+
+// special frig for temporary windows - write to TEXT windows
+// only in the CASE of procedure, commentary, peephole, options
+//
+//  SCREEN LAYOUT
+//   0                       39                       79
+//  0--------------------------------------------------
+//   | PRO                   | COM                    |
+//   |                       |                        |
+//   |                       |                        |
+//   |                       |                        |
+// 12|-----------------------|------------------------|
+//   | DLIST                 | PEP                    |
+//   |                       |                        |
+//   |                       |                        |
+//   |                       |                        |
+// 24|------------------------------------------------|
+//   | Anything ELSE                                  |
+//   |                                                |
+//   |                                                |
+// 30--------------------------------------------------
+// 31|  options display                               |
+//   --------------------------------------------------
+
+AND set.window.for( box ) BE switchon box into
+$( DEFAULT     : set.text.window(  0,30,79,24 ) ; endcase
+   CASE m.none : set.text.window(  0,30,79,24 ) ; endcase
+   CASE m.pro  : set.text.window(  0,11,39, 0 ) ; endcase
+   CASE m.opt  : set.text.window(  0,31,79,30 ) ; endcase
+   CASE m.com  : set.text.window( 41,11,79, 0 ) ; endcase
+   CASE m.pep  : set.text.window( 41,22,79,13 ) ; endcase
+   CASE m.dlist: set.text.window(  0,22,39,13 ) ; endcase
+$)
+
+//
+// set text window and place cursor at bottom left
+//
+AND set.text.window( blx, bly, trx, try ) BE
+VDU("4,28,%,%,%,%,31,0,%",blx,bly,trx,try,bly-try)
+
+AND cls() BE VDU("12")
+.

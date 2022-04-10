@@ -1,0 +1,190 @@
+SECTION "GRID ranges"
+
+/**
+         AR.MANUAL1 - RANGES OPERATION FOR GRID DATA
+         -------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.gridh
+
+         REVISION HISTORY:
+
+         DATE      VERSION  AUTHOR     DETAILS OF CHANGE
+         17.6.87      1       SA       Adapted for User Data
+         22.6.87      2       SA       Menu bar control modified
+
+         g.gd.ranges
+         g.gd.disable.entry.mode
+**/
+
+GET "LIBHDR"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glGDhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.grhhd"
+
+
+/**
+      G.gd.RANGES - CONTROLS THE RANGES FUNCTION
+      ------------------------------------------
+
+      Controls all functions associated with the ranges operation
+
+      INPUTS:
+
+      none
+
+      OUTPUTS:
+
+      screen output
+
+      GLOBALS MODIFIED:
+
+      g.key
+      g.gd.buff
+      g.gd.buff+m.gd.ranges
+
+      SPECIAL NOTES FOR CALLERS:
+
+      none
+
+      PROGRAM DESIGN LANGUAGE:
+
+      g.gd.manual []
+      --------------
+
+      IF first time in
+      THEN initialise
+
+      IF (key = Return)
+      THEN IF entry mode enabled
+           THEN convert string to unscaled number
+                update ranges value
+                set intervals changed static to TRUE
+                disable entry mode
+           ELSE IF pointer over box
+                THEN enable entry mode
+                ELSE (disabled and outside message area)
+                     do nothing - let kernel beep
+                ENDIF
+      ELSE IF entry mode is enabled AND
+              key is a valid character for a number string
+           THEN include number in string and echo
+           ENDIF
+      ENDIF
+**/
+
+LET g.gd.ranges() BE
+$( LET box = ?
+   IF g.gd.buff!m.gd.ranges.set DO
+   $( g.sc.clear (m.sd.message)
+      g.gd.display.key()
+      g.gd.buff!m.gd.ranges.set := false
+   $)
+
+   box := get.box()
+   TEST g.key = m.kd.return
+   THEN $( TEST g.gd.buff!m.gd.entry.mode
+           THEN $( LET number   = VEC m.gd.max.data.size
+                   LET norm.fac = g.gd.buff!m.gd.norm
+                   TEST g.gd.string.to.num (g.gd.buff+m.gd.number.string,
+                                                              norm.fac, number)
+                   THEN $( LET ranges.vec = g.gd.buff + m.gd.ranges
+                           LET off = (g.gd.buff!m.gd.range.box)*
+                                                             m.gd.max.data.size
+                           ranges.vec!(off+m.lsw) := number!m.lsw
+                           ranges.vec!(off+m.msw) := number!m.msw     
+                           g.gd.buff!m.gd.intervals.changed := TRUE
+                        $)
+                   ELSE g.sc.ermess ("Invalid number")
+                   disable.entry.mode()
+                $)
+           ELSE IF (g.screen = m.sd.message) & (box > 0) &
+                   (box < m.gd.num.of.ranges)
+                THEN enable.entry.mode (g.gd.buff + m.gd.number.string, box)
+         $)
+   ELSE IF g.gd.buff!m.gd.entry.mode & valid.char (g.key)
+        THEN g.sc.input (g.gd.buff + m.gd.number.string, m.sd.blue,
+                           ((box REM 2 = 0) -> m.sd.yellow, m.sd.cyan),
+                              g.gd.buff!m.gd.number.width)
+$)
+
+
+/*
+      enable.entry.mode
+         enables string entry mode, sets static box,
+         sets up foreground colour and initialises the entry routine
+*/
+AND enable.entry.mode (string.ptr, box) BE
+$( g.gd.buff!m.gd.range.box := box - 1    // ensures correct offset to ranges..
+   g.gd.display.box (box, TRUE)           // wipe out old number by suppression
+
+   g.sc.movea (m.sd.message,
+               g.gd.buff!(m.gd.box.position + box) + m.gd.x.pixels.to.graphics -1,
+               m.sd.mesYtex)
+
+   IF box = 1                       // restore "<" after suppression cleared it
+   THEN $( g.sc.selcol (m.sd.blue)
+           g.sc.oprop ("<")
+        $)
+
+   g.key := m.kd.noact
+   string.ptr%0 := 0                                // initialise string length
+   g.sc.input (string.ptr, m.sd.blue,
+               ((box REM 2 = 0) -> m.sd.yellow, m.sd.cyan),
+                g.gd.buff!m.gd.number.width)
+   g.gd.buff!m.gd.entry.mode := TRUE
+$)
+
+
+/*
+      disable.entry.mode
+         disables string entry mode, cleans up the input state and
+         redisplays the key
+*/
+AND disable.entry.mode() BE
+$( g.gd.buff!m.gd.entry.mode := FALSE
+                                                   // clean up text input state
+   g.key := m.kd.return
+   g.sc.input ("", m.sd.blue,
+                          ((get.box() REM 2 = 0) -> m.sd.yellow, m.sd.cyan), 0)
+   g.gd.display.key()
+   g.key := m.kd.noact  // prevent the kernel beeping
+$)
+
+
+/*
+      get.box
+         determines which box in the key the mouse pointer is
+         over - assumes that the pointer is somewhere in the
+         message screen area
+*/
+AND get.box() = VALOF
+$( LET box = 1
+   FOR G = 1 TO m.gd.num.of.ranges - 1 DO
+      IF (g.gd.buff!(m.gd.box.position+G) < g.xpoint <
+                                             g.gd.buff!(m.gd.box.position+G+1))
+      THEN box := G
+   IF (g.xpoint > g.gd.buff!(m.gd.box.position + m.gd.num.of.ranges))
+   THEN box := m.gd.num.of.ranges
+   RESULTIS box
+$)
+
+/*
+      valid.char
+         determines if a character is a valid one for a
+         scientific number notation literal OR a valid
+         cursor editing key
+*/
+AND valid.char (char) = VALOF
+$( LET result = FALSE
+   FOR F = 0 TO 18 DO
+      IF char = F!TABLE '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                        ' ', '.', '+', '-', 'e', 'E',
+                        m.kd.left, m.kd.right, m.kd.delete
+      THEN result := TRUE
+   RESULTIS result
+$)
+.

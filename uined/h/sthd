@@ -1,0 +1,38 @@
+// /**
+//       STHDR - STATE TABLE HEADER FILE - USER DATA INPUT EDITOR
+//       --------------------------------------------------------
+//
+//       Contains the constant definitions for the various states
+//       that the system can be in.
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//     17.02.87   1        SRY         Initial version
+// **/
+//
+MANIFEST $(
+m.st.startstop = 0 // kept from standard
+
+m.st.inputed = 1 // User Data Input Editor states
+m.st.charth  = 2
+m.st.chartl  = 3
+m.st.chartd  = 4
+m.st.gridh   = 5
+m.st.gridd   = 6
+m.st.arealh  = 7
+m.st.areald  = 8
+m.st.config  = 9
+
+m.st.nostates = 9 // maximum value of state, size of state tables
+                  // was 54
+m.st.barlen   =  6 // number of state changes on menu bar
+m.st.box0width   = 80  // the box with triangle in graphics units
+
+m.st.defboxwidth = 200 // default menu bar box width in graphics units
+m.st.boxw    = #x6400 // default menu box width in pixels, left shifted 9
+$)
+
+
+
+

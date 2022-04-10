@@ -1,0 +1,276 @@
+/**
+         NF.FIND3 - RUNS THE FREE TEXT QUERY
+         -----------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         R.FIND
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         13.5.86  1        M.F.Porter  Initial working version
+         23.5.86  2        PAC         Fix TRAP bug
+         19.6.86  3        MFP         "gl4hd", g.sc.pointer in
+                                          g.nf.runquery
+         22.6.86  4        MFP         'backmove.' for 'backmove'
+         1.7.86   5        MFP         "finding titles, please wait"
+         14.7.86  6        MFP         bug fix as marked
+         18.7.86  7        MFP         $<debug removed
+         26.9.86  8        MFP         "These items .. found:"
+         *******************************************
+         9.6.87   9        MFP         CHANGES FOR UNI
+         22.6.87  10       DNH         fix process.. bug
+         *******************************************
+         24.7.87  11        MH         CHANGES FOR PUK
+         04.8.87  12        MH         update to G.nf.extracttitles
+         **********************************************************
+         29.03.88 13        SA         CHANGES FOR DISH
+                                       transferred extract.titles to
+                                       'titles' file.
+**/
+
+
+section "find3"
+
+get "libhdr"
+get ":4.DSH.GH.glhd"
+get ":4.DSH.GH.glNFhd"
+get ":4.DSH.H.sdhd"
+get ":4.DSH.H.nfhd"
+
+/**
+         See CF.FIND3 for comments
+**/
+
+static $( p = 0; worstmatch = 0; bestmatch = 0; mask = 0 $)
+
+let trap.(n,val,low,high) be g.ut.trap("NF",30+n,true,3,val,low,high)
+
+let backmove.(p,q,n) be for i = n-1 to 0 by -1 do q!i := p!i
+
+let read.(v,q,n,errornumber) be unless g.dh.read(p!c.index,v,q,n) = n do
+$(  trap.(errornumber,2,1,0) // force fatal error
+    finish
+$)
+
+let makebuffers.(b, bsize) = valof
+$(  let z = p+p.z
+    let termcount = p!c.termcount
+    let zlim = z+(termcount-1)*m.h
+    for q = z to zlim by m.h do q!c.p := 0
+    until termcount = 0 do
+    $(  let r = 0
+        /* set r to the term slot of smallest frequency among the terms with
+           as yet unallocated buffers. */
+        for q = z to zlim by m.h if q!c.p = 0 & (r = 0 | r!c.f > q!c.f) do
+           r := q
+        $(  let sp1 = r!c.f // total slots for current term
+            let sp2 = bsize/(termcount*m.iisize)
+                              // equitable division of remaining space
+            let sp = sp1 < sp2 -> sp1, sp2 // smaller of these
+            sp := sp*m.iisize
+            r!c.p := b+bsize-sp
+            r!c.sp := sp
+            bsize := bsize-sp
+            $<trace g.sc.ermess("%N words for term %N buffer",sp,(r-z)/m.h)
+            $>trace
+        $)
+        if termcount = 1 do p!c.maxterm := r
+        termcount := termcount-1
+    $)
+    resultis b
+$)
+
+and readitem.(q) be
+$(  let c,i,sp = q!c.c, q!c.i, q!c.sp
+    if q = p!c.maxterm & (i & mask) = 0 do g.nf.writepc(MULDIV(i,100,q!c.f))
+    if i = q!c.f do
+    $(  q!c.c := p+c.max  // end of stream indication
+        return
+    $)
+    c := c+m.iisize
+    //  trap.(0,c-q!c.p,m.iisize,sp)  (comment out for speed)
+    if c = q!c.p+sp do
+    $(  let n = q!c.f-i       // items left to be read
+        sp := sp/m.iisize     // items readable in one gulp
+        if n > sp do n := sp  // items to read this time round
+        $(  let v = vec 1
+            let w = vec 1
+            g.ut.set32(i,0,v)
+            g.ut.set32(m.biisize,0,w)
+            g.ut.mul32(w,v)
+            g.ut.add32(q+c.o,v)
+            read.(v, q!c.p, n*m.biisize, 1)
+            c := q!c.p
+        $)
+    $)
+    q!c.c := c
+    q!c.i := i+1
+$)
+and read.enabled.item(q) be
+   readitem.(q) repeatuntil q!c.c = p + c.max | type.included(q!c.c%3)
+
+and type.included(type) = valof
+$(
+   switchon type into
+   $(
+   case 1: resultis G.nf.p!(c.include+2)
+   case 3: resultis G.nf.p!(c.include+3)
+   case 4: resultis G.nf.p!(c.include+4)
+   case 8: resultis G.nf.p!c.include
+   case 6:
+   case 7: resultis G.nf.p!(c.include+1)
+   default: resultis false
+   $)
+$)
+
+and setmaxval.(q) be g.ut.set32(0,true,q)  // fill with 1's
+
+and cmp.(p,q) = p%2 ~= q%2 -> p%2-q%2,
+                p%1 ~= q%1 -> p%1-q%1, p%0-q%0
+
+and addtobestmatches.(d,w) be
+$(
+    /* if the item in p!c.h is <= [w,d] return */
+    if p!c.h < w | p!c.h = w & cmp.(p+c.h+1,d) > 0 return
+    $(  let m, mend = p+p.m, p!c.mend
+        if mend = m.msize do mend := mend-m.misize
+        $(  let i = mend
+            let distance = 0
+            while i > 0 do
+            $(  let diff = m!(i-m.misize)-w
+                if diff < 0 do $( i := i-m!(i-1); loop $)
+                if diff = 0 do distance := m!(i-1)
+                break
+            $)
+            backmove.(m+i, m+i+m.misize, mend-i)
+            m!i := w; g.ut.mov32(d, m+i+1)
+            m!(i+m.misize-1) := distance+m.misize
+        $)
+        mend := mend+m.misize
+        if mend = m.msize do worstmatch := m!(m.msize-m.misize)
+        p!c.mend := mend
+        if w = bestmatch do
+        $(  p!c.bestcount := p!c.bestcount+1
+            g.nf.writepm(p!c.bestcount)
+        $)
+    $)
+$)
+
+and processquery.() be
+$(  let z = p+p.z
+    let termcount = p!c.termcount
+    let zlim = z+(termcount-1)*m.h
+    let w = 0
+    let prev.D = vec m.iisize-1
+    setmaxval.(prev.D)
+    worstmatch := 0
+    bestmatch := p!c.bestmatch
+    $(  let maxfreq = p!c.maxterm!c.f
+        mask := maxfreq / 100
+        $(  let n = 1
+            while n < mask do $( mask := mask | n; n := n << 1 $)
+        $)
+    $)
+    /* force initialisation: */
+    for q = z to zlim by m.h do
+    $(  q!c.i := 0
+        q!c.c := q!c.p+q!c.sp-m.iisize
+        read.enabled.item(q)
+        if cmp.(q!c.c,prev.D) < 0 do MOVE(q!c.c,prev.D,m.iisize)
+    $)
+    g.nf.writepm(0)
+    setmaxval.(p+c.max)
+    p!c.bestcount := 0
+    $(  let q = z
+        let qc = ?
+        for p = q+m.h to zlim by m.h if cmp.(p!c.c,q!c.c) < 0 do q := p
+        /* q now gives the smallest D-value in z */
+        qc := q!c.c
+        $(  let qweight = q!c.w
+            test cmp.(qc,prev.D) = 0
+            then w := w+qweight or
+            $(  if w > worstmatch do
+                $(  addtobestmatches.(prev.D,w)
+                    if worstmatch = bestmatch return
+                $)
+                w := qweight
+            $)
+        $)
+        if qc = p+c.max RETURN
+        MOVE(qc, prev.D, m.iisize)
+        $<trace2 WRITEF("%N/%X4/%X4 ",(q-z)/m.h,prev.D!1,prev.D!0) $>trace2
+        read.enabled.item(q)
+    $) repeat
+$)
+
+// SA 29.03.88
+
+//and g.nf.extracttitles(p) be
+//$(  let mbase, t = p+p.m+p!c.m, p+p.t
+//    let mtop = ?
+//    let items = m.titlespp+1
+//    let a = (p!c.mend-p!c.m)/m.misize
+//    g.sc.mess("Finding titles, please wait")
+//    if items > a do items := a
+//    mtop := mbase+(items-1)*m.misize
+//    for q = mbase to mtop by m.misize do !q := -!q
+//                                  // mark as uncollected
+//    for j = 1 to items do
+//    $(  let q = mbase
+//        while !q > 0 do q := q+m.misize
+//        trap.(2,q,mbase,mtop)
+//        for r = q+m.misize to mtop by m.misize
+//                    if !r < 0 & cmp.(r+1,q+1) < 0 do q := r
+//        $(  let v = vec 1
+//            let w = vec 1
+//            let o = (q-mbase)/m.misize*m.names.rec.wsize  // 04.8.87 MH
+//            g.ut.movebytes(q+1,0,v,0,4); v%3 := 0; g.ut.unpack32(v,0,w)
+//            g.ut.set32(m.names.rec.bsize,0,v)  // 04.8.87 MH
+//            g.ut.mul32(v,w)
+//            unless g.dh.read(p!c.names,w,t+o,m.names.rec.bsize) = 
+//                       m.names.rec.bsize do  // 04.7.87 MH
+//            $(  trap.(3,2,1,0)
+//                finish  $)
+//        $)
+//        !q := -!q  // mark as collected
+//    $)
+//    p!c.titles := items
+//    g.wm.clear.mess()
+//$)
+
+let g.nf.runquery(p0) = valof
+$(  g.sc.mess("Processing the query, please wait")
+    p := p0
+    makebuffers.(p!c.ws, p!c.wssize)
+    p!c.mend := 0
+    //g.sc.pointer(m.sd.off)  // added 19.6.86
+    if p!c.termcount > 0 do
+    $(
+        p!c.mend := 0
+        processquery.()
+        if p!c.mend = 0 then
+        $(
+            g.wm.clear.mess()
+            G.sc.ermess("No relevant items found")
+            resultis false
+         $)
+    $)
+    //g.sc.pointer(m.sd.on)   // added 19.6.86
+    p!c.m := 0
+    $<trace g.sc.ermess("p!c.mend = %N",p!c.mend) $>trace
+    $<trace2 for q = p+p.m to p+p.m+p!c.mend-m.misize by m.misize do
+           WRITEF("[%N]%X4/%X4 ",q!0,q!2,q!1)
+    $>trace2
+    g.nf.extracttitles(p)
+    g.sc.mess(p!c.termcount = 0 -> "No relevant items found",
+                                   "These items have been found:")
+    MOVE(p+p.m+p!c.mend-m.misize, p+c.h, m.misize) // save worst item
+
+    g.wm.clear.mess()
+    resultis true
+$)
+
+
+

@@ -1,0 +1,259 @@
+/**
+         DH.B.DH1 - Primitives for the Data Handler
+         ------------------------------------------
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+       21.04.87   1        SA          Adopted for Input Editor
+        5.05.87   2        SRY         Added write and open.update
+        8.06.87   3        SRY         Added G.dh.ensure
+       23.06.87   4        SRY         Added G.dh.open.if.can
+       26.06.87   5        SRY         Added delete.file
+
+         g.dh.open
+         G.dh.open.update
+         g.dh.read
+         G.dh.write
+         g.dh.close
+         g.dh.fstype
+         g.dh.length
+         g.dh.reset
+         g.dh.ensure
+         g.dh.delete.file
+**/
+
+section "dh1"
+
+get "libhdr"
+get ":4.UINED.gh.glhd"
+get ":4.UINED.h.dhhd"        // public header
+get ":4.UINED.h.dhphd"       // private header
+get ":4.UINED.h.uthd"
+get ":4.UINED.h.sdhd"
+
+
+/**
+         g.dh.open (filename)
+         --------------------
+         opens the filename, specified as a string, for read
+         only, returning a non-zero handle.  If the call fails
+         for any reason this is a fatal error and an ermess is
+         output.  Then 'g.ut.videodisc.error' is called.
+         There is no check on the string parameter.
+**/
+
+
+let g.dh.open (filename) = valof
+$( 
+   let handle = ?
+
+   handle := Osfind( m.osfind.open.read.op, filename )
+
+   if handle = 0 do               // bad handle: file not found
+   $(
+      g.sc.mess ("File %S not found", filename)
+      g.ut.abort (m.ut.videodisc.abort)      // fatal error !!
+   $)
+   resultis handle                           // all ok
+$)
+
+
+
+/**
+         g.dh.open.update (filename)
+         ---------------------------
+         opens the filename, specified as a string, for read
+         and write, returning a non-zero handle.  If the call
+         fails for any reason an ermess is output.
+         There is no check on the string parameter.
+**/
+
+and G.dh.open.update(filename) = dhopen(filename, true)
+and G.dh.open.if.can(filename) = dhopen(filename, false)
+
+and dhopen(filename, messages) = valof
+$( let handle = ?
+
+   handle := OSfind(m.OSfind.open.update.op, filename)
+   if handle = 0 then
+   $( if messages G.sc.ermess("file %s not found", filename)
+      handle := 0
+   $)
+   resultis handle
+$)
+
+and G.dh.delete.file (file) = valof
+$(
+   manifest $( m.delete.file.op = #x06 $)
+
+   let block = vec 5
+
+   OSfile(m.delete.file.op, file, block)
+
+   unless result2 = 0 then
+   $( error.()
+      resultis false
+   $)
+   resultis true
+$)
+
+/**
+         g.dh.read (handle, file-pointer, destination-vector,
+         ---------                             bytes-to-be-read)
+         Returns the number of bytes read successfully into the
+         destination vector from the file specified by 'handle'
+         starting from the 32-bit offset 'file-pointer' within
+         the file.  The offset is not altered by the call
+         whether it succeeds or fails.
+         If the call fails for any reason (eg. end of file)
+         g.ut.videodisc.error is called - a fatal error - with
+         the last SCSI error code.
+         Uses 'osgbpb'.
+**/
+
+and g.dh.read (handle, file.pointer, dest.vec, bytes) = valof
+$( 
+   LET pb = VEC 6
+
+ //  handle := (handle << 16) | m.osgbpb.gb.newptr.op  
+
+$<debug show.delay() $>debug
+
+   pb!0 := handle                 // r1
+   pb!1 := dest.vec*bytesperword  // r2
+   pb!2 := bytes                  // r3
+   pb!3 := file.pointer!0         // r4
+
+   bytes := bytes-Osgbpb( m.osgbpb.gb.newptr.op, pb ) // opcode
+
+$<debug show.delay() $>debug   
+
+   unless result2 = 0 do g.ut.videodisc.error ()   // fatal !
+   
+   resultis bytes                                  // all OK
+$)
+
+/**
+         g.dh.write (handle, file-pointer, source-vector,
+                     bytes-to-be-written)
+         ------------------------------------------------
+         Returns the number of bytes written successfully into the
+         destination vector from the file specified by 'handle'
+         starting from the 32-bit offset 'file-pointer' within
+         the file.  The offset is not altered by the call
+         whether it succeeds or fails.
+         Uses 'osgbpb'.
+**/
+
+and g.dh.write (handle, file.pointer, source.vec, bytes.to.write) = valof
+$( 
+   let pb = vec 6
+
+   pb!0 := handle
+   pb!1 := source.vec * bytesperword              // byte pointer in
+   pb!2 := bytes.to.write
+   G.ut.movebytes(file.pointer, 0, pb, 3*bytesperword, 4)
+
+   OSgbpb(m.osgbpb.pb.newptr.op, pb)
+
+   unless result2 = 0 do
+   $( error.()
+      bytes.to.write := 0
+   $)
+   resultis bytes.to.write
+$)
+
+and error.() be
+$( let head     = "Disc error:  "
+   let hlen     = head%0
+   let string   = vec 25
+   let length   = g.ut.get.ermess(string+(hlen >> 1), 50-hlen)
+
+   for i = 1 to hlen-1 string%i := head%i
+
+   string%0 := length + hlen
+
+   $( test g.sc.width(string) > m.sd.disW - m.sd.mesYtex
+      then string%0 := string%0 - 1
+      else break
+   $) repeat
+
+   G.sc.ermess(string)
+$)
+
+/**
+         g.dh.close (handle)
+         -------------------
+         Closes the file whose handle is specified.  If a handle of
+         zero is passed ALL open files of the current filing system
+         are closed.
+         No indication of success is returned.
+         Uses 'osfind'.
+**/
+
+and g.dh.close (handle) be Osfind( m.osfind.close.op, handle )
+                           
+/**
+         g.dh.fstype ()
+         --------------
+         Returns the type of the current filing system, which
+         should be looked up in the manifest header 'dhhdr'.
+         Uses 'osargs'.
+**/
+
+and g.dh.fstype () = valof
+$(          // returns the current filing system code, as defined in h.dhhdr
+   Let rc = Osargs( m.osargs.fstype.op, m.osargs.fstype.op, 0 ) // A = Y = 0  
+   resultis rc                                      // filing system from A
+$)
+
+/**
+         g.dh.length (handle, destination-vector)
+         ----------------------------------------
+         Returns the length in bytes of file specified by handle
+         in the 32-bit destination vector, or 0 for failure or
+         zero length.
+         Uses 'osargs'.
+**/
+
+and g.dh.length (handle, dest.vec) be
+$( 
+   Osargs( m.osargs.flength.op, handle, 0 )
+
+   dest.vec!0 := Result2   // copy out to caller's vec
+$)
+
+/**
+         g.dh.reset ()           3.2.86
+         -------------
+         Special routine currently for testing of CMOS ram for
+         boot purposes.  Returns the value of location 30.
+**/
+
+and g.dh.reset () = valof
+$(
+   Osbyte( m.osbyte.read.ram, 30)
+   resultis Result2        // Y reg.
+$)
+
+$<debug
+and show.delay() be 
+$(  
+   LET coords = VEC 3
+   G.sc.savcur(coords)
+   G.sc.movea ( 1,4,4 )         // into menu
+   G.sc.XOR.selcol( 2 )         // set colour = blue
+   VDU("25,%,%;%;",#x61 , 32 , 47 )    // plot over first box  
+   G.sc.selcol( 3 )  
+   G.sc.rescur(coords)
+$)
+$>debug
+
+and g.dh.ensure () be
+   OSargs(m.osargs.ensure.op, 0)
+.

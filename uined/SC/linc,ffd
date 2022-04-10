@@ -1,0 +1,3 @@
+|* link SC cintcode
+|* NB - text3 omitted: oplist and high
+join c.graph1 c.graph2 c.text1 c.text2 c.number c.getact c.input c.menu c.mouse -to c.kernel

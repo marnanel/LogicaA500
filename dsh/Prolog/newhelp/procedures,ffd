@@ -1,0 +1,633 @@
+/**************************************************
+*                   AUI / procedures              *
+*                   ****************              *
+*                                                 *
+* Program Id     :  procedures                    *
+* Author         :  Alan Bustany / Simon „icke®s  *
+* Instal¬ation   :  Œogica Cambridge Ltd.         *
+* Project Naje   :  AUI                           *
+* Language       :  Quintus PROLOG                *
+* Date Written   :  29 / 07 / 87                  *
+* Function       :  contains the procedural       *
+*                   knowledge base for access by  *
+*                   the administrator             *
+* Called by      :  admin                         *
+* Modules called :  none                          *
+* IPR            :  This software is foreground   *
+*                   IPR of Logica UK Ltd. on      *
+*                   Adaptive User Interface       *
+*                   project (AUI).  Its use is    *
+*                   governed by a collaboration   *
+*                   agreement dated 31st July 1986*
+***************************************************
+*               Revision History 1                *
+* Revised by   : S Ala'i                          *
+* Date Revised : 21/10/87                         *
+* Description  : Porting to PrologX on Acorn ADFS.*
+*            R1: Old procedures not belonging to  *
+*                Doomsday system commented out.   *
+*            R2: Syntax error: only one null_conc.*
+**************************************************/
+/* pkb(Procedure_Name, Generic, List_of_Steps)
+
+        A step may be of the form:
+
+                if(Condition, Positive_Conclusion, Then_Steps,
+                              Negative_Conclusion, Else_Steps)
+
+        or:
+                step(Step)
+
+        or:
+                generic(Generic)
+        
+        or:
+                library(Generic_Step)
+
+
+        The entry point for a procedure is the pseudo-generic 'root'.
+
+        
+        Generic steps are simply generics stored under the
+        pseudo-procedure name 'library', ie pkb(library, Generic_Step, ...)
+
+
+
+        Objects associated with steps are stored as:
+
+                objects(Step, Object_List)
+*/
+
+/*
+*  Name         :  pkb(+Procedure_Name, +Generic, +List_of_Steps)
+*  Function     :  stores all the procedural knowledge, which contains the
+*                  generic step, the entry conditions and specific instructions
+*                  as to how the present step should be carried out, and is
+*                  called in order to display this to the user
+*  Arguments    :  Procedure_Name; name of the procedure that the user is
+*                  carrying out at the moment
+*                  Generic; present generic step i.e. the step that immediately
+*                  gave rise to this one
+*                  List_of_Steps; list which tells the user exactly how to
+*                  carry out the present procedure
+*/
+
+pkb('Correlate two data sets over the same area of interest',
+        root,
+        [generic('Enter the data-mapping system'),
+         if(cond(['No previous area of interest has been selected  and', nl,
+                   'select to specify your own area of interest  or', nl,
+                   'No previous area of interest has been selected  and', nl,
+                   'forced into specifying your area of interest  or', nl,
+                   'An area of interest has previously been selected  and', nl,
+                   'want to change to a new area of interest']),
+            null_conclusion,
+            [generic('Specify your area of interest')],
+            null_conclusion,
+            []),
+          generic('Select first data set in which you are interested')]
+        ).
+
+
+pkb('Correlate two data sets over the same area of interest', 
+        'Enter the data-mapping system',
+        [if(cond(['You have a specific topic of interest  and', nl,
+                  'you know the keyword to the data items']),
+             null_conclusion,
+             [generic('Use FIND to type in a query to retrieve suitable data items')],
+             null_conclusion,
+             [generic('Use CONTENT to home in on a selection of data items')])] ).
+
+pkb('Correlate two data sets over the same area of interest', 
+        'Use FIND to type in a query to retrieve suitable data items',
+        [step('Select FIND from menu bar')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Use CONTENT to home in on a selection of data items',
+        [step('Select CONTENT from menu bar')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Specify your area of interest',
+        [if(cond(['No previous area of interest has been selected  and', nl,
+'you have selected to specify your own area of interest  or', nl,
+'An area of interest has previously been selected  and', nl,
+'you want to change to a new area of interest']),
+            null_conclusion,
+            [step('Select AREA from menu bar')],
+            null_conclusion,
+            []),
+        generic('Enter your new area of interest'),
+         if(cond(['To correct spelling or invalid input for areal units  or', nl,
+'to correct invalid grid reference  or', nl,
+'You are unhappy with the yellow rectangle representing the defined area of interest  and', nl,
+'want to reselect your area of interest']),     
+            null_conclusion,
+            [generic('Respecify your area of interest')],
+            null_conclusion,
+            [])]
+        ).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Enter your new area of interest',
+        [if(cond(['You have a specific location or area in mind  and', nl,
+'
+                   know the area type and name']),
+            null_conclusion,
+            [generic('Use areal units to specify a new area of interest')],
+            null_conclusion,
+                [if(cond(['You have a more general or wider area of interest  or', nl,
+'not sure about the type and name of the area recognised by the system  or', nl,
+'the area you are interested in does not match any of the standard areal units']), 
+                    null_conclusion,
+                    [generic('Use grid references to specify a more general area of interest')],
+                    null_conclusion,
+                    [])])]
+        ).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Use areal units to specify a new area of interest',
+        [step('Specify type of area'),
+         step('Specify name of area'),
+         if(cond(['Type of area is recognised by the system  and', nl,
+'name of area is recognised by the system']),
+             null_conclusion,
+             [step('Check yellow rectangle shown on UK map')],
+             null_conclusion,
+             []),
+         step('Check grid references reported in lower boxes')]
+        ).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Use grid references to specify a more general area of interest',
+        [step('Specify first grid reference east from the origin'),
+         if(cond(['The first grid reference has a valid format  and', nl,
+'the same grid reference can be interpreted on both the National Grid and', nl,'the Irish Grid']),
+             null_conclusion,
+             [generic('Clarify ambiguity of grid references')],
+             null_conclusion,
+             []),
+         if(cond(['The first grid reference has a valid format']),
+             null_conclusion,
+             [step('Specify second grid reference north from the origin')],
+             null_conclusion,
+             []),
+         if(cond(['The first grid reference has a valid format  and', nl,
+'the second grid reference has a valid format  and', nl,
+'both grid refernces belong to the same grid systems']),
+             null_conclusion,
+             [step('Check yellow rectangle shown on UK map')],
+             null_conclusion,
+             [])]
+        ).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Respecify your area of interest',
+        [step('Select RESELECT from menu bar'),
+         step('Reenter your new area of interest')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Clarify ambiguity of grid references',
+        [step('Read query in message area'),
+         step('Key in response to clarify ambiguity')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Select first data set in which you are interested',
+        [generic('Find a hit list of data sets to your topic of interest'),
+         if(cond(['A hit list of data items is found']),
+             null_conclusion,
+             [generic('Select first mappable dat set')],
+             null_conclusion,
+             [])]
+        ).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Find a hit list of data sets to your topic of interest',
+        [if(cond(['FIND has been selected from the menu bar  and', nl,
+'no query has previously been entered  or', nl,
+'FIND has been selected from the menu bar  and', nl,
+'a query has previously been entered and', nl,
+'want to enter a new query to retrieve a different list of data sets']),
+             null_conclusion,
+             [generic('Enter a query to retrieve suitable data items')],
+             null_conclusion,
+             [if(cond(['FIND has been selected from the menu bar  and', nl,
+'a query has previously been entered and', nl,
+'want to retrieve the old list of data sets']),
+                  null_conclusion,
+                  [generic('Use an old query to retrieve old data items')],
+                  null_conclusion,
+                  [if(cond(['CONTENT has been selected from the menu bar']),
+                        null_conclusion,
+                        [generic('Home in on a selection of data items')],
+                        null_conclusion,                                   %R2
+                        []
+                  )]
+             )]
+        )]
+   ).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Enter a query to retrieve suitable data items',
+        [step('Type in a query for keyword search'),
+         step('Read total number of perfect matches')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Use an old query to retrieve old data items',
+        [step('Select OLD from menu bar')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Home in on a selection of data items',
+        [step('Select an item from the content hierarchy'),
+         step('Continue selecting down the hierarchy until a hit list of data items is found')]).
+
+pkb('Correlate two data sets over the same area of interest',
+        'Select first mappable dat set',
+        [step('Examine the top of the hit list for perfect matches'),
+         step('Examine the rest of the hit list for partial matches by scrolling through pages'),
+         if(cond(['The data set to be selected must be either grid mappable', nl, 'or areal mappable']),
+             null_conclusion,
+             [step('Select a mappable data set')],
+             null_conclusion,
+             [])
+        ]).
+        
+/* old user procedures:  commented out */                          %R1
+/*
+        
+pkb(cabin_pressure_increase_decrease, root,
+     [generic(call_page(sm_223)),
+      if(cond(cabin_pressure,gt,psia('15.52')),
+         cabin_pressure(increasing),
+         [generic(check_number_of_high_sensors)],
+         null_conclusion,
+         [if(cond(cabin_pressure,lt,psia('13.8')),
+            cabin_pressure(decreasing),
+            [generic(check_number_of_low_sensors)],
+            null_conclusion,
+            [])])
+     ]).
+
+pkb(cabin_pressure_increase_decrease, call_page(sm_223),
+     [library(ddu_call(sm_223))]).
+
+pkb(cabin_pressure_increase_decrease, check_number_of_high_sensors,
+     [if(cond(cabin_pressure1,gt,psia('15.52')),
+         cabin_pressure1(increasing),
+         [if(cond(cabin_pressure2,gt,psia('15.52')),
+             cabin_pressure2(increasing),
+             [if(cond(o2_n2_flw,gt,lb_hr('0.1')),
+                 null_conclusion,
+                 [step(goto(procedure(o2_n2_flow_rate_up('3.4b'))))],
+                 null_conclusion,
+                 [library(ddu_call(sm_066)),
+                  if(cond(ppo2,eq,decreasing),
+                     cabin_press_reg_1_2_shifted_high,
+                     [library(close_valve(cabin_pressure_1_reg_inlet)),
+                      library(open_valve(cabin_pressure_2_reg_inlet))],
+                     n2_leak_not_isolated,
+                     [library(close_valve(n2_1)),
+                      if(cond(cabin_pressure,eq,still_increasing),
+                         null_conclusion,
+                         [step(goto(procedure(ppo2_increase_decrease)))],
+                         n2_leak_isolated,
+                         [])])])],
+             failed(xdcr),
+             [library(inhibit_alarm(cabin_press,'2','9021731'))])],
+        null_conclusion,
+        [])]).
+
+pkb(cabin_pressure_increase_decrease, check_number_of_low_sensors,
+     [library(ddu_call(sm_066)),
+      if(and(cond(sl_o2_n2_flow,eq,high),cond(decay_rate,ge,psia_min('0.05'))),
+         null_conclusion,
+         [step(goto(procedure(cabin_o2_n2_flow_rate_high('3.4g'))))],
+         null_conclusion,
+         [library(ddu_call(sm_223)),
+          if(cond(cabin_pressure1,lt,psia('13.8')),
+             cabin_pressure1(decreasing),
+             [if(cond(cabin_pressure2,lt,psia('13.8')),
+                 cabin_pressure2(decreasing),
+                 [library(open_valve(o2_direct)),
+                  if(cond(o2_flow,gt,lb_hr('1.0')),
+                     cabin_press_reg_1_2_failed,
+                     [library(close_valve(o2_direct)),
+                      library(open_valve(cabin_press_reg_inlet_2_1))],
+                     blockage(o2_supply),
+                     [step(goto(procedure(configure_orbiter_pcs)))])],
+                 null_conclusion,
+                 [library(verify(fuse(f5))),
+                  if(cond(fuse_light(f5),on),
+                   blown(fuse(f5)),
+                     [step(goto(procedure(fuse_change)))],
+                     failed(xdcr),
+                     [library(inhibit_alarm(cabin_pressure,'2','9021731'))])])],
+             null_conclusion,
+             [])])]).
+*/
+
+/*  BIORACK ACTIVATION PROCEDURES  */
+
+/*  activate biorack  */
+/*
+
+pkb(activate_br_fc, root,
+        [generic(verify_all_doors_closed),
+         generic(activate_switches)]).
+
+pkb(activate_br_fc, verify_all_doors_closed,
+        [step(verify_all_br_doors_closed)]).
+
+pkb(activate_br_fc, activate_switches,
+        [step(verify_all_dc_ac_switches_off),
+         step(turn_on_switches)]).
+        
+*/
+/*  switch on biorack  */
+/*
+
+pkb(br_switch_on, root,
+        [generic(br_cooler_mainbus_switch_on),
+         generic(br_freezer_mainbus_switch_on)]).
+
+pkb(br_switch_on, br_cooler_mainbus_switch_on,
+        [library(switch_on(br_cooler_mainbus))]).
+
+pkb(br_switch_on, br_freezer_mainbus_switch_on,
+        [library(switch_on(br_freezer_mainbus))]).
+
+*/
+/*  biorack checkout  */
+/*
+
+pkb(br_checkout, root,
+        [generic(lamptest),
+         generic(cooler_status),
+         generic(freezer_status),
+         generic(doors_test)]).
+
+pkb(br_checkout, lamptest,
+        [step(br_lamptest_pb),
+         step(verify_all_lights_on),
+         step(check_power_lights_2_plus_2_on),
+         step(check_warning_lights_2_plus_3_on),
+         step(check_temp_status_lights_on),
+         step(br_clx_pb),
+         step(verify_warn_lights_3_plus_2_off)]).
+
+pkb(br_checkout, cooler_status,
+        [library(ddu_call(ddu_brc)),
+         step(note_cooler_temp),
+         step(verify_c_air_circ_warn_blank),
+         step(verify_c_pe_ce_temp_warn_blank),
+         step(verify_c_zero_45_temp_warn_blank),
+         step(verify_c_temp_status_star)]).
+
+pkb(br_checkout, freezer_status,
+        [step(note_freezer_temp),
+         step(verify_f_pe_ce_temp_warn_blank),
+         step(verify_f_zero_45_temp_warn_blank),
+         step(verify_f_temp_status_star)]).
+
+pkb(br_checkout, doors_test,
+        [step(cl_cf_doors_v_fl_off_v_acw_blank),
+         step(op_cf_doors_v_fl_on_v_acw_star),
+         step(cl_cf_doors_v_fl_off_v_acw_blank)]).
+
+*/
+/*  BIORACK 04 - GENERIC */
+/*
+
+pkb(temp_off_limits, root,
+        [generic(call_page(di_br_007)),
+         generic(verify_incubator_temps)]).
+
+pkb(temp_off_limits, call_page(di_br_007),
+        [library(ddu_call(di_br_007))]).
+
+pkb(temp_off_limits, verify_incubator_temps,
+        [if(and(cond(pe_ce_indicator_light, on), cond(fan_indicator_light,on)),
+            null_conclusion,
+            [library(verify(incubator_temps)),
+             if(cond(incubator_temp1, trend, incubator_temps),
+                trend(incubator_temp1, incubator_temps),
+                [if(or(cond(incubator_temps, trend, cent('0')),
+                       cond(incubator_temps, trend, cent('45'))),
+                    failure_of_temp_control_system,
+                    [library(open(incubator_door)),
+                     library(d1_report)],
+                    null_conclusion,
+                    [])],
+                null_conclusion,
+                [library(press_pb(clx)),
+                 if(and(cond('0-45 light', off), cond(fan_light, off)),
+                    null_conclusion,
+                    [library(normal_operation)],
+                    failure_0_45_electronics,
+                    [library(d1_report)])])],
+            null_conclusion,
+            [if(cond(incubator_temp4, trend, incubator_temps),
+                failure_of_t4_thermometer,
+                [library(inhibit(t4)),
+                 library(enable(t3)),
+                 library(normal_operation)],
+                null_conclusion,
+                [if(and(cond(incubator_load, normal), cond(s_l_ambient_temp, normal)),
+                    false_alarm,
+                    [library(normal_operation)],
+                    null_conclusion,
+                    [if(cond(fan_indicator_light, on),
+                        null_conclusion,
+                        [if(cond(incubator_door, closed),
+                            failure_air_circulation_fan,
+                            [],
+                            null_conclusion,
+                            [library(close(incubator_door)),
+                             library(normal_operation)])],
+                        failure_temp_control_system,
+                        [library(open(incubator_door)),
+                         library(d1_report)])])])])]).
+
+pkb(centrifuge_warning, root,
+        [generic(call_page(di_br_007)),
+         generic(verify_cent_condition)]).
+
+pkb(centrifuge_warning, call_page(di_br_007), [library(ddu_call(di_br_007))]).
+
+pkb(centrifuge_warning, verify_cent_condition,
+        [if(cond(centrifuge, overloaded),
+            null_conclusion,
+            [library(normal_operation)],
+            null_conclusion,
+            [if(cond(centrifuge_rpm, gt, rpm('112')),
+                malfunction_angular_velocity_control,
+                [library(d1_report)],
+                null_conclusion,
+                [if(and(cond(centrifuge_rpm, eq, rpm('0')),
+                        cond(centrifuge_amplifier_light, off)),
+                    null_conclusion,
+                    [if(cond(centrifuge, normal_operation),
+                        null_conclusion,
+                        [library(normal_operation)],
+                        failure_cent_secondary_power_supply,
+                        [library(d1_report)])],
+                    null_conclusion,
+                    [if(and(cond(centrifuge_rpm, lt, rpm('102')),
+                            cond(centrifuge, mechanical_interference)),
+                        null_conclusion,
+                        [library(remove_mechanical_interference)],
+                        null_conclusion,
+                        [if(and(cond(centrifuge_rpm, lt, rpm('102')),
+                                cond(centrifuge_micro_switch, closed)),
+                            malfunction_angular_velocity_control,
+                            [library(d1_report)],
+                            null_conclusion,
+                            [library(d1_report)])])])])])]).
+
+
+*/
+/*  GENERIC STEPS  */
+/*
+
+pkb(library, ddu_call(Page),
+        [step(enter(ddu_call, Page))]).
+
+pkb(library, goto(procedure(Procedure)),
+        [step(enter(procedure_call, Procedure))]).
+
+pkb(library, close_valve(_, Num),
+        [step(enter(ddu_input, Num))]).
+
+pkb(library, close_valve(Valve),
+        [step(locate(Valve)),
+         step(action_close(Valve))]).
+
+pkb(library, open_valve(_, Num),
+        [step(enter(ddu_input, Num))]).
+
+pkb(library, open_valve(Valve),
+        [step(locate(Valve)),
+         step(action_open(Valve))]).
+
+pkb(library, verify(fuse(Fuse_id)),
+        [step(locate(Fuse_id)),
+         step(determine_state(Fuse_id))]).
+
+pkb(library, verify(Indicator,Status),
+        [step(locate(Indicator)),
+         step(determine_state(Indicator, Status))]).
+
+pkb(library, switch_off(Unit_switch),
+        [step(locate(Unit_switch)),
+         step(action_switch_off(Unit_switch))]).
+
+pkb(library, switch_on(Unit_switch),
+        [step(locate(Unit_switch)),
+         step(action_switch_on(Unit_switch))]).
+
+pkb(library, wait(Time),
+        [step(action_wait(Time))]).
+
+pkb(library, wait_until(Conditions),
+        [step(action_wait_until_true(Conditions))]).
+
+pkb(library, normal_operation,
+        [step(action_quit_procedure)]).
+
+pkb(library, d1_report,
+        [step(action_d1_report)]).
+
+pkb(library, stow_egg_containers(Time, Number),
+        [if(cond(time, eq, Time),
+            null_conclusion,
+            [step(action_place_egg_container_glovebox(Number))],
+            null_conclusion,
+            [])]).
+
+pkb(library, determine(Object_status),
+        [step(action_determine(Object_status))]).
+
+pkb(library, open(Thing),
+        [step(locate(Thing)),
+         step(action_open(Thing))]).
+
+pkb(library, enable(Thing),
+        [step(locate(Thing)),
+         step(action_enable(Thing))]).
+
+pkb(library, press_pb(Button),
+        [step(locate(Button)),
+         step(action_press(Button))]).
+
+pkb(library, record(Thing),
+        [step(locate(Thing)),
+         step(action_record(Thing))]).
+
+pkb(library, replace_fuse(Fuse),
+        [step(locate(Fuse)),
+         step(action_change_fuse(Fuse))]).
+
+pkb(library, repeat_until(Steps, or(Condition1, Condition2)),
+        [step(action_repeat_until(Steps, or(Condition1, Condition2)))]).
+
+pkb(library, inhibit_alarm(Alarm_Type, Alarm_Code, Alarm_Parameter_Id),
+        [library(ddu_call(ssc_tma_table_maintenance_a)),
+         step(enter(ddu_input, Alarm_Code)),
+         step(verify_alarm_inhib(Alarm_Type)),
+         library(ddu_call(sm_60_table_maintenance)),
+         step(enter(item1, Alarm_Parameter_Id)),
+         step(verify(Alarm_Type, update)),
+         step(exec(item15, inhibit))]).
+
+pkb(library, inhibit(Thing, Params),
+        [step(action_inhibit(Thing, Params))]).
+
+pkb(library, enable(Thing, Param),
+        [step(action_enable(Thing, Param))]).
+
+pkb(library, ppo2_low_readings,
+        [step(record(sl_n2_tk_p)),
+         library(ddu_call(sm_066)),
+         step(record(orb_n2_tk1_qty)),
+         step(record(orb_n2_tk2_qty)),
+         step(record(met))]).
+
+*/
+/*  OBJECTS  */
+/*
+*  Name         :  objects(+Step, -Object_List)
+*  Function     :  shows all the objects associated with a particular step in
+*                  the form of a list
+*  Arguments    :  Step; present step e.g. step(turn_on_switches)
+*                  Object_List; the list of associated objects
+*/
+/*
+
+objects(step(verify_all_br_doors_closed),
+        [location(incubator_door, door),
+         location(cool_door, door),
+         location(freezer_door,door)]).
+objects(step(verify_all_dc_ac_switches_off),
+        [location(dc_1, switch),
+         location(dc_2, switch),
+         location(dc_3, switch),
+         location(dc_4, switch),
+         location(ac_1, switch),
+         location(ac_2, switch),
+         location(dc_utility, switch)]).
+objects(step(turn_on_switches),
+        [location(dc_1, switch),
+         location(dc_2, switch),
+         location(dc_3, switch),
+         location(dc_4, switch),
+         location(ac_1, switch),
+         location(ac_2, switch),
+         location(dc_utility, switch)]).
+
+objects(step(br_lamptest_pb), [location(br_unit_epsp, epsp)]).
+objects(step(verify_all_lights_on), [location(epsp_indicator, light)]).
+objects(step(check_power_lights_2_plus_2_on), [location(br_unit_epsp, epsp)]).
+objects(step(check_warning_lights_2_plus_3_on), [location(br_unit_epsp, epsp)]).
+objects(step(check_temp_status_lights_on), [location(br_unit_epsp, epsp)]).
+objects(step(br_clx_pb), [location(br_unit_epsp, epsp)]).
+objects(step(verify_warn_lights_3_plus_2_off), [location(br_unit_epsp, epsp)]).
+*/

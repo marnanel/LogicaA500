@@ -1,0 +1,78 @@
+//  AES SOURCE  11.87
+
+/**
+         UT.SRAM - SIDEWAYS RAM PACKAGES
+         -------------------------------
+
+         This file contains:
+
+         G.ut.srmove   - move a block between core and SRAM
+
+         
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         kernel
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.11.87  1       MH          initial version of G.ut.SRmove for 
+                                       formatter
+**/
+
+SECTION "SRAM"
+
+GET "LIBHDR"
+GET ":4.FORMAT.GH.glhd" // the globals
+GET ":4.FORMAT.H.iophd" // I/O memory addresses, etc.
+GET ":4.FORMAT.h.uthd"
+
+
+/**
+         G.UT.SRMOVE - MOVE MEMORY BETWEEN CORE AND SRAM
+         -----------------------------------------------
+
+         ++++++++++ THIS FUNCTION REMOVED 28.7.87 ++++++++
+
+         General purpose memory move between either second
+         processor or I/O processor and sideways RAM
+
+         INPUTS:
+
+         Control      : m.ut.from.SRAM, m.ut.to.SRAM
+         SR.address   : address in range 0 - #xFFBF
+         size         : size of block in bytes
+         start.addr   : main RAM start byte address
+         hi.order.addr: 0 = 2nd processor, #xFFFF = I/O proc.
+
+         OUTPUTS:
+
+         TRUE if transfer was successful
+
+         GLOBALS MODIFIED:
+
+         none
+
+         SPECIAL NOTES FOR CALLERS:
+
+         Note that this routine uses BYTE addresses for all
+         address parameters. ( i.e. word address<<1 )
+
+         It also is assumed that all sideways RAMS are set to
+         SRDATA, so that the sideways area can be addressed as a
+         contiguous block.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         initialise parameter block for OSWORD call
+         call OSWORD 66
+**/
+
+let g.ut.srmove( control, main, size, SRstart, hi.order) be
+$(    // inserted 18.11.87 MH
+   test control = m.ut.to.SRAM then
+      g.ut.movebytes(SRstart, 0, G.cachevec, main, size)
+   else
+      g.ut.movebytes(G.cachevec, main, SRstart, 0, size)
+$)
+.

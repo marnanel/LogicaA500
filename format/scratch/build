@@ -1,0 +1,651 @@
+!
+// Build User Data Input Editor and Formatter
+!
+*time
+Wed,28 Oct 1987.00:01:43
+!
+*dir :0.format.UT
+!
+$.ex make
+!// make the UTilities
+!$.ex comp
+!// compile the UTilities package
+!$.ex $.compim2 DFwrite
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFwrite
+!shuffle
+!read b.DFwrite DFwrite
+!*dir :0.sys
+!save DFwrite
+!delete DFwrite
+!bcpl DFwrite c.DFwrite  nonames max
+
+BCPL - RCP V2.2b
+Section ut.write
+Text read
+RCP CINTCODE generation
+CINTCODE size = 276 words
+
+!delete /f.DFwrite
+!*back
+!save c.DFwrite
+!delete c.DFwrite
+!errcont off
+!
+!$.ex linc
+!//  join the Utilities
+!//
+!// do the linkable bits
+!//
+!*copy c.DFwrite :0.format.l
+!
+!
+EX File Terminated
+!
+*time
+Wed,28 Oct 1987.00:03:47
+!
+*dir :0.format.DH
+!
+$.ex make
+!//  make the Data Handler to c.kernel
+!$.ex comp
+!//  compile the User Data Formatter Data Handler
+!$.ex $.compim2 DFdh
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFdh
+!shuffle
+!read b.DFdh DFdh
+!*dir :0.sys
+!save DFdh
+!delete DFdh
+!bcpl DFdh c.DFdh  nonames max
+
+BCPL - RCP V2.2b
+Section dh1
+Text read
+RCP CINTCODE generation
+CINTCODE size = 116 words
+
+!delete /f.DFdh
+!*back
+!save c.DFdh
+!delete c.DFdh
+!errcont off
+!$.ex linc
+!// 'join' the User Data Data Handler
+!*move c.DFdh :0.format.l.DFread
+!
+!
+!
+EX File Terminated
+!
+*time
+Wed,28 Oct 1987.00:04:53
+!
+*dir :0.format.DF
+!
+$.ex make
+!$.ex comp
+!$.ex $.compim2 DFmapform1
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFmapform1
+!shuffle
+!read b.DFmapform1 DFmapform1
+!*dir :0.sys
+!save DFmapform1
+!delete DFmapform1
+!bcpl DFmapform1 c.DFmapform1  nonames max
+
+BCPL - RCP V2.2b
+Section Mapform1
+Text read
+RCP CINTCODE generation
+CINTCODE size = 1289 words
+
+!delete /f.DFmapform1
+!*back
+!save c.DFmapform1
+!delete c.DFmapform1
+!errcont off
+!$.ex $.compim2 DFmapform2
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFmapform2
+!shuffle
+!read b.DFmapform2 DFmapform2
+!*dir :0.sys
+!save DFmapform2
+!delete DFmapform2
+!bcpl DFmapform2 c.DFmapform2  nonames max
+
+BCPL - RCP V2.2b
+Section Mapform2
+Text read
+RCP CINTCODE generation
+CINTCODE size = 595 words
+
+!delete /f.DFmapform2
+!*back
+!save c.DFmapform2
+!delete c.DFmapform2
+!errcont off
+!$.ex $.compim2 DFmapform3
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFmapform3
+!shuffle
+!read b.DFmapform3 DFmapform3
+!*dir :0.sys
+!save DFmapform3
+!delete DFmapform3
+!bcpl DFmapform3 c.DFmapform3  nonames max
+
+BCPL - RCP V2.2b
+Section Mapform3
+Text read
+RCP CINTCODE generation
+CINTCODE size = 1517 words
+
+!delete /f.DFmapform3
+!*back
+!save c.DFmapform3
+!delete c.DFmapform3
+!errcont off
+!$.ex $.compim2 DFmapform4
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFmapform4
+!shuffle
+!read b.DFmapform4 DFmapform4
+!*dir :0.sys
+!save DFmapform4
+!delete DFmapform4
+!bcpl DFmapform4 c.DFmapform4  nonames max
+
+BCPL - RCP V2.2b
+Section Mapform4
+Text read
+RCP CINTCODE generation
+CINTCODE size = 318 words
+
+!delete /f.DFmapform4
+!*back
+!save c.DFmapform4
+!delete c.DFmapform4
+!errcont off
+!$.ex $.compim2 DFprim
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFprim
+!shuffle
+!read b.DFprim DFprim
+!*dir :0.sys
+!save DFprim
+!delete DFprim
+!bcpl DFprim c.DFprim  nonames max
+
+BCPL - RCP V2.2b
+Section DFprim
+Text read
+RCP CINTCODE generation
+CINTCODE size = 467 words
+
+!delete /f.DFprim
+!*back
+!save c.DFprim
+!delete c.DFprim
+!errcont off
+!$.ex $.compim2 DFdata
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFdata
+!shuffle
+!read b.DFdata DFdata
+!*dir :0.sys
+!save DFdata
+!delete DFdata
+!bcpl DFdata c.DFdata  nonames max
+
+BCPL - RCP V2.2b
+Section user data
+Text read
+RCP CINTCODE generation
+CINTCODE size = 470 words
+
+!delete /f.DFdata
+!*back
+!save c.DFdata
+!delete c.DFdata
+!errcont off
+!$.ex $.compim2 DFgetkey
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFgetkey
+!shuffle
+!read b.DFgetkey DFgetkey
+!*dir :0.sys
+!save DFgetkey
+!delete DFgetkey
+!bcpl DFgetkey c.DFgetkey  nonames max
+
+BCPL - RCP V2.2b
+Section getkey
+Text read
+RCP CINTCODE generation
+CINTCODE size = 130 words
+
+!delete /f.DFgetkey
+!*back
+!save c.DFgetkey
+!delete c.DFgetkey
+!errcont off
+!$.ex $.compim2 DFindex
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFindex
+!shuffle
+!read b.DFindex DFindex
+!*dir :0.sys
+!save DFindex
+!delete DFindex
+!bcpl DFindex c.DFindex  nonames max
+
+BCPL - RCP V2.2b
+Section indexing
+Text read
+RCP CINTCODE generation
+CINTCODE size = 229 words
+
+!delete /f.DFindex
+!*back
+!save c.DFindex
+!delete c.DFindex
+!errcont off
+!$.ex $.compim2 DFinitsram
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFinitsram
+!shuffle
+!read b.DFinitsram DFinitsram
+!*dir :0.sys
+!save DFinitsram
+!delete DFinitsram
+!bcpl DFinitsram c.DFinitsram  nonames max
+
+BCPL - RCP V2.2b
+Section sideways ram initialisation
+Text read
+RCP CINTCODE generation
+CINTCODE size = 118 words
+
+!delete /f.DFinitsram
+!*back
+!save c.DFinitsram
+!delete c.DFinitsram
+!errcont off
+!$.ex $.compim2 DFtabular
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFtabular
+!shuffle
+!read b.DFtabular DFtabular
+!*dir :0.sys
+!save DFtabular
+!delete DFtabular
+!bcpl DFtabular c.DFtabular  nonames max
+
+BCPL - RCP V2.2b
+Section tabular
+Text read
+RCP CINTCODE generation
+CINTCODE size = 1668 words
+
+!delete /f.DFtabular
+!*back
+!save c.DFtabular
+!delete c.DFtabular
+!errcont off
+!$.ex $.compim2 DFtransfer
+!//  absolute space saver compile
+!errcont
+!delete /f.c.DFtransfer
+!shuffle
+!read b.DFtransfer DFtransfer
+!*dir :0.sys
+!save DFtransfer
+!delete DFtransfer
+!bcpl DFtransfer c.DFtransfer  nonames max
+
+BCPL - RCP V2.2b
+Section File transfer
+Text read
+RCP CINTCODE generation
+CINTCODE size = 29 words
+
+!delete /f.DFtransfer
+!*back
+!save c.DFtransfer
+!delete c.DFtransfer
+!errcont off
+!$.ex $.rasit DFcrc
+!//  assemble
+!errcont
+!delete /f.o.DFcrc
+!errcont off
+!read a.DFcrc
+!:0.sys.ras a.DFcrc to o.DFcrc 
+
+6502 Assembler. Version 1.6
+
+Program size 00F0 bytes.
+!save o.DFcrc
+!delete a.DFcrc
+!delete o.DFcrc
+!
+!
+!$.ex linc
+!*dir :0.format.l
+!read kernel as k
+!read DFwrite as w
+!read DFread as r
+!*back
+!read :0.sys.joincin as j
+!j r k w as c.l
+ 5104 word file c.l created
+!save c.l
+!dsf
+!read c.DFinitsram as a
+!read c.DFdata as b
+!read c.DFtransfer as c
+!read c.DFtabular as d
+!read c.DFgetkey as e
+!read o.DFcrc as f
+!read c.DFindex as g
+!read :0.sys.joincin as j
+!j a b c d e f g as c.m
+ 2783 word file c.m created
+!save c.m
+!dsf
+!read c.DFmapform1 as a
+!read c.DFmapform2 as b
+!read c.DFmapform3 as c
+!read c.DFmapform4 as d
+!read c.DFprim as e
+!read c.l as f
+!read c.m as g
+!read :0.sys.joincin as j
+!j a b c d e f g as /f.c.format
+12082 word file /f.c.format created
+!*delete c.l
+!*delete c.m
+!dsf
+!read c.format
+!read :0.sys.stand.packcin as p
+!p c.format /f.:0.format.r.format
+
+/f.:0.format.r.format created
+                  Hex   Dec
+                 Bytes Words
+File size        5BD2  11753
+Code size        5990  11464
+Global data size 01EC    246
+!*delete c.format
+!dsf
+!
+EX File Terminated
+!
+*time
+Wed,28 Oct 1987.00:32:20
+!
+*dir :0.format.AG
+!
+$.ex make
+!$.ex comp
+!$.ex $.compim2 AGagg1
+!//  absolute space saver compile
+!errcont
+!delete /f.c.AGagg1
+!shuffle
+!read b.AGagg1 AGagg1
+!*dir :0.sys
+!save AGagg1
+!delete AGagg1
+!bcpl AGagg1 c.AGagg1  nonames max
+
+BCPL - RCP V2.2b
+Section Aggregate1
+Text read
+RCP CINTCODE generation
+CINTCODE size = 1467 words
+
+!delete /f.AGagg1
+!*back
+!save c.AGagg1
+!delete c.AGagg1
+!errcont off
+!$.ex $.compim2 AGagg2
+!//  absolute space saver compile
+!errcont
+!delete /f.c.AGagg2
+!shuffle
+!read b.AGagg2 AGagg2
+!*dir :0.sys
+!save AGagg2
+!delete AGagg2
+!bcpl AGagg2 c.AGagg2  nonames max
+
+BCPL - RCP V2.2b
+Section Aggregate2
+Text read
+RCP CINTCODE generation
+CINTCODE size = 1254 words
+
+!delete /f.AGagg2
+!*back
+!save c.AGagg2
+!delete c.AGagg2
+!errcont off
+!$.ex $.compim2 AGprim
+!//  absolute space saver compile
+!errcont
+!delete /f.c.AGprim
+!shuffle
+!read b.AGprim AGprim
+!*dir :0.sys
+!save AGprim
+!delete AGprim
+!bcpl AGprim c.AGprim  nonames max
+
+BCPL - RCP V2.2b
+Section AGprim
+Text read
+RCP CINTCODE generation
+CINTCODE size = 206 words
+
+!delete /f.AGprim
+!*back
+!save c.AGprim
+!delete c.AGprim
+!errcont off
+!// $.ex $.compim2 AGinput
+!$.ex linc
+!read :0.format.l.kernel as a
+!read :0.format.l.DFread as b
+!*dir :0.format.DF.c
+!read DFindex as c
+!read DFmapform4 as d
+!read DFgetkey as e
+!read DFinitsram as f
+!*back
+!read c.AGagg1 as g
+!read c.AGagg2 as h
+!read c.AGprim as i
+!// read c.AGinput as k
+!read :0.sys.joincin as j
+!j a b c d e f g h i as c.l
+ 8562 word file c.l created
+!save c.l
+!dsf
+!read c.l as a
+!read :0.sys.stand.packcin as p
+!p a /f.:0.format.r.aggregate
+
+/f.:0.format.r.aggregate created
+                  Hex   Dec
+                 Bytes Words
+File size        40C8   8292
+Code size        3ECA   8037
+Global data size 01A8    212
+!dsf
+!
+EX File Terminated
+!
+*time
+Wed,28 Oct 1987.00:41:32
+!
+*dir :0.format
+!
+$.ex linkUD format
+!// LINK_UD Version 2 7.04.87
+!// Make a standalone version of the parameter
+!*dir :0
+!dsf
+!errcont
+!//
+!sys.joincin format.KE.w.kernel format.r.format as /f.format.scratch.jformat
+11917 word file /f.format.scratch.jformat created
+!//
+!sys.needcin format.scratch.jformat sys.stand.SYSLIB1 /f.format.scratch.nformat
+16274 word file /f.format.scratch.nformat created
+0 NEED(S) unsatisfied
+!delete /f.format.scratch.jformat
+!sys.packcin format.scratch.nformat /f.sys.stand.tformat
+
+/f.sys.stand.tformat created
+                  Hex   Dec
+                 Bytes Words
+File size        7A00  15616
+Code size        74BC  14942
+Global data size 02F8    380
+!delete /f.format.scratch.nformat
+!*back
+!*dir :0.sys.stand
+!fixcin tformat format GV=800 HEAPEND=F7FF MAX
+
+format created for fixed address
+               Hex    Dec
+              Bytes  Words
+File     size  7960  15536
+Global vector  0800   1024
+         size  04CC    614
+Code           0CCC   1638
+         size  74C4  14946
+Heap           8190  16584
+         size  766C  15158
+!*copy format :0.format.s
+!*delete format
+!*delete tformat
+!*back
+!*dir :0
+!*ex format.s
+s                   (00)
+Drive:0             Option 03 (Exec)
+Dir. $              Lib. "Unset"   
+
+aggregate  WR (99)  00000CCC  00000CCC  00005E54  0030F9  
+format     WR (00)  00000CCC  FFFFFFFF  00007960  004B67  
+!//
+!// set execution address of s.format to its load address
+!//
+!*back
+!*dir :0.format.s
+!:0.utils.fix2 format
+
+Fixing execution address of format
+format     WR (00)  00000CCC  FFFFFFFF  00007960  004B67  
+format     WR (00)  00000CCC  00000CCC  00007960  004B67  
+!dsf
+!*back
+!
+!
+!
+EX File Terminated
+!
+*time
+Wed,28 Oct 1987.00:43:44
+!
+$.ex linkUD aggregate
+!// LINK_UD Version 2 7.04.87
+!// Make a standalone version of the parameter
+!*dir :0
+!dsf
+!errcont
+!//
+!sys.joincin format.KE.w.kernel format.r.aggregate as /f.format.scratch.jaggregate
+ 8456 word file /f.format.scratch.jaggregate created
+!//
+!sys.needcin format.scratch.jaggregate sys.stand.SYSLIB1 /f.format.scratch.naggregate
+12813 word file /f.format.scratch.naggregate created
+0 NEED(S) unsatisfied
+!delete /f.format.scratch.jaggregate
+!sys.packcin format.scratch.naggregate /f.sys.stand.taggregate
+
+/f.sys.stand.taggregate created
+                  Hex   Dec
+                 Bytes Words
+File size        5EEC  12150
+Code size        59F4  11514
+Global data size 02B4    346
+!delete /f.format.scratch.naggregate
+!*back
+!*dir :0.sys.stand
+!fixcin taggregate aggregate GV=800 HEAPEND=F7FF MAX
+
+aggregate created for fixed address
+               Hex    Dec
+              Bytes  Words
+File     size  5E54  12074
+Global vector  0800   1024
+         size  04CC    614
+Code           0CCC   1638
+         size  59FC  11518
+Heap           66C8  13156
+         size  9134  18586
+!*copy aggregate :0.format.s
+!*delete aggregate
+!*delete taggregate
+!*back
+!*dir :0
+!*ex format.s
+s                   (01)
+Drive:0             Option 03 (Exec)
+Dir. $              Lib. "Unset"   
+
+aggregate  WR (01)  00000CCC  FFFFFFFF  00005E54  0030F9  
+format     WR (00)  00000CCC  00000CCC  00007960  004B67  
+!//
+!// set execution address of s.aggregate to its load address
+!//
+!*back
+!*dir :0.format.s
+!:0.utils.fix2 aggregate
+
+Fixing execution address of aggregate
+aggregate  WR (01)  00000CCC  FFFFFFFF  00005E54  0030F9  
+aggregate  WR (01)  00000CCC  00000CCC  00005E54  0030F9  
+!dsf
+!*back
+!
+!
+!
+EX File Terminated
+!
+*time
+Wed,28 Oct 1987.00:45:41
+!
+*spool
+

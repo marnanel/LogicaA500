@@ -1,0 +1,234 @@
+/**
+         TABULAR INPUT EDITOR
+         --------------------
+
+         This section contains :
+
+            G.ta.labels
+            G.ta.initl
+
+         NAME OF FILE CONTAINING RUNNABLE CODE:
+
+         r.TAedit
+
+         REVISION HISTORY:
+
+         DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+         24.04.87 1        MH          initial version
+         13.08.87 2        SRY         Removed let a =
+**/
+
+SECTION "TAedit"
+
+GET "libhdr"
+GET ":4.UINED.gh.glhd"
+GET ":4.UINED.gh.glTAhd"
+GET ":4.UINED.h.sihd"
+GET ":4.UINED.h.kdhd"
+GET ":4.UINED.h.sdhd"
+GET ":4.UINED.h.sthd"
+GET ":4.UINED.h.tahd"
+
+
+/**
+         G.TA.LABELS
+         -----------
+
+         This routine reads in the tabular labels and performs edits
+         on the Variable and category labels.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.labels[]
+         ----------------
+
+         IF just entered THEN
+            initialise
+         END IF
+
+
+         CASE OF G.key
+         fkey4: 1st.time = true
+                local state = inactive
+                IF v.or.c = variables THEN
+                   v.or.c = categories
+                ELSE
+                   v.or.c = variables
+                ENDCASE
+         END OF CASE
+
+         CASE OF v.or.c
+            variables: G.ta.variables()
+                       ENDCASE
+            categories: G.ta.categories()
+                        ENDCASE
+         END OF CASE
+
+
+**/
+
+
+let G.ta.labels() be
+$(
+   let space = table m.ta.label.space, 0
+   let boxes = table m.sd.act, m.sd.act, m.sd.act,
+                     m.sd.act, m.sd.act,m.sd.act
+   let mess = "Saving data"
+   let mess1 = G.ta.area%m.ta.no.vars=m.ta.v.max | G.ta.area%m.ta.no.labels=G.ta.max.labels() ->
+              "Select variable to define", "Select variable, or New"
+   let mess2 = G.ta.area%(m.ta.var.table+G.ta.area%m.ta.sel.var-1)=m.ta.c.max | G.ta.area%m.ta.no.labels=G.ta.max.labels() ->
+              "Select category to define", "Select category, or New"
+   if G.menubar!m.box1 = m.wEXIT return
+   if G.redraw then
+   $(
+      test putdata() = m.wBlank
+      then for i = m.box2 to m.box6 boxes!i := m.sd.wBlank
+      else for i = m.box2 to m.box6 boxes!i := m.sd.act
+
+      test G.ta.area%m.ta.v.or.c = m.ta.v
+      then test G.ta.area%m.ta.op=m.ta.update | G.ta.area%m.ta.op=m.ta.update1
+           then boxes!m.box4 := m.wCategories
+           else boxes!m.box4 := m.wBlank
+      else boxes!m.box4 := m.wVariables
+      G.sc.menu(boxes)
+   $)
+   unless G.key = m.kd.fkey1 | G.key = m.kd.fkey4 then
+      switchon G.ta.area%m.ta.v.or.c into
+      $( case m.ta.v: unless G.ta.variables() goto error
+                      endcase
+         case m.ta.c: unless G.ta.area%m.ta.sel.var = m.ta.INACTIVE then
+                         unless G.ta.categories() goto error
+                      endcase
+      $)
+   switchon G.key into
+   $( case m.kd.fkey4: test G.ta.area%m.ta.v.or.c = m.ta.v then
+                          unless G.ta.variables() goto error
+                       else
+                          unless G.ta.area%m.ta.sel.var = m.ta.INACTIVE then
+                             unless G.ta.categories() goto error
+                       G.ta.area%m.ta.sel.cat:= m.ta.INACTIVE
+                       G.ta.area%m.ta.op := m.ta.INACTIVE
+                       test G.ta.area%m.ta.v.or.c = m.ta.c then
+                       $( G.ta.area%m.ta.sel.var := m.ta.INACTIVE
+                          G.ta.area%m.ta.lock := m.ta.false
+                          G.ta.area%m.ta.v.or.c := m.ta.v
+                          G.ta.area%m.ta.1st.time := m.ta.true
+                       $)
+                       else unless G.ta.area%m.ta.sel.var = m.ta.INACTIVE
+                       $(
+                          G.ta.area%m.ta.v.or.c := m.ta.c
+                          G.ta.area%m.ta.1st.time := m.ta.true
+                       $)
+                       G.key := m.kd.noact
+                       endcase
+      case m.kd.fkey5:
+      case m.kd.fkey2:
+      case m.kd.fkey3:
+      case m.kd.fkey6: G.sc.mess(mess)
+                       unless G.ta.write.labels() goto error
+                       if G.key = m.kd.fkey5 then
+                          test G.ta.area%m.ta.v.or.c = m.ta.v then
+                             G.sc.mess(mess1)
+                          else
+                             G.sc.mess(mess2)
+                       endcase
+   $)
+   return
+
+error:
+   g.key := - m.st.inputed
+$)
+
+/**
+         G.TA.INITL
+         ----------
+
+         This routine performs initialisation for editing labels.
+
+         INPUTS:
+
+         G.key
+         G.ta.area
+
+         OUTPUTS:
+
+         None.
+
+         GLOBALS MODIFIED:
+
+         None.
+
+         SPECIAL NOTES FOR CALLERS:
+
+         None.
+
+         PROGRAM DESIGN LANGUAGE:
+
+         G.ta.initl[]
+         ----------------
+
+         selected variable labels
+         set local.state inactive
+         variable not selected
+         category not selected
+         1st.time = true
+         set lock to false
+
+**/
+
+and G.ta.initl() be
+$(
+   G.ta.area%m.ta.v.or.c := m.ta.v //variable labels selected
+   G.ta.area%m.ta.l.st := m.ta.INACTIVE //no local state selected
+   G.ta.area%m.ta.sel.var := m.ta.INACTIVE
+   G.ta.area%m.ta.sel.cat := m.ta.INACTIVE
+   G.ta.area%m.ta.c.l := m.ta.INACTIVE
+   G.ta.area%m.ta.1st.time := m.ta.true
+   G.ta.area%m.ta.lock := m.ta.false
+ $)
+
+and putdata() = VALOF
+$(
+   let p = true
+
+   test G.ta.area%m.ta.no.vars = 0 then
+      p := false
+   else
+      for i = 1 to G.ta.area%m.ta.no.vars do
+         if G.ta.area%(m.ta.var.table + i - 1) < 2
+            p := false
+   if G.ta.area%m.ta.l.st = m.ta.r.l
+      p := false
+   resultis p -> m.wData, m.wBlank
+$)
+
+.
+
+
+
+
+
+
+
+
+
+
+
+

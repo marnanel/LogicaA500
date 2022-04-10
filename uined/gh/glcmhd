@@ -1,0 +1,68 @@
+// /**
+//       GLCMHDR - GLOBALS HEADER for Map
+//       --------------------------------
+//
+//
+//       REVISION HISTORY:
+//
+//       DATE     VERSION  AUTHOR      DETAILS OF CHANGE
+//       6.10.87     1       MH        ADOPTED FOR UNI
+// **/
+
+
+GLOBAL $(
+
+G.cm.s :FGCM+0  //buffer area
+
+G.cm.Mapwal    :FGCM+1
+G.cm.mapini.special:FGCM+2
+
+   // private globals for mapwalking
+g.cm.turn.over.reply :FGCM+3
+g.cm.clear.cache     :FGCM+4
+g.cm.highlight.level0:FGCM+5
+g.cm.direction :FGCM+6
+g.cm.a.of      :FGCM+7
+g.cm.b.of      :FGCM+8
+g.cm.testbit   :FGCM+9
+g.cm.intof     :FGCM+10
+g.cm.wordsfor  :FGCM+11
+g.cm.findmaprec:FGCM+12
+g.cm.showframe :FGCM+13
+g.cm.showmap   :FGCM+14
+g.cm.collapse  :FGCM+15
+g.cm.drawboxes :FGCM+16
+g.cm.drawbox   :FGCM+17
+g.cm.box       :FGCM+18
+g.cm.moving.arrow:FGCM+19
+g.cm.sel.fs    :FGCM+20
+g.cm.parentof  :FGCM+21
+g.cm.otherpars :FGCM+22
+g.cm.mapinfo   :FGCM+23
+g.cm.submapinfo:FGCM+24
+g.cm.submap    :FGCM+25
+g.cm.subi      :FGCM+26
+g.cm.mof       :FGCM+27
+g.cm.nof       :FGCM+28
+g.cm.transmapno:FGCM+29
+g.cm.go        :FGCM+30
+g.cm.up        :FGCM+31
+g.cm.down      :FGCM+32
+g.cm.grid.system:FGCM+33
+g.cm.expand.frame.from:FGCM+34
+g.cm.shrink.frame.to  :FGCM+35
+g.cm.clear.yellow.border:FGCM+36
+g.cm.mwidth    :FGCM+37
+g.cm.mheight   :FGCM+38
+g.cm.pwidth    :FGCM+39
+g.cm.cmpw      :FGCM+40
+g.cm.turn.over.setup :FGCM+41
+$)
+
+
+
+
+
+
+
+
