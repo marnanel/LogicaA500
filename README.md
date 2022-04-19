@@ -6,12 +6,17 @@ The extraction was done by Ian Stocks. Major kudos.
 Where you have two subdirectories `B` and `C`, `B` will contain BCPL source
 and `C` will contain the compiled images of that source.
 
+The Archimedes filesystem was not case-sensitive.
+The [RISC OS character
+encoding](https://en.wikipedia.org/wiki/RISC_OS_character_set)
+is a bit like ISO 8859-1, but has its quirks.
+
 | dirname   | what's in it
 | -------   | ------------
 | ARC/BASIC | no source code
 | ARC/CF    | community find
 | ARC/CM    | community map
-| ARC/CO    | community options
+| ARC/CO    | community overlay
 | ARC/CP    | community photo
 | ARC/CT    | ctext, and also aatext: builds overlay
 | ARC/DH    | data handler
